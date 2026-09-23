@@ -31,9 +31,4 @@ class ArchivosDelDisco implements Archivos {
             throw new RespaldoFallidoException("No se pudo borrar " + archivo + ": " + e.getMessage(), e);
         }
     }
-
-    @Override
-    public boolean existe(Path archivo) {
-        return Files.isRegularFile(archivo);
-    }
 }

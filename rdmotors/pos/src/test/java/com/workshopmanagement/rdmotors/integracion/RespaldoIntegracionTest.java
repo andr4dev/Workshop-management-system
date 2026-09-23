@@ -164,6 +164,48 @@ class RespaldoIntegracionTest {
     }
 
     @Test
+    @DisplayName("VARIAS DESCARGAS A LA VEZ LLEGAN TODAS ENTERAS: ninguna pisa el archivo de otra")
+    void descargasSimultaneas() throws Exception {
+        // Dos clics seguidos, o dos administradores a la vez. Si comparten archivo de trabajo, el primero en
+        // terminar lo borra mientras el otro todavía lo está mandando, y al segundo le llega una copia truncada que
+        // parece buena. Aparecía sola al probar la imagen: solo cuando las dos caían en el mismo segundo.
+        assumeThat(Files.isExecutable(PG_DUMP) && Files.isExecutable(PG_RESTORE))
+                .as("hacen falta pg_dump y pg_restore en " + BIN).isTrue();
+        int cuantas = 4;
+        List<Navegador> navegadores = new java.util.ArrayList<>();
+        for (int i = 0; i < cuantas; i++) {
+            navegadores.add(entrarComo(Rol.ADMINISTRADOR));
+        }
+
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(cuantas);
+        var salida = new java.util.concurrent.CountDownLatch(1);
+        try {
+            List<java.util.concurrent.Future<HttpResponse<byte[]>>> pendientes = new java.util.ArrayList<>();
+            for (Navegador n : navegadores) {
+                pendientes.add(pool.submit(() -> {
+                    salida.await();   // todas salen juntas
+                    return n.bajarElArchivo();
+                }));
+            }
+            salida.countDown();
+
+            for (int i = 0; i < cuantas; i++) {
+                HttpResponse<byte[]> respuesta = pendientes.get(i).get(2, TimeUnit.MINUTES);
+                assertThat(respuesta.statusCode()).as("descarga " + i).isEqualTo(200);
+
+                // No basta con que empiece por PGDMP: una copia truncada también empieza así. La prueba de que está
+                // entera es que pg_restore sabe leerla de principio a fin.
+                Path guardada = Files.createTempFile(carpetaDeTrabajo, "recibida-" + i + "-", ".dump");
+                Files.write(guardada, respuesta.body());
+                assertThat(correr(List.of(PG_RESTORE.toString(), "--list", guardada.toString())))
+                        .as("descarga " + i + ": pg_restore no pudo leer la copia que llegó (¿truncada?)").isZero();
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
     @DisplayName("bajarse la base entera es del administrador: el cajero no puede")
     void elCajeroNoSeLlevaLaBase() throws Exception {
         Navegador carolina = entrarComo(Rol.CAJERO);

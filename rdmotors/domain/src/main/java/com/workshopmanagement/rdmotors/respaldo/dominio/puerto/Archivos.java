@@ -10,6 +10,9 @@ import java.nio.file.Path;
  * computador de la tienda. Ahora el archivo <b>solo pasa por aquí de camino al navegador</b>: se saca, se entrega y
  * se borra. Lo que se guarda es el registro de que se bajó, y eso vive en la base.
  *
+ * <p><b>No tiene un "¿existe este archivo?"</b> a propósito: preguntarlo y crear el archivo después deja un hueco
+ * por el que se cuelan dos descargas simultáneas. Cada una se lleva su propia ruta al azar y el problema no existe.
+ *
  * <p>Lo cumplen el disco de verdad y el falso de las pruebas, que guarda las rutas en un mapa y puede fallar a
  * propósito.
  */
@@ -20,7 +23,4 @@ public interface Archivos {
 
     /** Borra el archivo si está. No falla si ya no existe: que alguien lo borrara a mano no es un error. */
     void borrar(Path archivo);
-
-    /** Si el archivo existe. */
-    boolean existe(Path archivo);
 }

@@ -237,8 +237,11 @@ pidió.
 
 - **Costo: cero pesos al mes.** Hosting, base de datos y las llamadas programadas, todo en plan gratis. Sin dominio
   propio: se usa la dirección que da el proveedor.
-- **Primer golpe después de dormir:** hasta quince segundos. Con las llamadas programadas, en horario de almacén
-  debería ser raro. **No hay compromiso de nadie de que no pase.**
+- **Primer golpe después de dormir:** ~~hasta quince segundos~~ **corregido el 2026-09-23 con una medición:
+  unos dos minutos y medio en el plan gratis de Render** (simulado con 512 MB y 0,1 de CPU; ver
+  [`DESPLIEGUE.md`](../../DESPLIEGUE.md), §7). Los quince segundos eran para Cloud Run, que da más CPU. Por eso las
+  llamadas programadas **van las 24 horas** y no solo en horario de almacén: el dueño carga el inventario de
+  noche. **No hay compromiso de nadie de que no pase.**
 - **Cargar inventario desde el celular** tiene que ser usable con una mano y con datos móviles: la pantalla ya es
   responsive y no trae nada de internet, así que esto es verificar, no construir.
 - **Nada de lo que se construya puede estorbar el camino de vuelta** (H7): el mismo empaque tiene que poder correr

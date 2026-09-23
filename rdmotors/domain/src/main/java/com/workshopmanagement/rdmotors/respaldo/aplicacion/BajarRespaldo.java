@@ -2,6 +2,7 @@ package com.workshopmanagement.rdmotors.respaldo.aplicacion;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.UUID;
 
 import com.workshopmanagement.rdmotors.compartido.dominio.Actor;
 import com.workshopmanagement.rdmotors.compartido.dominio.puerto.Reloj;
@@ -39,9 +40,6 @@ import com.workshopmanagement.rdmotors.respaldo.dominio.puerto.Volcador;
  */
 public class BajarRespaldo {
 
-    private static final String SUFIJO = ".dump";
-    private static final int INTENTOS_DE_NOMBRE = 99;
-
     private final Volcador volcador;
     private final Archivos archivos;
     private final RepositorioRespaldos respaldos;
@@ -68,15 +66,23 @@ public class BajarRespaldo {
     public CopiaParaBajar ejecutar(Actor actor) {
         actor.exigirAdministrador();
         Instant empezo = reloj.ahora();
+        // Dos nombres distintos, y la diferencia importa:
+        //
+        //   nombre   el que ve el dueño en su computador: rdmotors-2026-09-23-164246.dump
+        //   destino  dónde se trabaja aquí adentro, que nadie ve nunca
+        //
+        // Antes eran el mismo, y dos descargas en el mismo segundo elegían el mismo archivo: una pisaba a la otra,
+        // o la primera en terminar lo borraba mientras la segunda todavía lo estaba mandando, y al dueño le llegaba
+        // una copia truncada que parecía buena. El azar del identificador hace imposible que dos coincidan, y sin
+        // preguntar antes si el archivo existe — preguntar y crear después deja el hueco por el que se colaban.
         String nombre = politica.nombreDeArchivo(empezo);
-        Path destino = carpetaDeTrabajo.resolve(nombre);
+        Path destino = carpetaDeTrabajo.resolve(UUID.randomUUID() + ".dump");
         try {
             archivos.asegurarCarpeta(carpetaDeTrabajo);
-            destino = sinPisarNinguno(destino);
             long bytes = volcador.volcar(destino);
-            Respaldo respaldo = respaldos.guardar(Respaldo.hecho(empezo, destino.getFileName().toString(), bytes,
-                    tardo(empezo), OrigenRespaldo.A_MANO, actor.id()));
-            return new CopiaParaBajar(destino, destino.getFileName().toString(), bytes, respaldo);
+            Respaldo respaldo = respaldos.guardar(Respaldo.hecho(empezo, nombre, bytes, tardo(empezo),
+                    OrigenRespaldo.A_MANO, actor.id()));
+            return new CopiaParaBajar(destino, nombre, bytes, respaldo);
         } catch (RuntimeException e) {
             // Lo que quedó a medias no sirve y confunde a quien mire la carpeta.
             archivos.borrar(destino);
@@ -85,29 +91,6 @@ public class BajarRespaldo {
                     actor.id()));
             throw e instanceof RespaldoFallidoException fallo ? fallo : new RespaldoFallidoException(motivo, e);
         }
-    }
-
-    /**
-     * Un nombre que no exista todavía.
-     *
-     * <p>El nombre lleva la fecha hasta el segundo, pero dos copias seguidas caben en el mismo segundo, y entonces
-     * la segunda <b>pisaba</b> el archivo de la primera: quedaban dos filas apuntando a una sola copia. Lo encontró
-     * el dueño usándolo.
-     */
-    private Path sinPisarNinguno(Path destino) {
-        if (!archivos.existe(destino)) {
-            return destino;
-        }
-        String nombre = destino.getFileName().toString();
-        String base = nombre.endsWith(SUFIJO) ? nombre.substring(0, nombre.length() - SUFIJO.length()) : nombre;
-        for (int n = 2; n <= INTENTOS_DE_NOMBRE; n++) {
-            Path otro = destino.resolveSibling(base + "-" + n + SUFIJO);
-            if (!archivos.existe(otro)) {
-                return otro;
-            }
-        }
-        throw new RespaldoFallidoException("Ya hay " + INTENTOS_DE_NOMBRE + " copias con el nombre " + base
-                + ": espera al segundo siguiente");
     }
 
     private long tardo(Instant empezo) {

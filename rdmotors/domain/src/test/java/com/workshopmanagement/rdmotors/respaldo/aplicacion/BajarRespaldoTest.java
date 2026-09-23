@@ -59,8 +59,11 @@ class BajarRespaldoTest {
 
         CopiaParaBajar copia = bajar().ejecutar(ruben);
 
-        assertThat(volcador.volcados).containsExactly(TRABAJO.resolve(NOMBRE));
-        assertThat(copia.nombre()).isEqualTo(NOMBRE);
+        assertThat(volcador.volcados).hasSize(1);
+        assertThat(copia.archivo().getParent()).as("se trabaja en la carpeta de paso").isEqualTo(TRABAJO);
+        assertThat(copia.archivo()).isEqualTo(volcador.volcados.getFirst());
+        assertThat(copia.nombre()).as("pero al dueño le llega con la fecha, no con la ruta interna")
+                .isEqualTo(NOMBRE);
         assertThat(copia.bytes()).isEqualTo(4_096);
         assertThat(archivos.existe(copia.archivo())).as("el archivo está ahí esperando a que lo manden").isTrue();
 
@@ -85,8 +88,8 @@ class BajarRespaldoTest {
                 .hasMessageContaining("server version mismatch");
 
         assertThat(archivos.borrados).as("lo que quedó a medias se borra")
-                .containsExactly(TRABAJO.resolve(NOMBRE));
-        assertThat(archivos.existe(TRABAJO.resolve(NOMBRE))).isFalse();
+                .containsExactly(volcador.volcados.getFirst());
+        assertThat(archivos.existe(volcador.volcados.getFirst())).isFalse();
     }
 
     @Test
@@ -119,18 +122,25 @@ class BajarRespaldoTest {
     }
 
     @Test
-    @DisplayName("DOS COPIAS EN EL MISMO SEGUNDO no se pisan el archivo: la segunda busca un nombre libre")
+    @DisplayName("DOS COPIAS EN EL MISMO SEGUNDO TRABAJAN EN ARCHIVOS DISTINTOS, aunque se llamen igual")
     void dosEnElMismoSegundo() {
-        // Pasó de verdad: tres clics seguidos dejaron tres filas apuntando a una sola copia.
+        // La primera versión de esto buscaba un nombre libre: miraba si el archivo existía y lo creaba después. Dos
+        // descargas a la vez pasaban juntas por ese hueco, elegían la misma ruta, y una pisaba a la otra — o la
+        // primera en terminar la borraba mientras la segunda seguía mandándola, y al dueño le llegaba media copia
+        // con pinta de buena. Se reprodujo con cuatro descargas simultáneas en RespaldoIntegracionTest.
         var ruben = ActoresDePrueba.administrador();
 
         CopiaParaBajar primera = bajar().ejecutar(ruben);
         CopiaParaBajar segunda = bajar().ejecutar(ruben);
         CopiaParaBajar tercera = bajar().ejecutar(ruben);
 
-        assertThat(List.of(primera.nombre(), segunda.nombre(), tercera.nombre())).doesNotHaveDuplicates();
-        assertThat(segunda.nombre()).isEqualTo("rdmotors-2026-09-23-090000-2.dump");
-        assertThat(tercera.nombre()).isEqualTo("rdmotors-2026-09-23-090000-3.dump");
+        // Lo que de verdad protege al dueño: nunca dos trabajando sobre el mismo archivo.
+        assertThat(List.of(primera.archivo(), segunda.archivo(), tercera.archivo())).doesNotHaveDuplicates();
+
+        // El nombre que él ve sí se repite, y está bien: son tres copias del mismo segundo, con los mismos datos.
+        // El navegador las guarda como (1) y (2); inventarle sufijos al nombre no le resuelve nada a nadie.
+        assertThat(primera.nombre()).isEqualTo(NOMBRE);
+        assertThat(segunda.nombre()).isEqualTo(NOMBRE);
     }
 
     @Test

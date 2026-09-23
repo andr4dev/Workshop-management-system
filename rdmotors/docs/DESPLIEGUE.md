@@ -121,8 +121,16 @@ resuelven los dos crones del paso 5 — y despliega directo desde un repositorio
 1. **El código tiene que estar en un repositorio de Git** (GitHub, GitLab o Bitbucket) — Render construye desde
    ahí, no se le sube un jar ni una imagen a mano.
 2. render.com → cuenta con GitHub → **New › Web Service** → conectar el repositorio de RD MOTORS.
-3. **Runtime: Docker.** Render detecta el `Dockerfile` de la raíz solo.
-4. **Region**: la más cercana a Colombia que ofrezcan (normalmente `Oregon` en el plan gratis).
+3. **Runtime: Docker**, y en **Root Directory** (dentro de *Advanced*) escribir **`rdmotors`**.
+
+   > El repositorio tiene el proyecto dentro de la carpeta `rdmotors/`, no en la raíz. Sin este campo Render
+   > busca el `Dockerfile` en la raíz, no lo encuentra, y la construcción falla con un error que no menciona la
+   > carpeta. Además, todas las rutas del `Dockerfile` (`frontend/`, `domain/`, `pos/`) son relativas a esa carpeta:
+   > es lo que Render usa como contexto de construcción.
+4. **Region: `Ohio (US East)`**, no la más cercana a Colombia. La base de Neon está en `us-east-2`, que **es**
+   Ohio: en la misma región cada consulta tarda un par de milisegundos; con el servidor en Oregon serían decenas,
+   y una sola pantalla del sistema hace varias consultas. La distancia que importa es la del servidor a la base, no
+   la de la persona al servidor.
 5. **Instance Type: Free**.
 6. **Environment Variables** — ahí van las siete, una por una:
 
@@ -139,7 +147,7 @@ resuelven los dos crones del paso 5 — y despliega directo desde un repositorio
 
    Render las marca como secretas automáticamente: no vuelven a mostrarse en texto plano después de guardarlas.
 7. **Health Check Path**: `/api/salud`. Así Render sabe distinguir "el contenedor arrancó" de "el sistema ya
-   puede atender", que con Flyway corriendo 25 migraciones en el primer arranque no es lo mismo.
+   puede atender".
 8. **Create Web Service.** La primera construcción tarda varios minutos: Render clona el repositorio, corre las
    tres etapas del `Dockerfile` (Node, Maven, la imagen final) y la despliega.
 
@@ -159,11 +167,19 @@ En **cron-job.org** (gratis, sin tarjeta) y, para que no dependan de uno solo, r
 
 | Cada | Qué llamar | Método | Encabezado |
 |---|---|---|---|
-| 5 min, de 7 a. m. a 9 p. m. | `https://…/api/salud` | GET | — |
+| 5 min, **las 24 horas** | `https://…/api/salud` | GET | — |
 | 10 min | `https://…/api/tareas/correos` | POST | `X-RDMOTORS-LLAVE: <RDMOTORS_LLAVE_TAREAS>` |
 
 Comprobar que el segundo responde **200**. Si responde 404, la llave está mal escrita — y responde 404 a
 propósito, para no confirmarle a nadie que ahí hay algo.
+
+**Las 24 horas, no solo el horario del almacén.** El dueño carga el inventario **de noche**, justo cuando el
+almacén está cerrado: con el cron apagado a esa hora, el servicio estaría dormido y su primera pantalla tardaría
+minutos en abrir (ver "Cuánto tarda en despertar", abajo).
+
+**El costo de tenerlo despierto siempre son las horas gratis de Render**: el plan da 750 horas de instancia al mes,
+y un servicio encendido todo el mes gasta 744. Alcanza para **uno solo**. Si más adelante se agrega otro servicio
+gratis en la misma cuenta, uno de los dos se queda sin horas a fin de mes.
 
 #### Paso 6 · Lo del negocio
 
@@ -268,7 +284,33 @@ con el almacén cerrado, que es justo por lo que se mudó.
 
 ---
 
-## 7. Cuando el gratis deje de alcanzar
+## 7. Cuánto tarda en despertar (medido)
+
+Se simuló el plan gratis de Render con `docker run --memory=512m --cpus=0.1` contra la base real de Neon, con la
+base ya migrada. **Es una simulación, no Render mismo**: los números reales pueden variar.
+
+| | Arranque | Memoria |
+|---|---|---|
+| JVM con sus valores por omisión | **258 s** (4 min 18 s) | 359 de 512 MB |
+| Con las banderas del `Dockerfile` | **139 s** (2 min 19 s) | 313 de 512 MB |
+
+Dos minutos y medio no son los "5 a 15 segundos" que se estimaron al planear este spec: esa cifra era para Cloud
+Run, que da bastante más CPU. Con 0,1 de CPU lo que domina el arranque es cargar clases y levantar Hibernate.
+
+Consecuencias, todas ya reflejadas arriba:
+
+- **El cron de salud es obligatorio y va las 24 horas.** Una persona que llegue con el servicio dormido espera más
+  de dos minutos y probablemente vea la página de error del proveedor antes de que abra.
+- **Un despliegue nuevo también tarda eso** en quedar atendiendo. Se hace de noche o con el almacén cerrado.
+- **Un reinicio inesperado** (el proveedor mueve el servicio, se agota la memoria) deja el sistema fuera unos
+  minutos. Con el almacén vendiendo, se siente.
+
+Si eso llega a ser un problema, **la solución es pagar** (una instancia de pago da CPU suficiente para arrancar en
+segundos y no se duerme), no ajustar más el código.
+
+---
+
+## 8. Cuando el gratis deje de alcanzar
 
 La molestia del plan gratis es una sola: **el primero que llega después de un rato sin uso espera unos segundos**.
 Con las llamadas programadas eso debería ser raro en horario de almacén, pero no hay compromiso de nadie de que no

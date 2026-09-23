@@ -84,4 +84,16 @@ USER rdmotors
 # variable PORT, asi que el proveedor manda.
 EXPOSE 8080
 
+# La JVM, pensada para el plan gratis de las nubes (512 MB y una fracción de CPU):
+#
+#   TieredStopAtLevel=1   solo el compilador rapido. El optimizador pesado tarda mas en compilar de lo que
+#                         ahorra en un POS con poca carga, y con 0,1 de CPU la compilacion es lo que mas demora.
+#   UseSerialGC           un recolector de un solo hilo: menos memoria y nada de hilos de GC peleando por la CPU.
+#   Xss512k               pila de hilo mas chica; Tomcat abre varios.
+#   CICompilerCount=1     un solo hilo compilando.
+#
+# Medido con --memory=512m --cpus=0.1 contra Neon: el arranque paso de 258 s a 139 s y la memoria de 359 a 313 MB.
+# En una maquina con mas CPU se pueden pisar poniendo la variable JAVA_TOOL_OPTIONS en el proveedor.
+ENV JAVA_TOOL_OPTIONS="-XX:TieredStopAtLevel=1 -XX:+UseSerialGC -Xss512k -XX:CICompilerCount=1"
+
 ENTRYPOINT ["java", "-jar", "/app/rdmotors.jar"]

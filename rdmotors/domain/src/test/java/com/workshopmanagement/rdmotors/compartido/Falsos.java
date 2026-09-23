@@ -1351,7 +1351,7 @@ public final class Falsos {
             archivos.remove(archivo);
         }
 
-        @Override
+        /** Ya no es del puerto; se queda porque las pruebas preguntan si el archivo quedó o se borró. */
         public boolean existe(Path archivo) {
             return archivos.contains(archivo);
         }
