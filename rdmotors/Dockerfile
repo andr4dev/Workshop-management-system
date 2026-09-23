@@ -56,8 +56,16 @@ RUN mvn -B -DskipTests package
 FROM eclipse-temurin:25-jre
 
 # pg_dump, para que el administrador pueda bajar la copia de la base (spec 0011,
-# RF-010). TIENE QUE SER LA MISMA VERSION MAYOR DEL MOTOR: un cliente 16 contra un
-# servidor 17 se niega a sacar la copia, y eso se descubre el dia que hace falta.
+# RF-010).
+#
+# EL CLIENTE NUNCA PUEDE SER MAS VIEJO QUE EL SERVIDOR. Al reves si: un pg_dump 18
+# saca copias de un servidor 17 sin problema. Por eso aqui va el 18, que cubre
+# tanto a Neon (18.6, el de produccion) como al Postgres 17 del computador.
+#
+# Paso de verdad al desplegar: el contenedor llevaba el 17 y Neon resulto ser 18.6.
+# pg_dump se nego en seco -- "aborting because of server version mismatch" -- y se
+# descubrio al bajar la primera copia, no antes. Si Neon sube a 19, esto hay que
+# subirlo tambien: la senal es ese mismo mensaje en Ajustes > Respaldo.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
  && install -d /usr/share/postgresql-common/pgdg \
@@ -67,7 +75,7 @@ RUN apt-get update \
 https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" \
       > /etc/apt/sources.list.d/pgdg.list \
  && apt-get update \
- && apt-get install -y --no-install-recommends postgresql-client-17 \
+ && apt-get install -y --no-install-recommends postgresql-client-18 \
  && apt-get purge -y gnupg \
  && apt-get autoremove -y \
  && rm -rf /var/lib/apt/lists/*

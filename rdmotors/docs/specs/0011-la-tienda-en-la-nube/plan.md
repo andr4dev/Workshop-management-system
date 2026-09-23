@@ -348,6 +348,8 @@ Las decisiones que se toman **durante** la implementación, con su fecha y su po
 | 2026-09-23 | 5 | Hay que poner **Root Directory = `rdmotors`** en Render | El repositorio tiene el proyecto en una subcarpeta; sin eso Render no encuentra el `Dockerfile` |
 | 2026-09-23 | 5 | El repositorio de GitHub es **público** | Se revisó que no haya secretos ni contraseñas de QA (ninguna). Queda la decisión de si el código de un cliente debería ser privado; Render funciona con los dos |
 | 2026-09-23 | 5 | Casi se excluyen las migraciones de Flyway del repositorio | Un `*.sql` en el `.gitignore` de la raíz habría dejado fuera las 25. Se detectó antes del commit y se acotó a `/respaldos/` |
+| 2026-09-23 | 5 | **El riesgo nº 1 de la tabla se cumplió, y en el peor sitio**: `pg_dump` 17 contra una base 18.6 | Neon resultó correr PostgreSQL **18.6**, no 17. El plan decía "verificarlo en la fase 1, no en la 4" y no se hizo: se descubrió al bajar la primera copia en producción. Corregido a `postgresql-client-18` en el `Dockerfile`. La regla real no es "misma versión mayor" sino **el cliente nunca más viejo que el servidor** — al revés sí funciona |
+| 2026-09-23 | 5 | Las copias de producción **solo se restauran con `pg_restore` 18 o superior** | Consecuencia de lo anterior: el formato lo marca el servidor. El computador de desarrollo tiene el 17, así que para restaurar una copia de producción hay que instalar el 18. Documentado en `RESPALDO_Y_RESTAURAR.md` |
 
 ## Estado al 2026-09-23
 

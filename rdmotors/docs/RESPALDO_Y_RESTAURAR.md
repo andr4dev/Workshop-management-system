@@ -46,7 +46,7 @@ común:
 | Dice | Qué pasó | Qué hacer |
 |---|---|---|
 | `No encontré pg_dump en …` | Falta el cliente de Postgres en el servidor | Es de la instalación; revisar el `Dockerfile` |
-| `server version mismatch` | El cliente y el motor son de versiones distintas | Igualar la versión mayor del cliente |
+| `server version mismatch` | El cliente de Postgres del servidor es **más viejo** que la base | Subir `postgresql-client-N` en el `Dockerfile` a la versión de la base (nunca por debajo) |
 | `pg_dump se quedó colgado…` | La base no respondió a tiempo | Reintentar; si sigue, mirar el estado de la base |
 
 **Nunca se baja un archivo a medias.** Si el motor falla a la mitad, no llega nada: un archivo truncado que parece
@@ -56,20 +56,25 @@ un respaldo es la peor de las respuestas posibles.
 
 ## 3. Restaurar la copia
 
-Lo que hace falta: el archivo `.dump` y PostgreSQL 17 instalado en el equipo donde vas a restaurar.
+Lo que hace falta: el archivo `.dump` y **PostgreSQL 18 o superior** instalado en el equipo donde vas a restaurar.
+
+> **Ojo con la versión.** La base de producción corre PostgreSQL 18, así que las copias salen en ese formato y
+> `pg_restore` **tiene que ser 18 o más nuevo**. Con el 17 falla, y el mensaje habla de "unsupported version". Si
+> en el computador está el 17 —que es lo que usa el entorno de desarrollo—, hay que instalar el 18 para poder
+> restaurar una copia de producción.
 
 ### 3.1 Crear la base vacía
 
 ```bat
-"C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres -c "CREATE USER rdmotors WITH PASSWORD 'rdmotors'"
-"C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres -c "CREATE DATABASE rdmotors OWNER rdmotors"
+"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE USER rdmotors WITH PASSWORD 'rdmotors'"
+"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE DATABASE rdmotors OWNER rdmotors"
 ```
 
 ### 3.2 Meter la copia
 
 ```bat
 set PGPASSWORD=rdmotors
-"C:\Program Files\PostgreSQL\17\bin\pg_restore.exe" ^
+"C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" ^
   --host=localhost --port=5432 --username=rdmotors ^
   --dbname=rdmotors --no-owner ^
   "C:\respaldos\rdmotors-2026-09-23-143012.dump"

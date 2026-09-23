@@ -33,8 +33,12 @@ public class ConfiguracionDeRespaldo {
     private int diasSinBajarParaAvisar = 7;
 
     /**
-     * El programa que saca la copia. Tiene que ser de la <b>misma versión mayor</b> del motor: un cliente 16 contra
-     * un servidor 17 se niega, y eso se descubre el día que hace falta la copia.
+     * El programa que saca la copia. <b>Nunca puede ser más viejo que el motor</b>; al revés sí sirve, un
+     * {@code pg_dump} 18 copia de un servidor 17 sin problema.
+     *
+     * <p>Pasó de verdad al desplegar: el contenedor llevaba el cliente 17 y la base de la nube resultó ser 18.6.
+     * {@code pg_dump} se negó en seco y se descubrió al bajar la primera copia. Si algún día la base sube de
+     * versión mayor, hay que subir este cliente también, y la señal es ese mismo mensaje en la pantalla de Respaldo.
      *
      * <p>En Windows es la ruta completa; dentro del contenedor basta {@code pg_dump}, que está en el camino.
      */
