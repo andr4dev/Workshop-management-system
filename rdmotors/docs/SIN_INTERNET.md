@@ -1,76 +1,78 @@
 # Sin internet — RD MOTORS
 
-**Resumen: sin internet, la tienda trabaja igual.** No hay un "modo sin conexión" que encender. El servidor y la
-base viven en el computador de la tienda, así que internet nunca está en el camino de una venta.
+**Resumen: sin internet, la tienda no vende.** Desde el [spec 0011](specs/0011-la-tienda-en-la-nube/spec.md), el
+sistema vive en la nube y el almacén es un cliente más. Este documento dice qué se cae exactamente, por qué se
+decidió así, y qué hacer cuando pase.
 
-Este documento existe para dos cosas: dejar **probado** que es así (spec 0009, RF-001 y RF-002) y decir qué es lo
-único que sí necesita internet.
-
----
-
-## 1. Por qué funciona
-
-| Pieza | Dónde vive |
-|---|---|
-| La base de datos | En el computador de la tienda (`application.properties`, `localhost`) |
-| El servidor | En el mismo computador, en el puerto 8081 |
-| La pantalla | Se sirve desde ese servidor; **no descarga nada de internet** |
-| La ticketera | Por USB o red local ([`INSTALAR_TICKETERA.md`](INSTALAR_TICKETERA.md)) |
-
-La tablet y el celular del pasillo son pantallas que entran por **Wi-Fi a la red local**. Wi-Fi no es internet: el
-Wi-Fi de la tienda puede funcionar sin internet, y esas pantallas seguirían trabajando.
-
-**Nada de la pantalla se trae de afuera** —ni fuentes, ni íconos, ni librerías— y hay una prueba que lo vigila:
-`frontend/src/utils/sinInternet.test.js`. Si alguien mete una fuente de Google o un CDN, esa prueba falla antes de
-que el problema llegue a la tienda.
+> **Este documento decía lo contrario hasta el 2026-09-23.** Y era verdad: el sistema corría en el computador del
+> mostrador y vender no dependía de internet. Se dejó escrito el cambio en lugar de borrar la historia, porque
+> explica por qué hay código que sigue pensado para funcionar sin conexión.
 
 ---
 
-## 2. La prueba de aceptación (RF-001)
+## 1. Por qué se cambió
 
-Se hace **desconectando el cable de internet del módem** (o apagando los datos del router), dejando el Wi-Fi de la
-tienda encendido. Desde el computador del mostrador, en este orden:
+El dueño pidió cargar su inventario base **desde el celular, de noche, con el almacén cerrado** — y el computador
+del mostrador se apaga al cerrar. Con la verdad viviendo en ese computador, eso era imposible.
 
-- [ ] Entrar con usuario y contraseña
-- [ ] Abrir turno con su fondo
-- [ ] Vender de contado, en efectivo y en transferencia; imprimir el comprobante
-- [ ] Vender **fiado** a un cliente y recibirle un **abono**
-- [ ] Anular una venta con su motivo
-- [ ] Registrar un gasto del cajón y un retiro
-- [ ] Registrar una compra y ver que el stock sube
-- [ ] Cerrar el turno y comparar el arqueo
-- [ ] Ver *Reportes › Resultados* del día y la *Cartera*
-- [ ] *Ajustes › Respaldo › Hacer uno ahora*
+Se pudo pagar barato porque el almacén **todavía no vendía** con el sistema: no había nada que migrar. Dentro de
+tres meses habría sido otra conversación.
 
-**Todo tiene que funcionar igual que con internet.** Si algo falla, no es "por el internet": es un error que hay
-que arreglar.
-
-Desde la tablet o el celular, con el Wi-Fi de la tienda encendido, lo mismo: entrar por `http://<ip>:5174` y
-vender. Si lo que se cae es el **Wi-Fi**, esas pantallas dicen *"No hay conexión con el servidor"* y la venta a
-medias queda guardada en ese dispositivo; se termina en el computador del mostrador.
+El dato que lo hizo viable: el internet del almacén es **estable, casi nunca falla** (respuesta del dueño,
+2026-09-23). Ese dato es ahora el eslabón más débil de todo el sistema, y conviene volver a preguntarlo cada tanto.
 
 ---
 
-## 3. Lo único que necesitará internet
+## 2. Qué se cae, exactamente
 
-El **panel del dueño en la nube** (rebanada 5), para mirar el negocio desde la casa. Cuando exista:
-
-- Cada operación dejará su **evento** en la misma transacción en que se guarda (spec 0009, H3).
-- Los eventos esperan en orden y se envían cuando hay internet (H4); repetir un envío no duplica nada.
-- El mostrador **nunca espera** a ese envío.
-
-Mientras tanto, la tienda no manda nada a ninguna parte.
-
----
-
-## 4. Lo que sí tumba la tienda, y qué hacer
-
-| Se cae | Qué pasa | Respuesta |
+| Se cae | Qué pasa | Qué hacer |
 |---|---|---|
-| Internet | Nada | — |
-| El Wi-Fi de la tienda | El computador del mostrador sigue; la tablet y el celular no | Vender desde el computador |
-| **La luz** | Todo se detiene hasta que vuelva | **Una UPS**: da unos minutos para cerrar la venta y apagar bien |
-| El computador o su disco | Todo se detiene | El [respaldo](RESPALDO_Y_RESTAURAR.md) en otro computador |
+| **El internet del almacén** | **Todo se detiene.** No se vende, no se consulta, no se cobra | Internet de respaldo (abajo) o el cuaderno |
+| El internet en el celular del dueño | Lo que ya guardó está guardado; lo que estaba escribiendo, no | Esperar y seguir |
+| El Wi-Fi del almacén | Igual que quedarse sin internet, para los equipos que dependan de él | Datos móviles en el celular del mostrador |
+| **La luz** | Todo se detiene | Una UPS da minutos para cerrar la venta en curso |
+| El computador del mostrador | Se sigue vendiendo desde cualquier otro equipo con internet | Entrar desde el celular o una tablet |
+| El proveedor de la nube | Todo se detiene hasta que vuelva | Ver "volver atrás" en [`DESPLIEGUE.md`](DESPLIEGUE.md) |
 
-La UPS es compra de hardware, no software, y es la que más barato sale por lo que evita: un corte de luz a mitad
-de una venta con la base escribiendo es la forma más común de dañar una base de datos.
+La fila del computador del mostrador es lo único que **mejoró** con la mudanza: antes, si ese equipo se dañaba, el
+negocio se paraba hasta conseguir otro. Ahora cualquier celular sirve.
+
+---
+
+## 3. Qué hacer cuando no haya internet
+
+Ninguna de las tres es software, y ese es el punto: **no hay un "modo sin conexión" que encender**.
+
+1. **Un plan de datos en un celular** que sirva de internet de respaldo, compartido al computador del mostrador.
+   Es lo más barato que existe contra esto y resuelve la mayoría de los casos.
+2. **Un cuaderno.** Si se cae todo —internet y datos—, se anota la venta a mano y se registra después. Suena
+   primitivo y es lo que hacen los almacenes que llevan treinta años abiertos.
+3. **Volver atrás**, si resulta que el internet no era tan estable como se creía. Está documentado en
+   [`DESPLIEGUE.md`](DESPLIEGUE.md) y **no requiere tocar código**: se apaga el perfil `nube` y el sistema corre
+   contra una base local otra vez.
+
+---
+
+## 4. Lo que sigue sin depender de internet
+
+Poco, pero no es nada:
+
+- **La pantalla no trae nada de afuera** —ni fuentes, ni íconos, ni librerías de terceros— y hay una prueba que lo
+  vigila: `frontend/src/utils/sinInternet.test.js`. Si alguien mete una fuente de Google o un CDN, esa prueba falla
+  antes de que el problema llegue al almacén. Eso significa que una conexión lenta no hace lenta la pantalla, y que
+  nadie de afuera sabe qué usa el negocio.
+- **Los correos del cierre aguantan cortes.** No se mandan en el momento: se encolan y se reintentan. Un corte de
+  media hora no pierde ningún resumen de caja (spec 0010).
+- **Las operaciones no se duplican si algo se reintenta.** Venta, gasto, retiro, abono y compra llevan llave de
+  idempotencia: mandar dos veces lo mismo no cobra dos veces.
+
+---
+
+## 5. El riesgo, dicho sin adornos
+
+Un corte de internet en el almacén **detiene las ventas**. Antes no. Esa es la factura de poder cargar inventario
+desde el celular, y se paga todos los días aunque casi nunca se sienta.
+
+Vender de verdad sin internet —guardar la venta en el navegador y subirla después— es un proyecto entero, no un
+ajuste, y hoy está **fuera de alcance** a propósito (spec 0011, §10). Si el internet del almacén resulta menos
+estable de lo que se creía, la respuesta no es construirlo a las carreras: es volver atrás, que ya está resuelto.

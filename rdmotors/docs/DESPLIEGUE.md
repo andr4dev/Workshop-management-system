@@ -2,10 +2,18 @@
 
 Dónde corre el sistema, qué secreto va en cada variable, cómo se sube una versión nueva y **cómo se vuelve atrás**.
 
-> **Estado: el despliegue en la nube está pendiente** (fase 5 del [plan 0011](specs/0011-la-tienda-en-la-nube/plan.md)).
-> Todo lo de este documento ya funciona y está probado **contra la base local, en la máquina de desarrollo**. Lo que
-> falta es crear las cuentas y apretar el botón, y eso lo hace el dueño del proyecto. Las secciones que dependen del
-> proveedor están marcadas.
+> **Estado: desplegado y funcionando** desde el 2026-09-23.
+>
+> | | |
+> |---|---|
+> | **Dirección** | https://workshop-management-system-1-lujm.onrender.com |
+> | Servidor | Render, plan gratis, región Ohio |
+> | Base de datos | Neon, PostgreSQL **18.6**, región `us-east-2` (Ohio), conexión **directa** |
+> | Despiertan el servicio | cron-job.org (cada 5 min) y UptimeRobot (cada 5 min) |
+> | Dispara los correos | cron-job.org (cada 10 min, con llave) |
+>
+> Verificado con `scripts/verificar-despliegue.mjs`: **18 de 18 comprobaciones**, incluida bajar una copia real de
+> la base y comprobar que llega entera.
 
 ---
 
@@ -156,7 +164,7 @@ típicos están escritos para que se entiendan: falta la clave de sesiones, o la
 
 #### Paso 4 · El primer administrador
 
-Abrir la dirección que dio Render (algo como `https://rdmotors.onrender.com`). Como la base está vacía, la
+Abrir la dirección que dio Render (https://workshop-management-system-1-lujm.onrender.com). Como la base está vacía, la
 pantalla pide **crear el primer administrador**, igual que en una instalación nueva. Ahí mismo, en
 *Ajustes › Usuarios*, se crea **el usuario del dueño** — que es el objetivo de todo esto.
 
@@ -167,8 +175,8 @@ En **cron-job.org** (gratis, sin tarjeta) y, para que no dependan de uno solo, r
 
 | Cada | Qué llamar | Método | Encabezado |
 |---|---|---|---|
-| 5 min, **las 24 horas** | `https://…/api/salud` | GET | — |
-| 10 min | `https://…/api/tareas/correos` | POST | `X-RDMOTORS-LLAVE: <RDMOTORS_LLAVE_TAREAS>` |
+| 5 min, **las 24 horas** | `https://workshop-management-system-1-lujm.onrender.com/api/salud` | GET | — |
+| 10 min | `https://workshop-management-system-1-lujm.onrender.com/api/tareas/correos` | POST | `X-RDMOTORS-LLAVE: <RDMOTORS_LLAVE_TAREAS>` |
 
 Comprobar que el segundo responde **200**. Si responde 404, la llave está mal escrita — y responde 404 a
 propósito, para no confirmarle a nadie que ahí hay algo.
@@ -190,7 +198,7 @@ remitente**.
 #### Paso 7 · Comprobar que quedó bien
 
 ```bash
-SITIO=https://rdmotors-xxxx.run.app \
+SITIO=https://workshop-management-system-1-lujm.onrender.com \
 LLAVE_TAREAS=<RDMOTORS_LLAVE_TAREAS> \
 USUARIO=<el administrador> CLAVE=<su contraseña> \
 node scripts/verificar-despliegue.mjs

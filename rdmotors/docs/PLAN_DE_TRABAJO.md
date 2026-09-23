@@ -11,7 +11,8 @@
 
 | | |
 |---|---|
-| Módulos Maven | `domain` + `pos` (el de `cloud` llega en la rebanada 5) |
+| Módulos Maven | `domain` + `pos` (el de `cloud` **ya no se va a construir**: ver rebanada 5) |
+| **Dónde corre** | **En la nube**, desde el 2026-09-23 · https://workshop-management-system-1-lujm.onrender.com · Render + Neon, gratis ([`DESPLIEGUE.md`](DESPLIEGUE.md)) |
 | Tablas | **15 de 21** del modelo de datos (más `datos_tienda`) |
 | Casos de uso | **13** — compras (registrar, consultar, corregir, anular), proveedores, cuentas (registrar, desactivar), repuestos (crear, buscar, corregir), abrir turno, cobrar, anular y consultar ventas, datos de la tienda |
 | Endpoints | **30** |
@@ -192,7 +193,13 @@ rebanada 2 ya hay un cliente esperando en el mostrador y la pantalla es el produ
 
 ### Rebanada 4 — Operación sin internet · **hecha el 2026-09-21** ([spec 0009](specs/0009-sin-internet-y-respaldo/spec.md))
 
-> **Demo:** desconectas el cable de internet y la tienda trabaja igual; al día siguiente hay un respaldo nuevo.
+> **Demo (la de entonces):** desconectas el cable de internet y la tienda trabaja igual; al día siguiente hay un
+> respaldo nuevo.
+
+> ⚠️ **Dos días después, el spec 0011 le dio la vuelta a la premisa de esta rebanada.** El sistema se mudó a la
+> nube: ya **no** se vende sin internet, y el respaldo automático de madrugada se eliminó —el disco del servidor
+> se borra en cada reinicio— y lo reemplazó una copia que el administrador baja cuando quiere. Lo de abajo se
+> conserva porque explica el código que quedó; ver [`SIN_INTERNET.md`](SIN_INTERNET.md) para lo que es cierto hoy.
 
 La rebanada se replanteó al investigarla, y el spec 0009 lo dejó por escrito: **esta rebanada se pensó para el
 car-wash, que vivía en la nube**. Aquí el servidor y la base están en el computador de la tienda, así que
@@ -202,7 +209,9 @@ car-wash, que vivía en la nube**. Aquí el servidor y la base están en el comp
 - ✅ Idempotencia en todo lo que **suma**: faltaba compras (V22), y ya la tenían venta, gasto, retiro y abono
 - ✅ **Respaldo automático** de la base (V23): `pg_dump` cada madrugada, 14 días de copias, segunda copia
   opcional en USB, la clave de sesiones al lado, y la fila con el error cuando falla
-- ⏸ `evento_outbox` con secuencia monotónica: **se construye con la rebanada 5**, contra la nube que lo consume
+  — ⚠️ **eliminado por el spec 0011** (V25): ahora la copia se baja, no se guarda
+- ❌ `evento_outbox` con secuencia monotónica: **ya no se va a construir.** Existía para alimentar el espejo de la
+  rebanada 5, y al mudarse todo a la nube no hay nada que replicar
 
 **Frontend**
 - ✅ Pantalla *Ajustes › Respaldo* y el aviso al entrar cuando el respaldo falla
@@ -211,30 +220,36 @@ car-wash, que vivía en la nube**. Aquí el servidor y la base están en el comp
   con el Wi-Fi caído sería vender sin que el servidor revise stock, precio ni turno, y el cliente definió un solo
   dispositivo activo a la vez. Si se va la luz, la respuesta es una UPS, no software
 
-**Ya decidido** — §3.9 · **Por decidir** — si la tienda tendrá memoria USB o disco externo para la segunda copia
+**Ya decidido** — §3.9 · ~~**Por decidir** — si la tienda tendrá memoria USB o disco externo~~ (sin efecto desde
+el spec 0011: no hay segunda copia que guardar)
 
 ---
 
-### Rebanada 5 — Panel del propietario
+### Rebanada 5 — Panel del propietario · **se disolvió, y eso es una buena noticia**
 
-> **Demo:** el dueño abre su celular y ve las ventas del día.
+Esta rebanada existía para resolver un problema que **ya no existe**: cómo hacía el dueño para ver su negocio
+desde la casa, si el sistema vivía encerrado en el computador del almacén. La respuesta iba a ser un espejo de
+solo lectura en la nube, con su módulo Maven, su consumidor de eventos, su login aparte y su letrero de "última
+actualización".
 
-> **Es la forma de ver la tienda desde la casa** (decidido el 2026-09-19, spec 0004 §8): el servidor de la
-> tienda no se publica en internet ni se abre por VPN. Si el cliente lo necesita pronto, esta rebanada se adelanta.
+Desde el [spec 0011](specs/0011-la-tienda-en-la-nube/spec.md) (2026-09-23) **el sistema entero vive en la nube**.
+El dueño entra desde su celular, en cualquier parte, al sistema de verdad — no a un espejo con retraso. Así que:
 
-**Backend**
-- Módulo Maven `cloud`
-- Consumidor de eventos con deduplicación por `id`
-- `usuario_propietario` — login aparte del local
-- Espejo de solo lectura con `store_id`
+| Lo que se iba a construir | Qué pasó |
+|---|---|
+| Módulo Maven `cloud` | **No hace falta.** Ya no hay dos sistemas que sincronizar |
+| Consumidor de eventos, `evento_outbox`, secuencia monotónica | **No hace falta.** No hay nada que replicar |
+| `usuario_propietario` aparte | **No hace falta**: el dueño tiene su usuario normal, con su rol |
+| Letrero de "última actualización" | **No hace falta**: no hay retraso que avisar |
+| Panel móvil de solo lectura | **Ya existe**: la pantalla es responsive y funciona en el celular |
+| Hosting (VPS, dominio propio) | Resuelto: Render + Neon, **gratis**, sin dominio propio por ahora |
 
-**Frontend**
-- Panel móvil, solo lectura
-- **Letrero obligatorio de "última actualización"** — sin él el dueño cree que dejaron de vender
+Lo que quedó **abierto** y algún día habrá que decidir: si el dueño debe ver algo distinto de lo que ve un
+administrador. Hoy ve exactamente lo mismo, y para un almacén de una sola tienda eso alcanza.
 
-**Ya decidido** — §3.8, §3.9
-**Por decidir** — hosting (recomendado: VPS Hetzner + Postgres ahí mismo + dominio propio con
-subdominio por cliente). No se paga nada hasta esta rebanada.
+> Se conserva escrito lo que se iba a hacer porque explica decisiones que siguen en el código — los UUID, las
+> llaves de idempotencia, que el pago en línea quedara fuera del arqueo físico. Esas siguen siendo correctas por
+> otras razones.
 
 ---
 
