@@ -1,0 +1,252 @@
+###############################################################################
+#  RD MOTORS — caja y ventas (spec 0003)
+#
+#  Correr contra el backend local. Primero hay que entrar (ver arriba): quién hace
+#  cada cosa lo decide el servidor por la sesión (spec 0004).
+###############################################################################
+
+@host = http://localhost:8081
+
+# ── Entrar (spec 0004) ───────────────────────────────────────────────────────
+# Sin sesión, toda la API responde 401. La sesión queda en una cookie que el
+# cliente REST guarda solo ("rest-client.rememberCookiesForSubsequentRequests").
+# Las escrituras llevan además el token anti-CSRF: la primera respuesta deja la
+# cookie XSRF-TOKEN; copia su valor en @xsrf.
+@usuarioAdmin = ruben
+@claveAdmin = escribe-aqui-tu-contraseña
+@xsrf = pega-aqui-el-valor-de-la-cookie-XSRF-TOKEN
+
+### Quién soy → 401 si no has entrado; deja la cookie XSRF-TOKEN
+GET {{host}}/api/sesion
+
+### Entrar → 200 y la cookie de sesión (el token no viene en el cuerpo)
+POST {{host}}/api/sesion
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{ "usuario": "{{usuarioAdmin}}", "contrasena": "{{claveAdmin}}" }
+
+###############################################################################
+# FASE 1 · Turno de caja
+###############################################################################
+
+### ¿Hay turno abierto? → 200 con el turno, o 204 si no hay (no es un error)
+GET {{host}}/api/turnos/abierto
+
+### Abrir el turno con $100.000 en el cajón → 201
+POST {{host}}/api/turnos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "fondo": 100000 }
+
+# ⚠️ VERIFICAR: "estado": "ABIERTO", "fondo": 100000, y "abiertoEn" con la hora.
+
+### Abrir otro con uno ya abierto → 409, y dice desde cuándo está abierto
+POST {{host}}/api/turnos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "fondo": 50000 }
+
+# ⚠️ ESPERADO: 409 — "Ya hay un turno abierto. Se sigue vendiendo en ese." con "abiertoEn".
+
+### Fondo negativo → 400
+POST {{host}}/api/turnos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "fondo": -5 }
+
+### Sin decir quién → 400
+POST {{host}}/api/turnos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "fondo": 100000 }
+
+###############################################################################
+# FASE 2 · Cobrar una venta
+#
+# La llave nace con la venta en el navegador. Reenviar el MISMO cuerpo (doble
+# clic, reintento tras un corte) devuelve la misma venta con 200.
+# "precioVisto" es el precio que mostraba la pantalla: si cambió, no se cobra.
+###############################################################################
+
+### Buscar el repuesto que se va a vender (toma su id y su precio)
+# @name repuesto
+GET {{host}}/api/repuestos?codigo=PRUEBA-144927
+
+###
+@varianteId = {{repuesto.response.body.$[0].id}}
+@precio = {{repuesto.response.body.$[0].precio}}
+
+### Cobrar: 2 unidades, $1.000 de descuento, $20.000 en efectivo con un billete de $50.000 y el resto por transferencia → 201
+# Cambiar la llave para una venta nueva; repetirla prueba el doble clic.
+POST {{host}}/api/ventas
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "6f1c2b1e-0000-4000-8000-000000000001",
+  "renglones": [
+    { "varianteId": "{{varianteId}}", "cantidad": 2, "precioVisto": {{precio}} }
+  ],
+  "descuento": { "modo": "MONTO", "valor": 1000, "motivo": "cliente frecuente" },
+  "pagos": [
+    { "forma": "EFECTIVO", "monto": 20000, "recibido": 50000 },
+    { "forma": "TRANSFERENCIA", "monto": 3000 }
+  ]
+}
+
+# ⚠️ VERIFICAR: 201 la primera vez y 200 al repetir, con el MISMO "id" y "numero".
+#    "total" = subtotal − descuento; "cambio": 30000; el stock bajó una sola vez.
+
+### Descuento por porcentaje: 10% sobre el subtotal, guardado en pesos
+POST {{host}}/api/ventas
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "6f1c2b1e-0000-4000-8000-000000000002",
+  "renglones": [ { "varianteId": "{{varianteId}}", "cantidad": 1, "precioVisto": {{precio}} } ],
+  "descuento": { "modo": "PORCENTAJE", "valor": 10, "motivo": "negociación" },
+  "pagos": [ { "forma": "TRANSFERENCIA", "monto": 10800 } ]
+}
+
+# ⚠️ VERIFICAR (con precio $12.000): "descuento": 1200, "total": 10800.
+
+### Las ventas del turno abierto, de la más reciente a la más antigua
+GET {{host}}/api/ventas?turno=abierto
+
+### Una venta por su número (el del comprobante)
+GET {{host}}/api/ventas/numero/1
+
+###############################################################################
+# FASE 2 · Cobros que no pasan
+###############################################################################
+
+### Precio viejo en pantalla → 409 con el renglón y el precio vigente
+POST {{host}}/api/ventas
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "6f1c2b1e-0000-4000-8000-0000000000a1",
+  "renglones": [ { "varianteId": "{{varianteId}}", "cantidad": 1, "precioVisto": 1 } ],
+  "pagos": [ { "forma": "EFECTIVO", "monto": 1 } ]
+}
+
+# ⚠️ ESPERADO: 409 — "problemas": [{ "tipo": "PRECIO_CAMBIADO", "precioActual": ... }]
+
+### Más de lo que hay → 409 SIN_STOCK, sin mover nada
+POST {{host}}/api/ventas
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "6f1c2b1e-0000-4000-8000-0000000000a2",
+  "renglones": [ { "varianteId": "{{varianteId}}", "cantidad": 9999, "precioVisto": {{precio}} } ],
+  "pagos": [ { "forma": "EFECTIVO", "monto": 1 } ]
+}
+
+### Los pagos no suman el total → 422 que dice cuánto falta
+POST {{host}}/api/ventas
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "6f1c2b1e-0000-4000-8000-0000000000a3",
+  "renglones": [ { "varianteId": "{{varianteId}}", "cantidad": 1, "precioVisto": {{precio}} } ],
+  "pagos": [ { "forma": "EFECTIVO", "monto": 1000 } ]
+}
+
+# ⚠️ VERIFICAR: el siguiente cobro exitoso toma el número siguiente al último, sin saltos.
+
+### Descuento sin motivo → 422
+POST {{host}}/api/ventas
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "6f1c2b1e-0000-4000-8000-0000000000a4",
+  "renglones": [ { "varianteId": "{{varianteId}}", "cantidad": 1, "precioVisto": {{precio}} } ],
+  "descuento": { "modo": "MONTO", "valor": 1000, "motivo": "  " },
+  "pagos": [ { "forma": "EFECTIVO", "monto": 11000 } ]
+}
+
+### Una venta que no existe → 404
+GET {{host}}/api/ventas/numero/999999
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Fase 5 · Anular una venta (H8): el stock vuelve, la venta queda marcada
+# ═══════════════════════════════════════════════════════════════════════════
+
+### Anular → 200 con la venta ANULADA. Cambia el id por el de una venta cobrada
+POST {{host}}/api/ventas/00000000-0000-0000-0000-000000000000/anulacion
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "motivo": "El cliente se arrepintió" }
+
+### Otra vez la misma → 422 "Esta venta ya fue anulada" (el stock no vuelve dos veces)
+POST {{host}}/api/ventas/00000000-0000-0000-0000-000000000000/anulacion
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "motivo": "doble clic" }
+
+### Sin motivo → 422
+POST {{host}}/api/ventas/00000000-0000-0000-0000-000000000000/anulacion
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "motivo": "  " }
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Fase 4 · Datos de la tienda (RF-033): la única fila, que encabeza el comprobante
+# ═══════════════════════════════════════════════════════════════════════════
+
+### Los datos actuales. Recién migrada: solo "RD MOTORS"
+GET {{host}}/api/tienda
+
+### Reemplazar todo → 200. Repetirlo deja lo mismo; un opcional vacío queda en null
+PUT {{host}}/api/tienda
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "nombreComercial": "RD MOTORS",
+  "nit": "900.123.456-7",
+  "direccion": "Calle 10 # 5-20",
+  "telefono": "300 123 4567",
+  "mensajePie": "Gracias por su compra"
+}
+
+### Sin nombre comercial → 422
+PUT {{host}}/api/tienda
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "nombreComercial": "   " }
+
+### NIT de más de 30 caracteres → 422
+PUT {{host}}/api/tienda
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "nombreComercial": "RD MOTORS", "nit": "1234567890123456789012345678901" }
+
+# ── Aviso de venta a pérdida (spec 0004, RF-011) ────────────────────────────────
+# La pantalla lo pregunta al cambiar los renglones o el descuento. El administrador recibe las
+# cifras (costo, cobrado, diferencia); el cajero solo { bajoCosto, sinCosto }.
+
+### Con un descuento que deja la venta por debajo del costo → bajoCosto: true
+POST {{host}}/api/ventas/aviso-de-perdida
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "renglones": [{ "varianteId": "{{varianteId}}", "cantidad": 1, "precioVisto": {{precio}} }],
+  "descuento": { "modo": "PORCENTAJE", "valor": 90 }
+}

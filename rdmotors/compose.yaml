@@ -1,0 +1,37 @@
+# Base de datos de DESARROLLO.
+#
+# OJO: esto NO es como se instala en la tienda. Allá Postgres va nativo, como servicio de
+# Windows que arranca solo con el equipo — un POS no puede depender de que alguien abra Docker
+# antes de vender. Esto es solo para la máquina de desarrollo.
+#
+#   docker compose up -d      levantar
+#   docker compose down       apagar (los datos se conservan)
+#   docker compose down -v    apagar y BORRAR los datos
+#
+# La app la levanta sola si se corre con ./mvnw -pl pos spring-boot:run — ver docs/DESARROLLO.md
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: rdmotors-postgres
+    environment:
+      POSTGRES_DB: rdmotors
+      POSTGRES_USER: rdmotors
+      POSTGRES_PASSWORD: rdmotors
+    ports:
+      # 5433 y no 5432: el 5432 lo tiene ocupado el contenedor del car-wash, y no hay
+      # razon para pelearselo. Cada proyecto con su puerto.
+      - "5433:5432"
+    volumes:
+      # Volumen con nombre: los datos sobreviven a un 'down'. Sin esto, cada reinicio
+      # borraría el catálogo que acabas de capturar para probar.
+      - rdmotors-datos:/var/lib/postgresql/data
+    healthcheck:
+      # Spring Boot espera a que esto pase antes de arrancar la app.
+      test: ["CMD-SHELL", "pg_isready -U rdmotors -d rdmotors"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  rdmotors-datos:

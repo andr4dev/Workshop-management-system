@@ -1,0 +1,3 @@
+# Copias de la base de datos: son datos del negocio, no código. Nunca a git.
+# Solo la carpeta de la raíz, no las migraciones de Flyway (rdmotors/pos/.../db/migration/*.sql).
+/respaldos/

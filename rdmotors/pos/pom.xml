@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>com.workshopmanagement</groupId>
+		<artifactId>rdmotors-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>pos</artifactId>
+	<name>pos</name>
+	<description>Punto de venta. Corre en la PC de la tienda y es la fuente de verdad.</description>
+
+	<dependencies>
+		<!-- La flecha: pos ──► domain. Nunca al reves. -->
+		<dependency>
+			<groupId>com.workshopmanagement</groupId>
+			<artifactId>domain</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
+		<!-- Entrar (spec 0004): Spring Security, y el resource server para firmar y leer el token de
+		     sesión (HS256, con Nimbus). No se escribe criptografía propia. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+		</dependency>
+
+		<!-- Flyway: el esquema se versiona a mano. El car-wash usa ddl-auto=update mas
+		     runners idempotentes, y su propia skill documenta lo caro que sale: no ensancha
+		     un CHECK cuando un enum crece, no agrega columnas NOT NULL a tablas con filas.
+		     Aqui empezamos con migraciones desde la primera tabla. -->
+		<!-- OJO: 'flyway-core' es SOLO la libreria. En Spring Boot 4 la autoconfiguracion
+		     vive en 'spring-boot-flyway', que es lo que hace que las migraciones corran al
+		     arrancar. Con la libreria sola, Flyway esta en el classpath y NO HACE NADA — y no
+		     avisa: el sintoma es que Hibernate valida contra una base vacia. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-flyway</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+
+		<!-- Comodidad de DESARROLLO: levanta el compose.yaml solo al hacer spring-boot:run.
+		     Va como 'optional' para que no viaje al jar que se instala en la tienda, donde
+		     Postgres es nativo y no hay Docker. Se apaga con spring.docker.compose.enabled=false. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-docker-compose</artifactId>
+			<optional>true</optional>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- Testcontainers: levanta un Postgres REAL en Docker durante las pruebas.
+		     Es lo unico que puede demostrar lo que un doble en memoria no puede: que las
+		     migraciones de Flyway cuadren con las entidades, que Dinero mapee a la columna
+		     correcta, que numeric(14,4) conserve los decimales del costo unitario, y que las
+		     restricciones de la base (codigo unico) de verdad existan. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- Testcontainers 2.x renombro los modulos: 'postgresql' pasó a
+		     'testcontainers-postgresql'. Spring Boot 4.1.1 gestiona la version (2.0.5). -->
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-postgresql</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

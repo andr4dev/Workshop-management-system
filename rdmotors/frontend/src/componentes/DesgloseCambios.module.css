@@ -1,0 +1,155 @@
+/* Una sola cuadrícula para todo el desglose: etiqueta · antes · flecha · después. Así las cifras
+   de todos los bloques quedan alineadas en las mismas columnas. */
+.desglose {
+  /* Topes a las columnas de etiqueta y "antes": en una pantalla ancha el valor nuevo queda cerca del
+     viejo, no al otro lado. Iguales para todas las filas, así las cifras siguen alineadas. */
+  --columnas: minmax(7rem, 10rem) minmax(5rem, 11rem) 1.25rem minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.columnas,
+.fila,
+.total {
+  display: grid;
+  grid-template-columns: var(--columnas);
+  column-gap: var(--esp-3);
+  align-items: baseline;
+}
+
+.columnas {
+  padding: 0 var(--esp-3);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+}
+
+.bloque {
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+.cambiado { border-left-color: var(--info); }
+.agregado { border-left-color: var(--success); }
+.quitado  { border-left-color: var(--danger); }
+
+.bloqueTitulo {
+  margin: 0 0 var(--esp-1);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+}
+
+.renglonCabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--esp-2);
+  margin-bottom: var(--esp-1);
+  padding-bottom: var(--esp-1);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tipo {
+  padding: 0 7px;
+  border-radius: var(--radio-sm);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.cambiado .tipo { color: var(--info); background: var(--info-soft); }
+.agregado .tipo { color: var(--success); background: var(--success-soft); }
+.quitado .tipo  { color: var(--danger); background: var(--danger-soft); }
+
+.codigo {
+  font-family: var(--fuente-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.repuesto {
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* Lo que le pasa al inventario es la consecuencia que más importa: va a la derecha, siempre visible. */
+.inventario {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.inventario strong { color: var(--text); }
+
+.fila { padding: 2px 0; }
+
+.etiqueta { color: var(--text-muted); }
+
+.antes {
+  min-width: 0;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* Un renglón que sale de la factura: se lee lo que era, tachado. */
+.tachado { text-decoration: line-through; }
+
+.flecha {
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.despues {
+  min-width: 0;
+  font-weight: 700;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.igual {
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.nota {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.total {
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--radio);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.total .etiqueta { font-weight: 700; color: var(--text); }
+.total .despues { font-size: 14.5px; }
+
+/* Una cifra no se parte en dos líneas: si no cabe, baja entera. */
+.diferencia {
+  display: inline-block;
+  white-space: nowrap;
+  margin-left: var(--esp-2);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* En el rastro del detalle: más apretado, sin la fila de títulos de columna. */
+.compacto { gap: 6px; font-size: 13px; }
+.compacto .columnas { display: none; }
+
+@media (max-width: 520px) {
+  .desglose { --columnas: minmax(5.5rem, 7rem) minmax(0, 1fr) 1rem minmax(0, 1fr); }
+  .inventario { margin-left: 0; flex-basis: 100%; }
+}

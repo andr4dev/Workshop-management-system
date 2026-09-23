@@ -1,0 +1,76 @@
+###############################################################################
+#  RD MOTORS — reportes de resultados (spec 0007)
+#
+#  Correr contra el backend local, después de entrar. Solo leen: no llevan llave.
+#  Las fechas son días de Colombia, los dos incluidos. Los montos, pesos enteros.
+###############################################################################
+
+@host = http://localhost:8081
+
+# ── Entrar (spec 0004) ───────────────────────────────────────────────────────
+# Sin sesión, toda la API responde 401. La sesión queda en una cookie que el
+# cliente REST guarda solo ("rest-client.rememberCookiesForSubsequentRequests").
+# Las escrituras llevan además el token anti-CSRF: la primera respuesta deja la
+# cookie XSRF-TOKEN; copia su valor en @xsrf.
+@usuarioAdmin = ruben
+@claveAdmin = escribe-aqui-tu-contraseña
+@xsrf = pega-aqui-el-valor-de-la-cookie-XSRF-TOKEN
+
+### Quién soy → 401 si no has entrado; deja la cookie XSRF-TOKEN
+GET {{host}}/api/sesion
+
+### Entrar → 200 y la cookie de sesión (el token no viene en el cuerpo)
+POST {{host}}/api/sesion
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{ "usuario": "{{usuarioAdmin}}", "contrasena": "{{claveAdmin}}" }
+
+###############################################################################
+# FASE 2 · Resultados de un período
+###############################################################################
+
+### La semana del 14 al 20 de septiembre → 200. Revisar que cuadre:
+###   cifras.renglones − cifras.descuentos = cifras.ventasNetas
+###   cifras.efectivo + cifras.transferencia = cifras.ventasNetas
+###   ventasNetas − costoVendido − costosAdicionales = utilidadBruta; utilidadBruta − gastos = utilidadOperativa
+###   la suma de "filas" (7, una por día) da las cifras
+GET {{host}}/api/reportes/resultados?desde=2026-09-14&hasta=2026-09-20
+
+### Los gastos del mes solo en el mes: en una semana no cargan, y "gastosDelMes.fuera" dice cuánto quedó fuera
+GET {{host}}/api/reportes/resultados?desde=2026-09-14&hasta=2026-09-20&gastosDelMes=SOLO_EN_EL_MES
+
+### Septiembre del 1 a hoy, solo en el mes: el arriendo entra entero, en "filaGastosDelMes"
+GET {{host}}/api/reportes/resultados?desde=2026-09-01&hasta=2026-09-17&gastosDelMes=SOLO_EN_EL_MES
+
+### 90 días → "agrupacion": "SEMANA", filas de lunes a domingo recortadas al período
+GET {{host}}/api/reportes/resultados?desde=2026-06-20&hasta=2026-09-17
+
+### Al revés → 422 "La fecha inicial es posterior a la final"
+GET {{host}}/api/reportes/resultados?desde=2026-09-20&hasta=2026-09-14
+
+### Más de 366 días → 422 "Un período no puede pasar de 366 días"
+GET {{host}}/api/reportes/resultados?desde=2025-01-01&hasta=2026-09-17
+
+### Hasta mañana → 422 "El período no puede terminar después de hoy" (cambiar la fecha por la de mañana)
+GET {{host}}/api/reportes/resultados?desde=2026-09-17&hasta=2099-01-01
+
+###############################################################################
+# FASE 4 · Repuestos, categorías, período anterior y control (en la misma respuesta)
+###############################################################################
+
+### Este mes a la fecha → "anterior" es el mes pasado del 1 al mismo día. Revisar:
+###   la suma de "repuestos[].ventasNetas" y la de "categoriasDeRepuesto[].ventasNetas" dan cifras.ventasNetas
+###   un repuesto con algún renglón sin costo trae "utilidad": null y "margen": null
+###   "control.turnos" trae los turnos cerrados en el período, con su diferencia (negativa = faltante)
+GET {{host}}/api/reportes/resultados?desde=2026-09-01&hasta=2026-09-17
+
+###############################################################################
+# FASE 5 · Inventario de hoy y compras del período (endpoints que ya existían)
+###############################################################################
+
+### El inventario de hoy: no depende del período
+GET {{host}}/api/inventario/resumen
+
+### Lo comprado en el período, por fecha de factura, sin las anuladas
+GET {{host}}/api/compras/totales?desde=2026-09-14&hasta=2026-09-20&estado=VIGENTE

@@ -1,0 +1,343 @@
+.pagina {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: var(--esp-4) var(--esp-4) var(--esp-7);
+}
+
+.volver {
+  display: inline-block;
+  margin-bottom: var(--esp-3);
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.volver:hover { color: var(--text); text-decoration: underline; }
+
+/* ── Identidad ───────────────────────────────────────────────────────────── */
+
+.encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--esp-4);
+  margin-bottom: var(--esp-4);
+}
+
+.identidad { min-width: 0; }
+
+.etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-1);
+}
+
+.codigo {
+  padding: 1px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio-sm);
+  font-family: var(--fuente-mono);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.categoria {
+  padding: 1px 8px;
+  border-radius: var(--radio-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-hover);
+}
+
+.titulo {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.subtitulo {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* ── Cifras ──────────────────────────────────────────────────────────────── */
+
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--esp-3);
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--esp-3) var(--esp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.tarjetaEtiqueta {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+}
+
+.tarjetaValor {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+.tarjetaNota {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.enPerdida { color: var(--danger); }
+
+/* ── Kardex ──────────────────────────────────────────────────────────────── */
+
+.kardex { margin-top: var(--esp-6); }
+
+.seccion {
+  margin: 0 0 var(--esp-3);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.marco {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.tabla {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.tabla th {
+  padding: var(--esp-3) var(--esp-3) var(--esp-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.tabla td {
+  padding: var(--esp-2) var(--esp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.tabla tbody tr:last-child td { border-bottom: none; }
+
+.fecha {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Tipo de movimiento: la palabra lo dice; el color solo ayuda a barrer la columna con el ojo. */
+.tipo,
+.tipoCOMPRA,
+.tipoVENTA,
+.tipoDEVOLUCION,
+.tipoAJUSTE,
+.tipoREVERSION,
+.tipoCORRECCION_COMPRA,
+.tipoANULACION_COMPRA {
+  display: inline-block;
+  padding: 0 7px;
+  border-radius: var(--radio-sm);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-hover);
+}
+
+.tipoCOMPRA { color: var(--success); background: var(--success-soft); }
+.tipoVENTA { color: var(--info); background: var(--info-soft); }
+.tipoAJUSTE,
+.tipoREVERSION,
+.tipoCORRECCION_COMPRA,
+.tipoANULACION_COMPRA { color: var(--warn); background: var(--warn-soft); }
+
+.anulada { color: var(--warn); font-weight: 600; }
+
+.motivo {
+  display: block;
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.documento {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+/* La factura abre su compra. Subrayada al pasar, para no competir con el tipo de movimiento. */
+.enlaceCompra {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--border-strong);
+}
+.enlaceCompra:hover { color: var(--brand); border-bottom-color: currentColor; }
+
+/* ── Correcciones de la ficha: mismo dibujo que el rastro de una compra ─── */
+
+.rastro {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evento {
+  padding: var(--esp-3) var(--esp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+}
+.evento + .evento { margin-top: var(--esp-2); }
+
+.eventoCabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-1);
+}
+
+.accion {
+  padding: 0 8px;
+  border-radius: var(--radio-sm);
+  color: var(--info);
+  background: var(--info-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.eventoQuien {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.eventoCambios {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.documentoFecha {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.entra { color: var(--success); font-weight: 700; }
+.sale { color: var(--text); font-weight: 700; }
+
+.promedio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flecha {
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.nota {
+  margin: var(--esp-3) 0 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+/* ── Estados ─────────────────────────────────────────────────────────────── */
+
+.estado {
+  padding: var(--esp-5) var(--esp-4);
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radio-lg);
+}
+.estado p { margin: 0; }
+
+.avisoRed,
+.avisoError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid;
+  border-left-width: 3px;
+  border-radius: var(--radio);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.avisoRed p,
+.avisoError p { margin: 0; }
+
+.avisoRed {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.avisoError {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.reintentar {
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  border-radius: var(--radio-sm);
+  background: transparent;
+  color: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 1080px) {
+  .cifras { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .encabezado { flex-direction: column; }
+  .cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

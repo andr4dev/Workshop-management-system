@@ -1,0 +1,249 @@
+/* Lo propio del detalle de una compra. Lo común (página, tabla, estados) está en Listado.module.css. */
+
+.etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-1);
+}
+
+.factura {
+  padding: 1px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio-sm);
+  font-family: var(--fuente-mono);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.sinNumero {
+  padding: 1px 8px;
+  border-radius: var(--radio-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-hover);
+}
+
+/* ── Cifras ──────────────────────────────────────────────────────────────── */
+
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--esp-3);
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--esp-3) var(--esp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.tarjetaEtiqueta {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+}
+
+.tarjetaValor {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* ── Renglones ───────────────────────────────────────────────────────────── */
+
+.renglones { margin-top: var(--esp-5); }
+
+.marca {
+  display: block;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* ── Resaltado de lo buscado (spec 0002, RF-026) ───────────────────────── */
+
+.avisoBusqueda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radio);
+  background: var(--surface);
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+.avisoBusqueda strong { color: var(--text); }
+
+/* El renglón que coincide: fondo de resaltador y una franja a la izquierda, visible aunque la fila
+   no quepa entera en la pantalla. */
+.filaResaltada td { background: var(--warn-soft); }
+.filaResaltada td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+
+.aplicacion {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.hoy {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.filaTotal td {
+  padding-top: var(--esp-3);
+  padding-bottom: var(--esp-3);
+  border-top: 2px solid var(--border-strong);
+  border-bottom: none;
+  font-weight: 700;
+}
+
+/* No debería verse nunca. Si se ve, un dato quedó mal guardado y hay que decirlo. */
+.descuadre {
+  padding: var(--esp-2) var(--esp-3);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── Corregir y anular (spec 0002, fases 3 y 5) ─────────────────────────── */
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  align-items: center;
+}
+
+.exito {
+  margin-bottom: var(--esp-3);
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--success);
+  border-left-width: 3px;
+  border-radius: var(--radio);
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.exito p { margin: 0; }
+.exito ul {
+  margin: var(--esp-1) 0 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-weight: 400;
+}
+
+/* Anulada: se lee sin gritar. No es un error; es un estado que hay que ver antes que nada. */
+.anulada {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--esp-2);
+  margin-bottom: var(--esp-3);
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--warn);
+  border-left-width: 3px;
+  border-radius: var(--radio);
+  background: var(--warn-soft);
+  color: var(--text);
+  font-size: 13.5px;
+}
+.anulada strong { color: var(--warn); }
+
+.anuladaNota {
+  flex-basis: 100%;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.seccion { margin-top: var(--esp-6); }
+
+.seccionTitulo {
+  margin: 0 0 var(--esp-1);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.seccionNota {
+  margin: 0 0 var(--esp-3);
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+/* Lo reemplazado se ve como historia: atenuado, sin competir con la factura vigente. */
+.historico { opacity: .75; }
+
+.rastro {
+  margin: var(--esp-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evento {
+  padding: var(--esp-3) var(--esp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+}
+.evento + .evento { margin-top: var(--esp-2); }
+
+.eventoCabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.accion,
+.accionAnular {
+  padding: 0 8px;
+  border-radius: var(--radio-sm);
+  font-size: 12px;
+  font-weight: 700;
+}
+.accion { color: var(--info); background: var(--info-soft); }
+.accionAnular { color: var(--warn); background: var(--warn-soft); }
+
+.eventoMotivo {
+  margin: var(--esp-1) 0;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+/* Qué le pasó a un renglón en una corrección: se cambió por otra versión, o salió de la factura. */
+.pasoCambiado,
+.pasoQuitado {
+  padding: 0 7px;
+  border-radius: var(--radio-sm);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pasoCambiado { color: var(--info); background: var(--info-soft); }
+.pasoQuitado { color: var(--danger); background: var(--danger-soft); }

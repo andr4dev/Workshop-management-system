@@ -1,0 +1,236 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Caja, gastos y turnos (spec 0006).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-3);
+}
+.empuje { margin-left: auto; }
+
+.turno {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2) var(--esp-4);
+  margin-bottom: var(--esp-3);
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--success);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  font-size: 14px;
+}
+.turnoEstado { font-weight: 700; color: var(--success); }
+.turnoFondo { font-variant-numeric: tabular-nums; }
+
+.barraCentrada {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--esp-2);
+}
+
+.seccion { margin-top: var(--esp-5); }
+
+.seccionTitulo {
+  margin: 0 0 var(--esp-2);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  margin: 0 0 var(--esp-4);
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--success);
+  border-radius: var(--radio);
+  background: var(--success-soft);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Qué es cada movimiento del cajón. Gris: informa, no alarma. */
+.tipo {
+  display: inline-block;
+  margin-right: var(--esp-2);
+  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.costo {
+  display: inline-block;
+  margin-left: var(--esp-2);
+  padding: 0 7px;
+  border: 1px solid var(--info);
+  border-radius: 999px;
+  background: var(--info-soft);
+  color: var(--info);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Un gasto del mes: el reporte lo reparte o lo muestra solo en el mes (spec 0007). */
+.delMes {
+  display: inline-block;
+  margin-left: var(--esp-2);
+  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.motivo {
+  display: block;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* ── Totales de gastos ───────────────────────────────────────────────────── */
+
+.totales {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-3);
+  transition: opacity .15s;
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.etiqueta {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.valor {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.nota { font-size: 12px; color: var(--text-faint); }
+
+.descuadre {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radio);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── Turnos anteriores ───────────────────────────────────────────────────── */
+
+.faltante { color: var(--danger); font-weight: 700; white-space: nowrap; }
+.sobrante { color: var(--warn); font-weight: 700; white-space: nowrap; }
+.cuadra { color: var(--success); font-weight: 600; white-space: nowrap; }
+
+.sinExplicacion {
+  display: inline-block;
+  padding: 0 7px;
+  border: 1px solid var(--warn);
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.observacion {
+  display: block;
+  max-width: 280px;
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Detalle de un turno ─────────────────────────────────────────────────── */
+
+.columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--esp-5);
+}
+
+.datos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+  min-width: 0;
+}
+
+.lateral {
+  position: sticky;
+  top: var(--esp-4);
+  width: 380px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  min-width: 0;
+  padding: var(--esp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.panelTitulo {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+@media (max-width: 1080px) {
+  .columnas { grid-template-columns: minmax(0, 1fr); }
+  .lateral { position: static; width: auto; }
+}
+
+@media (max-width: 760px) {
+  .totales { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .empuje { margin-left: 0; }
+}

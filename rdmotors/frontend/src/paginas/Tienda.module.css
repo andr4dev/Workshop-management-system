@@ -1,0 +1,37 @@
+.columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 520px) auto;
+  align-items: start;
+  gap: var(--esp-6);
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  padding: var(--esp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2) var(--esp-3);
+  margin-top: var(--esp-2);
+}
+
+.guardado { font-size: 13px; font-weight: 600; color: var(--success); }
+.error { font-size: 13px; font-weight: 600; color: var(--danger); }
+
+.muestra { position: sticky; top: var(--esp-4); }
+.muestraTitulo { margin: 0; font-size: 14px; font-weight: 700; color: var(--text); }
+.muestraNota { margin: 2px 0 var(--esp-3); font-size: 12.5px; color: var(--text-faint); }
+
+@media (max-width: 900px) {
+  .columnas { grid-template-columns: minmax(0, 1fr); }
+  .muestra { position: static; }
+}

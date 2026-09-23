@@ -1,0 +1,25 @@
+.pestanas {
+  display: flex;
+  gap: var(--esp-1);
+  margin-bottom: var(--esp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.pestana,
+.activa {
+  margin-bottom: -1px;
+  padding: var(--esp-2) var(--esp-4);
+  border-bottom: 2px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pestana { color: var(--text-muted); }
+.pestana:hover { color: var(--text); border-bottom-color: var(--border-strong); }
+
+/* El rojo de marca como subrayado: es navegación, no una alerta. */
+.activa {
+  color: var(--text);
+  border-bottom-color: var(--brand);
+}

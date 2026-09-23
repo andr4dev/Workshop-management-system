@@ -1,0 +1,112 @@
+###############################################################################
+#  RD MOTORS — usuarios y roles (spec 0004)
+#
+#  Correr contra el backend local. Todo esto es del administrador: con sesión de
+#  cajero responde 403 "No permitido: es del administrador".
+#
+#  No se borra a nadie: se desactiva, y lo que hizo lo sigue nombrando.
+###############################################################################
+
+@host = http://localhost:8081
+
+# ── Entrar (spec 0004) ───────────────────────────────────────────────────────
+# Sin sesión, toda la API responde 401. La sesión queda en una cookie que el
+# cliente REST guarda solo ("rest-client.rememberCookiesForSubsequentRequests").
+# Las escrituras llevan además el token anti-CSRF: la primera respuesta deja la
+# cookie XSRF-TOKEN; copia su valor en @xsrf.
+@usuarioAdmin = ruben
+@claveAdmin = escribe-aqui-tu-contraseña
+@xsrf = pega-aqui-el-valor-de-la-cookie-XSRF-TOKEN
+
+### Quién soy → 401 si no has entrado; deja la cookie XSRF-TOKEN
+GET {{host}}/api/sesion
+
+### Entrar → 200 y la cookie de sesión (el token no viene en el cuerpo)
+POST {{host}}/api/sesion
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{ "usuario": "{{usuarioAdmin}}", "contrasena": "{{claveAdmin}}" }
+
+###############################################################################
+# La primera vez: crear el administrador
+###############################################################################
+
+### ¿Falta el administrador? Es lo único que se puede pedir sin entrar
+GET {{host}}/api/instalacion
+
+### Crearlo — solo mientras no exista ningún usuario; repetirlo → 409
+POST {{host}}/api/instalacion/administrador
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "nombre": "Rubén Díaz", "usuario": "ruben", "contrasena": "la-que-el-dueño-elija" }
+
+###############################################################################
+# Usuarios (del administrador)
+###############################################################################
+
+### La lista: rol, si está activo y cuándo entró por última vez
+# @name usuarios
+GET {{host}}/api/usuarios
+
+### Crear un cajero — la contraseña es inicial: la cambia al entrar
+# @name cajeroNuevo
+POST {{host}}/api/usuarios
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "nombre": "Carolina Ruiz", "usuario": "carolina", "rol": "CAJERO", "contrasena": "temporal-1" }
+
+@cajeroId = {{cajeroNuevo.response.body.id}}
+
+### Repetir el usuario, sin distinguir mayúsculas ni tildes → 422
+# ⚠️ ESPERADO: "Ya existe el usuario «carolina»"
+POST {{host}}/api/usuarios
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "nombre": "Otra Carolina", "usuario": "CAROLINA", "rol": "CAJERO", "contrasena": "temporal-2" }
+
+### Pasarlo a administrador (y al revés con "CAJERO")
+PUT {{host}}/api/usuarios/{{cajeroId}}/rol
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "rol": "ADMINISTRADOR" }
+
+### Quitarle el rol al único administrador → 422
+# ⚠️ ESPERADO: "Tiene que quedar al menos un administrador activo"
+PUT {{host}}/api/usuarios/{{cajeroId}}/rol
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "rol": "CAJERO" }
+
+### Desactivar: deja de entrar y su sesión abierta se cae en la siguiente petición
+POST {{host}}/api/usuarios/{{cajeroId}}/desactivacion
+X-XSRF-TOKEN: {{xsrf}}
+
+### Volver a activarlo: entra con su misma contraseña
+POST {{host}}/api/usuarios/{{cajeroId}}/activacion
+X-XSRF-TOKEN: {{xsrf}}
+
+### Restablecer la contraseña → { "contrasenaTemporal": "…" }, una sola vez
+# La que tenía deja de servir, sus sesiones se cierran y al entrar tiene que cambiarla.
+POST {{host}}/api/usuarios/{{cajeroId}}/restablecimiento
+X-XSRF-TOKEN: {{xsrf}}
+
+###############################################################################
+# Cada uno cambia la suya
+###############################################################################
+
+### Cambiar mi contraseña — dando la actual. Deja una cookie nueva
+PUT {{host}}/api/sesion/contrasena
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "actual": "{{claveAdmin}}", "nueva": "la-nueva-de-ruben" }
+
+### Salir: borra la cookie → 204
+DELETE {{host}}/api/sesion
+X-XSRF-TOKEN: {{xsrf}}

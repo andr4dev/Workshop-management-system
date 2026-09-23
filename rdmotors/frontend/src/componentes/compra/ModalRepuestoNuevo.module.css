@@ -1,0 +1,182 @@
+.intro {
+  margin: 0 0 var(--esp-4);
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.codigo {
+  font-family: var(--fuente-mono);
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-sm);
+  padding: 1px 6px;
+}
+
+.bloque { margin-top: var(--esp-4); }
+
+.fila, .fila3 {
+  display: grid;
+  gap: var(--esp-3);
+  margin-top: var(--esp-3);
+}
+.fila  { grid-template-columns: 1fr 1fr; }
+.fila3 { grid-template-columns: 1fr 1fr 1fr; }
+
+.select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+}
+.select:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+/* Una pista, no una alerta. Sin caja de color, sin icono: es contexto, no un aviso. */
+.pista {
+  margin: var(--esp-2) 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+/* ── Inventario en solo lectura ──────────────────────────────────────────────
+   Mostrar el valor dice más que una alerta explicando que no se puede editar. */
+
+.inventario {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-3) var(--esp-5);
+  margin-top: var(--esp-4);
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radio);
+  background: var(--surface-2);
+}
+
+.inventarioDato { display: flex; flex-direction: column; gap: 1px; }
+
+.inventarioEtiqueta {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-faint);
+}
+
+.inventarioValor {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.inventarioNota {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* ── La salvaguarda contra conceptos duplicados ──────────────────────────────
+   Esta SÍ es una alerta: hay una decisión que tomar y el coste de no verla es
+   un catálogo duplicado. */
+
+.sugerencias {
+  margin-top: var(--esp-3);
+  padding: var(--esp-3);
+  border: 1px solid var(--warn);
+  border-left-width: 3px;
+  border-radius: var(--radio);
+  background: var(--warn-soft);
+}
+
+.sugerenciasTitulo {
+  margin: 0 0 var(--esp-2);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warn);
+}
+
+.sugerencia {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-sm);
+  background: var(--surface);
+  cursor: pointer;
+}
+.sugerencia + .sugerencia { margin-top: 5px; }
+.sugerencia:hover { border-color: var(--brand); background: var(--brand-soft); }
+
+.sugerenciaNombre { font-weight: 600; font-size: 13.5px; color: var(--text); }
+.sugerenciaAplicacion { font-size: 12px; color: var(--text-muted); }
+
+.sugerenciaPie {
+  margin: var(--esp-2) 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Concepto ya elegido ─────────────────────────────────────────────────────── */
+
+.conceptoElegido {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  padding: var(--esp-3);
+  border: 1px solid var(--success);
+  border-left-width: 3px;
+  border-radius: var(--radio);
+  background: var(--success-soft);
+}
+
+.conceptoNombre { display: block; font-weight: 700; color: var(--text); }
+
+.reutilizando {
+  display: block;
+  font-size: 12.5px;
+  color: var(--success);
+}
+
+/* ── Previa y error ──────────────────────────────────────────────────────────── */
+
+.previaPrecio {
+  margin: var(--esp-4) 0 0;
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--radio);
+  background: var(--surface-2);
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.previaPrecio strong { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.errorGeneral {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--esp-4) 0 0;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--danger);
+  border-left-width: 3px;
+  border-radius: var(--radio);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .fila, .fila3, .inventario { grid-template-columns: 1fr; }
+}

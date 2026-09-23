@@ -1,0 +1,11 @@
+.error,
+.sinConexion {
+  margin: var(--esp-2) 0 0;
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid;
+  border-radius: var(--radio);
+  font-size: 13px;
+  font-weight: 600;
+}
+.error { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+.sinConexion { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }

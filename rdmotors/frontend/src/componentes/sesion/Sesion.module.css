@@ -1,0 +1,163 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Entrar, crear el primer administrador y cambiar la contraseña (spec 0004),
+   y el menú de la persona en la barra.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.fondo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100%;
+  padding: var(--esp-7) var(--esp-4);
+  background: var(--bg);
+}
+
+.tarjeta {
+  width: 100%;
+  max-width: 420px;
+  padding: var(--esp-5);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--brand);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.marca {
+  display: flex;
+  align-items: baseline;
+  gap: var(--esp-1);
+  margin-bottom: var(--esp-4);
+  font-size: 22px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -.02em;
+}
+.marca span:first-child { color: var(--brand); }
+.marca span:last-child { color: var(--text); }
+
+.titulo {
+  margin: 0 0 var(--esp-1);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.texto {
+  margin: 0 0 var(--esp-4);
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+}
+
+.error {
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--danger);
+  border-radius: var(--radio);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--esp-2);
+  margin-top: var(--esp-2);
+}
+.acciones > * { flex: 1; }
+
+.cargando {
+  padding: var(--esp-7) var(--esp-4);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ── El menú de la persona, en la barra ──────────────────────────────────── */
+
+.persona {
+  position: relative;
+  margin-left: var(--esp-2);
+}
+
+.botonPersona {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+  height: 34px;
+  padding: 0 10px 0 4px;
+  border: 1px solid rgba(255, 255, 255, .20);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.botonPersona:hover { background: rgba(255, 255, 255, .10); }
+
+.inicial {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.nombreCorto {
+  max-width: 120px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 220px;
+  padding: var(--esp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.quien {
+  padding: var(--esp-2);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--esp-1);
+}
+.quien strong { display: block; color: var(--text); font-size: 14px; }
+.quien span { color: var(--text-muted); font-size: 12.5px; }
+
+.opcion {
+  display: block;
+  width: 100%;
+  padding: 8px var(--esp-2);
+  border: none;
+  border-radius: var(--radio-sm);
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.opcion:hover, .opcion:focus-visible { background: var(--surface-hover); }
+
+@media (max-width: 760px) {
+  .nombreCorto { display: none; }
+  .botonPersona { padding: 0 4px; }
+}

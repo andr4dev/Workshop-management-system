@@ -1,0 +1,324 @@
+/* La Cartera y la ficha del cliente (spec 0008). */
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-4);
+}
+
+.segmento {
+  display: flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  overflow: hidden;
+}
+.segmentoOpcion,
+.segmentoActivo {
+  padding: 8px 14px;
+  border: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.segmentoOpcion { background: var(--surface); color: var(--text-muted); }
+.segmentoOpcion:hover { background: var(--surface-hover); color: var(--text); }
+.segmentoOpcion + .segmentoOpcion,
+.segmentoActivo + .segmentoOpcion,
+.segmentoOpcion + .segmentoActivo { border-left: 1px solid var(--border-strong); }
+.segmentoActivo { background: var(--graphite); color: #fff; }
+
+.buscar {
+  flex: 1;
+  min-width: 220px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+.buscar:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+
+.tarjetas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tarjeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-4);
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.tarjeta:hover { background: var(--surface-hover); }
+.tarjeta:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.tarjetaDatos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.nombre { font-size: 15px; font-weight: 700; }
+.tenue { font-size: 12.5px; color: var(--text-muted); }
+.meta { font-size: 13px; color: var(--text-muted); }
+
+.marcas { display: flex; flex-wrap: wrap; gap: var(--esp-1); }
+.marcaCerrado,
+.marcaVieja,
+.marcaFavor {
+  display: inline-block;
+  padding: 0 8px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.marcaCerrado { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+.marcaVieja { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+.marcaFavor { border-color: var(--info); background: var(--info-soft); color: var(--info); }
+
+.debe,
+.alDia {
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.debe { color: var(--danger); }
+.alDia { color: var(--success); font-size: 14px; }
+
+/* ── La ficha ────────────────────────────────────────────────────────────── */
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+}
+
+.datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-1) var(--esp-4);
+  margin: var(--esp-1) 0 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.cerrado {
+  margin: 0 0 var(--esp-4);
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radio);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+}
+.cifra {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+.cifraEtiqueta {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-faint);
+}
+.cifraValor {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.cifraDebe { color: var(--danger); }
+.cifraNota { font-size: 12.5px; color: var(--text-muted); }
+
+.seccion {
+  margin: 0 0 var(--esp-3);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.deudas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  margin: 0 0 var(--esp-5);
+  padding: 0;
+  list-style: none;
+}
+.deuda {
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+.deudaAnulada { opacity: .7; }
+.deudaCabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--esp-2) var(--esp-3);
+}
+.deudaNombre { font-weight: 700; }
+.deudaMonto {
+  margin-left: auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.deudaPartes {
+  margin: var(--esp-1) 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.estado {
+  display: inline-block;
+  padding: 0 8px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.estadoPendiente { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+.estadoAbonada { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+.estadoPagada { border-color: var(--success); background: var(--success-soft); color: var(--success); }
+.estadoAnulada { border-color: var(--border-strong); background: var(--surface-2); color: var(--text-muted); }
+
+.abonosDeLaDeuda {
+  margin: var(--esp-2) 0 0;
+  padding: 0 0 0 var(--esp-3);
+  border-left: 2px solid var(--border);
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.abonosDeLaDeuda li { display: flex; justify-content: space-between; gap: var(--esp-3); }
+.abonosDeLaDeuda li strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.movido { text-decoration: line-through; }
+
+.linea {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  margin: 0 0 var(--esp-5);
+  padding: 0;
+  list-style: none;
+}
+.abono {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--esp-1) var(--esp-3);
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+.abonoMonto {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+}
+.abonoAnulado .abonoMonto { color: var(--text-faint); text-decoration: line-through; }
+.abonoDetalle { grid-column: 1 / -1; font-size: 13px; color: var(--text-muted); }
+
+.problemas {
+  margin: 0 0 var(--esp-4);
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radio);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .tarjeta { flex-direction: column; align-items: flex-start; gap: var(--esp-1); }
+  /* En el celular el buscador va en su propia línea: con `flex: 1` la base 0 gana y se quedaba estrujado. */
+  .buscar { min-width: 0; flex: 1 0 100%; }
+  .deudaMonto { margin-left: 0; }
+}
+
+/* El aviso del abono recién recibido, y el botón de anular uno (spec 0008). */
+.recibido {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2) var(--esp-3);
+  margin: 0 0 var(--esp-4);
+  padding: var(--esp-3) var(--esp-4);
+  border-left: 3px solid var(--success);
+  border-radius: var(--radio);
+  background: var(--success-soft);
+  color: var(--text);
+  font-size: 14px;
+}
+.cerrarAviso {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.impresion { flex-basis: 100%; margin: 0; font-size: 12.5px; color: var(--text-muted); }
+
+.anular {
+  margin-left: var(--esp-2);
+  padding: 1px 8px;
+  border: 1px solid var(--danger);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--danger);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.anular:hover { background: var(--danger-soft); }
+
+/* Los atajos de período de la Cartera (spec 0008, RF-022) y las acciones del encabezado. */
+.accionesEncabezado { display: inline-flex; flex-wrap: wrap; gap: var(--esp-2); }
+
+.atajos { display: flex; flex-wrap: wrap; gap: var(--esp-1); }
+.atajo,
+.atajoActivo {
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.atajo { background: var(--surface); color: var(--text-muted); }
+.atajo:hover { background: var(--surface-hover); color: var(--text); }
+.atajoActivo { background: var(--graphite); color: #fff; border-color: var(--graphite); }

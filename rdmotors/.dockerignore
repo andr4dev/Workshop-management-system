@@ -1,0 +1,35 @@
+# Lo que NO viaja al construir la imagen (spec 0011, fase 1).
+#
+# Sin esto, Docker le manda al motor de construccion todo lo que hay en la carpeta
+# —node_modules pesa cientos de megas— y cada despliegue tarda de mas por nada.
+
+# Lo que se reconstruye adentro
+node_modules/
+frontend/node_modules/
+frontend/dist/
+target/
+domain/target/
+pos/target/
+
+# Historia y herramientas: no se despliegan
+.git/
+.gitignore
+.mvn/
+mvnw
+mvnw.cmd
+.claude/
+
+# Copias de la base: son datos del negocio, no tienen nada que hacer en una imagen
+respaldos/
+*.dump
+
+# Secretos: que un descuido no los empaque dentro de la imagen
+.env
+.env.*
+*.pem
+
+# Documentos y pruebas manuales
+docs/
+http/
+HELP.md
+README.md

@@ -1,0 +1,210 @@
+###############################################################################
+#  RD MOTORS — cierre de caja, gastos y retiros (spec 0006)
+#
+#  Correr contra el backend local, con un turno abierto (ver 03-ventas.http).
+#  Primero hay que entrar (ver arriba): quién hace cada cosa lo decide la sesión (spec 0004).
+#
+#  Las llaves son de ejemplo: para registrar otro gasto o retiro, cámbialas.
+#  Repetir con la misma llave devuelve el que ya existe (doble clic).
+###############################################################################
+
+@host = http://localhost:8081
+
+# ── Entrar (spec 0004) ───────────────────────────────────────────────────────
+# Sin sesión, toda la API responde 401. La sesión queda en una cookie que el
+# cliente REST guarda solo ("rest-client.rememberCookiesForSubsequentRequests").
+# Las escrituras llevan además el token anti-CSRF: la primera respuesta deja la
+# cookie XSRF-TOKEN; copia su valor en @xsrf.
+@usuarioAdmin = ruben
+@claveAdmin = escribe-aqui-tu-contraseña
+@xsrf = pega-aqui-el-valor-de-la-cookie-XSRF-TOKEN
+
+### Quién soy → 401 si no has entrado; deja la cookie XSRF-TOKEN
+GET {{host}}/api/sesion
+
+### Entrar → 200 y la cookie de sesión (el token no viene en el cuerpo)
+POST {{host}}/api/sesion
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{ "usuario": "{{usuarioAdmin}}", "contrasena": "{{claveAdmin}}" }
+
+###############################################################################
+# FASE 1 · Categorías de gasto
+###############################################################################
+
+### Todas las categorías, activas y desactivadas → las 11 sembradas, todas GASTO; Arriendo, Nómina, Servicios públicos
+### e Internet y teléfono con "mensual": true (spec 0007)
+# @name categorias
+GET {{host}}/api/categorias-gasto
+
+### Crear "Publicidad" como gasto → 201
+# @name publicidad
+POST {{host}}/api/categorias-gasto
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "nombre": "Publicidad", "naturaleza": "GASTO" }
+
+### El mismo nombre sin tildes ni mayúsculas → 422 "Ya existe la categoría «Papelería»"
+POST {{host}}/api/categorias-gasto
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "nombre": "PAPELERIA", "naturaleza": "GASTO" }
+
+### Renombrar y decir si se paga cada mes → 200 (PUT reemplaza los dos: repetirlo deja lo mismo)
+PUT {{host}}/api/categorias-gasto/{{publicidad.response.body.id}}
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "nombre": "Publicidad y volantes", "mensual": true }
+
+### Desactivar → 200, "activa": false. No existe borrar.
+POST {{host}}/api/categorias-gasto/{{publicidad.response.body.id}}/desactivacion
+X-XSRF-TOKEN: {{xsrf}}
+
+###############################################################################
+# FASE 1 · Gastos
+###############################################################################
+
+### Un flete de $15.000 pagado con plata del cajón → 201, "delCajon": true, con el turno
+# Reemplaza categoriaId por el id de "Transporte y fletes" de la lista de arriba.
+# @name flete
+POST {{host}}/api/gastos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "0f0f0f0f-0000-4000-8000-000000000001",
+  "categoriaId": "REEMPLAZAR-POR-TRANSPORTE-Y-FLETES",
+  "monto": 15000,
+  "descripcion": "Flete Jotapartes FV-9912",
+  "delCajon": true
+}
+
+### El mismo gasto otra vez (doble clic) → 201 con el MISMO id: un solo gasto
+
+POST {{host}}/api/gastos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "0f0f0f0f-0000-4000-8000-000000000001",
+  "categoriaId": "REEMPLAZAR-POR-TRANSPORTE-Y-FLETES",
+  "monto": 15000,
+  "descripcion": "Flete Jotapartes FV-9912",
+  "delCajon": true
+}
+
+### El arriendo por transferencia, por fuera del cajón → 201, sin turno, con la cuenta
+# Reemplaza categoriaId por "Arriendo" y cuentaId por una cuenta de GET /api/cuentas.
+POST {{host}}/api/gastos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "0f0f0f0f-0000-4000-8000-000000000002",
+  "categoriaId": "REEMPLAZAR-POR-ARRIENDO",
+  "monto": 800000,
+  "descripcion": "Arriendo de septiembre",
+  "delCajon": false,
+  "formaPago": "TRANSFERENCIA",
+  "cuentaId": "REEMPLAZAR-POR-UNA-CUENTA",
+  "fecha": "2026-09-01"
+}
+
+### Un gasto del cajón de $10.000.000 → 409 "CONFIRMAR_MONTO", sin decir cuánto hay
+POST {{host}}/api/gastos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "0f0f0f0f-0000-4000-8000-000000000003",
+  "categoriaId": "REEMPLAZAR-POR-TRANSPORTE-Y-FLETES",
+  "monto": 10000000,
+  "descripcion": "Un cero de más",
+  "delCajon": true
+}
+
+# ⚠️ Con "confirmado": true y la misma llave, se registra.
+
+### La lista con filtros → del más reciente al más antiguo, con los anulados
+GET {{host}}/api/gastos?desde=2026-09-01&hasta=2026-09-30&pagina=0&tamano=25
+
+### Los totales de esos filtros → delCajon + porFuera = total; los anulados no suman
+GET {{host}}/api/gastos/totales?desde=2026-09-01&hasta=2026-09-30
+
+### Anular el flete (turno abierto) → 200 con "anuladoEn" y el motivo
+POST {{host}}/api/gastos/{{flete.response.body.id}}/anulacion
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "motivo": "Era $1.500, no $15.000" }
+
+###############################################################################
+# FASE 2 · Retiros
+###############################################################################
+
+### El dueño se lleva $100.000 → 201
+# @name retiro
+POST {{host}}/api/retiros
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "llave": "0f0f0f0f-0000-4000-8000-000000000010", "monto": 100000, "motivo": "Se lo llevó don Rubén" }
+
+### Sin motivo → 422 "Escribe el motivo del retiro..."
+POST {{host}}/api/retiros
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "llave": "0f0f0f0f-0000-4000-8000-000000000011", "monto": 100000, "motivo": "" }
+
+### Anular el retiro → 200
+POST {{host}}/api/retiros/{{retiro.response.body.id}}/anulacion
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "motivo": "Lo devolvió" }
+
+# Una compra de caja se registra en POST /api/compras con "pagadaDeCaja": true (ver 01-flujo-completo.http).
+
+###############################################################################
+# FASE 3 · El turno abierto y su cierre
+###############################################################################
+
+### El turno abierto → para tomar su id
+# @name abierto
+GET {{host}}/api/turnos/abierto
+
+### Sus movimientos: gastos del cajón, retiros, compras de caja y ventas. "cierre": null → NO dice lo que debería haber
+GET {{host}}/api/turnos/{{abierto.response.body.id}}
+
+### Cerrar con lo contado → 200 con "cierre": esperado, contado, diferencia y cada parte
+POST {{host}}/api/turnos/{{abierto.response.body.id}}/cierre
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "contado": 87000 }
+
+### Cerrarlo otra vez → 409 "Este turno ya se cerró", código TURNO_CERRADO, con cuándo
+POST {{host}}/api/turnos/{{abierto.response.body.id}}/cierre
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "contado": 87000 }
+
+### Las observaciones del cierre → 200; una segunda vez → 422 "ya se escribieron"
+PUT {{host}}/api/turnos/{{abierto.response.body.id}}/observaciones
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "observaciones": "Se dio mal un cambio" }
+
+###############################################################################
+# FASE 4 · Turnos anteriores
+###############################################################################
+
+### Los cerrados, del más reciente al más antiguo
+GET {{host}}/api/turnos?estado=CERRADO&pagina=0&tamano=25

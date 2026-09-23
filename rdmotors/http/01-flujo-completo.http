@@ -1,0 +1,493 @@
+###############################################################################
+#  RD MOTORS — flujo completo de la rebanada 1
+#
+#  Este archivo ES el QA de contrato: se ejecuta de arriba abajo y recorre todo
+#  lo que la rebanada promete. Si los ocho pasos pasan, el backend está listo
+#  para que la pantalla se le monte encima.
+#
+#  Antes de correrlo:
+#     ./mvnw install -DskipTests
+#     ./mvnw -pl pos spring-boot:run
+#
+#  En VS Code: extensión "REST Client", y clic en "Send Request" sobre cada ###
+#  Las peticiones se encadenan solas: cada una toma los ids de la anterior.
+###############################################################################
+
+@host = http://localhost:8081
+
+# ── Entrar (spec 0004) ───────────────────────────────────────────────────────
+# Sin sesión, toda la API responde 401. La sesión queda en una cookie que el
+# cliente REST guarda solo ("rest-client.rememberCookiesForSubsequentRequests").
+# Las escrituras llevan además el token anti-CSRF: la primera respuesta deja la
+# cookie XSRF-TOKEN; copia su valor en @xsrf.
+@usuarioAdmin = ruben
+@claveAdmin = escribe-aqui-tu-contraseña
+@xsrf = pega-aqui-el-valor-de-la-cookie-XSRF-TOKEN
+
+### Quién soy → 401 si no has entrado; deja la cookie XSRF-TOKEN
+GET {{host}}/api/sesion
+
+### Entrar → 200 y la cookie de sesión (el token no viene en el cuerpo)
+POST {{host}}/api/sesion
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{ "usuario": "{{usuarioAdmin}}", "contrasena": "{{claveAdmin}}" }
+
+###############################################################################
+# PASO 1 · Ver las categorías
+# Deben salir las 16 que sembró la migración V2, ordenadas.
+###############################################################################
+
+# @name categorias
+GET {{host}}/api/categorias
+
+###
+@categoriaFiltros = {{categorias.response.body.$[10].id}}
+
+###############################################################################
+# PASO 2 · Registrar el proveedor
+# Solo el nombre es obligatorio. RF-001.
+###############################################################################
+
+# @name proveedor
+POST {{host}}/api/proveedores
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "nombre": "Importadora Jotapartes",
+  "nit": "900123456-7",
+  "telefono": "3001234567"
+}
+
+###
+@proveedorId = {{proveedor.response.body.id}}
+
+### Listar proveedores activos — RF-002
+GET {{host}}/api/proveedores
+
+###############################################################################
+# PASO 2b · La cuenta desde la que se transfiere (spec 0002, RF-003)
+#
+# Un nombre para reconocerla, NUNCA el número completo.
+###############################################################################
+
+# @name cuenta
+POST {{host}}/api/cuentas
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "nombre": "Nequi del dueño"
+}
+
+###
+@cuentaId = {{cuenta.response.body.id}}
+
+### Listar cuentas activas
+GET {{host}}/api/cuentas
+
+###############################################################################
+# PASO 3 · Buscar el concepto ANTES de crear
+#
+# Esta es la decisión §4 del spec en acción. Todavía no existe nada, así que
+# devuelve vacío — y por eso el paso siguiente crea el concepto.
+###############################################################################
+
+GET {{host}}/api/productos?q=filtro
+
+###############################################################################
+# PASO 4 · Crear el primer repuesto, con concepto nuevo
+#
+# Datos reales de la lista de Jotapartes: filtro de aceite de Pulsar NS 200,
+# marca INOKI, que allá cuesta $2.977. Se vende a $6.000.
+# RF-004, RF-006, RF-007.
+###############################################################################
+
+# @name filtroInoki
+POST {{host}}/api/repuestos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "nombreProducto": "FILTRO ACEITE",
+  "categoriaId": "{{categoriaFiltros}}",
+  "aplicacionOriginal": "PULSAR NS 200/FI/AS 200-DUKE 200/3",
+  "codigo": "352B59K",
+  "marcaRepuesto": "INOKI",
+  "precio": 6000,
+  "stockMinimo": 5
+}
+
+###
+@filtroInokiId = {{filtroInoki.response.body.id}}
+
+# ⚠️ VERIFICAR EN LA RESPUESTA:
+#    "stock": 0
+#    "costoPromedio": null        ← null, NO cero. RF-013.
+#    "costoDesconocido": true
+
+###############################################################################
+# PASO 5 · Buscar el concepto OTRA VEZ — ahora sí aparece
+#
+# Es lo que la pantalla le mostrará al administrador para que reutilice en vez
+# de duplicar. Copia el "id" que devuelve: es el concepto compartido.
+###############################################################################
+
+# @name conceptos
+GET {{host}}/api/productos?q=filtro
+
+###
+@conceptoFiltroId = {{conceptos.response.body.$[0].id}}
+
+###############################################################################
+# PASO 6 · Segunda marca del MISMO concepto
+#
+# El núcleo de la decisión §4: se manda "productoId", no "nombreProducto".
+# En la lista de Jotapartes este mismo filtro existe en FACTORY a $6.362 — más
+# del doble que el INOKI. Se vende a $12.000.
+###############################################################################
+
+# @name filtroFactory
+POST {{host}}/api/repuestos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "productoId": "{{conceptoFiltroId}}",
+  "codigo": "370P2NN",
+  "marcaRepuesto": "FACTORY",
+  "precio": 12000,
+  "stockMinimo": 5
+}
+
+###
+@filtroFactoryId = {{filtroFactory.response.body.id}}
+
+# ⚠️ VERIFICAR: sigue habiendo UN SOLO concepto, con dos marcas colgando.
+GET {{host}}/api/productos?q=filtro
+#    Debe devolver UN elemento. Si devuelve dos, la decisión §4 está rota.
+
+###############################################################################
+# PASO 7 · Registrar la compra
+#
+# Dos renglones con los DOS modos de captura, que es lo que el car-wash no sabe
+# hacer. RF-014, RF-015, RF-018.
+#
+#   Renglón 1 — MODO TOTAL:    15 unidades por $200.000  → $13.333,3333 c/u
+#   Renglón 2 — MODO UNITARIO:  6 unidades a $6.362 c/u  → $38.172 total
+#
+# El renglón 2 además trae precio de venta, así que actualiza el precio.
+# El renglón 1 lo manda null: NO toca el precio.
+###############################################################################
+
+# @name compra
+POST {{host}}/api/compras
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "{{$uuid}}",
+  "proveedorId": "{{proveedorId}}",
+  "fechaDocumento": "2026-08-13",
+  "numeroFactura": "FV-9912",
+  "formaPago": "TRANSFERENCIA",
+  "cuentaId": "{{cuentaId}}",
+  "lineas": [
+    {
+      "varianteId": "{{filtroInokiId}}",
+      "cantidad": 15,
+      "modo": "TOTAL",
+      "costoTotal": 200000,
+      "precioVenta": null
+    },
+    {
+      "varianteId": "{{filtroFactoryId}}",
+      "cantidad": 6,
+      "modo": "UNITARIO",
+      "costoUnitario": 6362,
+      "precioVenta": 13500
+    }
+  ]
+}
+
+# ⚠️ VERIFICAR EN LA RESPUESTA:
+#    total: 238172                      ← 200.000 + (6 × 6.362). Cuadra al peso.
+#    línea 1 costoUnitario: 13333.3333  ← CUATRO decimales, no 13333
+#    línea 1 stockResultante: 15
+#    línea 2 stockResultante: 6
+
+###############################################################################
+# PASO 8 · Comprobar el resultado
+###############################################################################
+
+### Por código exacto — RF-010. Así lo copia el admin de la factura.
+GET {{host}}/api/repuestos?codigo=352B59K
+
+# ⚠️ VERIFICAR: stock 15, costoPromedio 13333.3333, costoDesconocido false
+#    y precio SIGUE en 6000 — el renglón mandó precioVenta null. RF-018.
+
+### Por código en minúsculas — tiene que encontrarlo igual
+GET {{host}}/api/repuestos?codigo=370p2nn
+
+# ⚠️ VERIFICAR: precio 13500 — este renglón SÍ traía precio de venta.
+
+### Por texto libre — RF-011. Devuelve las dos marcas.
+GET {{host}}/api/repuestos?q=filtro
+
+### Por la aplicación vehicular — así llega el cliente: diciendo su moto
+GET {{host}}/api/repuestos?q=pulsar
+
+### El kardex del filtro INOKI — RF-021, RF-022
+GET {{host}}/api/repuestos/{{filtroInokiId}}/kardex
+
+# ⚠️ VERIFICAR:
+#    tipo: "COMPRA", cantidad: 15
+#    costoUnitario: 13333.3333
+#    saldoDespues: 15
+#    costoPromedioDespues: 13333.3333
+
+###############################################################################
+# PASO 9 (opcional) · Segunda compra, para ver moverse el promedio ponderado
+#
+# 10 unidades a $20.000 c/u sobre 15 que están a $13.333,3333:
+#    (15 × 13.333,3333 + 10 × 20.000) / 25 = $16.000
+###############################################################################
+
+POST {{host}}/api/compras
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "{{$uuid}}",
+  "proveedorId": "{{proveedorId}}",
+  "fechaDocumento": "2026-09-05",
+  "numeroFactura": "FV-9980",
+  "formaPago": "EFECTIVO",
+  "lineas": [
+    {
+      "varianteId": "{{filtroInokiId}}",
+      "cantidad": 10,
+      "modo": "UNITARIO",
+      "costoUnitario": 20000,
+      "precioVenta": null
+    }
+  ]
+}
+
+### El kardex ahora muestra los dos movimientos, del más reciente al más antiguo
+GET {{host}}/api/repuestos/{{filtroInokiId}}/kardex
+
+# ⚠️ VERIFICAR: el primero de la lista es el más nuevo,
+#    con saldoDespues 25 y costoPromedioDespues 16000.0000
+
+###############################################################################
+# FASE 6 · Inventario y ficha del repuesto
+###############################################################################
+
+### Inventario completo, sin teclear nada (al revés que el buscador de la compra)
+GET {{host}}/api/inventario
+
+# ⚠️ VERIFICAR: "total" cuenta TODOS, no solo los de esta página,
+#    y cada repuesto trae categoriaId, categoria y stockMinimo.
+
+### Código parcial: el inventario lo encuentra, el buscador de la compra no
+GET {{host}}/api/inventario?q=59K
+
+### Solo lo que hay que pedir (en su mínimo o por debajo), segunda página de a 10
+GET {{host}}/api/inventario?soloStockBajo=true&pagina=1&tamano=10
+
+### Spec 0005: solo una categoría, con los que tienen stock primero (el orden del catálogo)
+GET {{host}}/api/inventario?categoriaId={{categoriaFiltros}}&conStockPrimero=true
+
+### Spec 0005: los que no tienen categoría, para corregirlos desde su ficha
+GET {{host}}/api/inventario?sinCategoria=true
+
+### Spec 0005: cuántos de lo buscado hay en cada categoría. Suman el total de /api/inventario?q=aceite
+GET {{host}}/api/inventario/categorias?q=aceite
+
+### Totales
+GET {{host}}/api/inventario/resumen
+
+# ⚠️ VERIFICAR: "valor" no incluye los repuestos sin costo; "sinCosto" dice cuántos son.
+
+### La ficha de un repuesto
+GET {{host}}/api/repuestos/{{filtroInokiId}}
+
+### El kardex trae proveedor, factura y el precio que fijó cada compra
+GET {{host}}/api/repuestos/{{filtroInokiId}}/kardex
+
+# ⚠️ VERIFICAR: la compra FV-9980 dice "proveedor" y "factura";
+#    "precioVenta" es null si esa compra no cambió el precio.
+
+###############################################################################
+# SPEC 0002 · FASE 2 · Historial y detalle de compras
+#
+# Las fechas del filtro son de la FACTURA, no de cuando se registró.
+###############################################################################
+
+### Historial completo, de la factura más reciente a la más antigua
+GET {{host}}/api/compras
+
+### Solo las de este proveedor pagadas por transferencia
+GET {{host}}/api/compras?proveedorId={{proveedorId}}&formaPago=TRANSFERENCIA
+
+### Por número de factura, parcial y sin distinguir mayúsculas
+# @name historialFactura
+GET {{host}}/api/compras?factura=fv-99
+
+# ⚠️ VERIFICAR: trae FV-9912 y FV-9980; "total" cuenta todas las que coinciden.
+
+### Facturas de septiembre
+GET {{host}}/api/compras?desde=2026-09-01&hasta=2026-09-30
+
+### El detalle de la primera que encontró
+GET {{host}}/api/compras/{{historialFactura.response.body.elementos[0].id}}
+
+# ⚠️ VERIFICAR: los renglones salen en el orden en que se capturaron, y "total"
+#    es la suma exacta de sus "costoTotal".
+
+###############################################################################
+# SPEC 0002 · FASES 3 a 5 · Corregir y anular una compra
+#
+# Toda corrección y anulación lleva la VERSIÓN que se cargó y un MOTIVO.
+# Si otra corrección se guardó en el medio, responde 409.
+###############################################################################
+
+### Abrir la compra FV-9980 para corregirla (toma su versión y su renglón)
+# @name aCorregir
+GET {{host}}/api/compras?factura=FV-9980
+
+###
+@compraId = {{aCorregir.response.body.elementos[0].id}}
+
+# @name detalleACorregir
+GET {{host}}/api/compras/{{compraId}}
+
+###
+@version = {{detalleACorregir.response.body.version}}
+@lineaId = {{detalleACorregir.response.body.renglones[0].lineaId}}
+
+### Corregir: eran 8 unidades, no 10. Solo este renglón mueve el inventario.
+POST {{host}}/api/compras/{{compraId}}/correcciones
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "version": {{version}},
+  "motivo": "se digitaron 10 y llegaron 8",
+  "proveedorId": "{{proveedorId}}",
+  "fechaDocumento": "2026-09-05",
+  "numeroFactura": "FV-9980",
+  "formaPago": "EFECTIVO",
+  "lineas": [
+    { "lineaId": "{{lineaId}}", "varianteId": "{{filtroInokiId}}", "cantidad": 8,
+      "modo": "UNITARIO", "costoUnitario": 20000, "precioVenta": null }
+  ]
+}
+
+# ⚠️ VERIFICAR: "compra.version" subió en 1, "compra.reemplazados" tiene el renglón de 10,
+#    y "compra.correcciones" trae el antes y el después con el motivo.
+#    El kardex del repuesto muestra Compra +10 · Corrección −10 · Compra +8.
+
+### Corregir solo la forma de pago: "lineas" ausente = no tocar renglones
+POST {{host}}/api/compras/{{compraId}}/correcciones
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "version": {{version}},
+  "motivo": "se pagó por Nequi",
+  "proveedorId": "{{proveedorId}}",
+  "fechaDocumento": "2026-09-05",
+  "numeroFactura": "FV-9980",
+  "formaPago": "TRANSFERENCIA",
+  "cuentaId": "{{cuentaId}}"
+}
+
+# ⚠️ VERIFICAR: 409 si se corre justo después de la anterior con la MISMA versión:
+#    "La compra cambió mientras la corregías". Con la versión nueva, pasa.
+
+### Anular (con la versión actual de la compra)
+POST {{host}}/api/compras/{{compraId}}/anulacion
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "version": 2,
+  "motivo": "se registró dos veces"
+}
+
+# ⚠️ VERIFICAR: "compra.estado": "ANULADA". Si el repuesto tuvo ventas después, 422 con
+#    "codigosBloqueados" y no se anula nada.
+
+### Solo las anuladas
+GET {{host}}/api/compras?estado=ANULADA
+
+###############################################################################
+# SPEC 0002 · FASE 6 · Totales, desactivar cuenta, auditoría de la ficha
+###############################################################################
+
+### Totales de septiembre por forma de pago y cuenta — H6. Mismos filtros que el historial.
+GET {{host}}/api/compras/totales?desde=2026-09-01&hasta=2026-09-30
+
+# ⚠️ VERIFICAR: la suma de los "total" de "partes" es exactamente "total".
+#    Las anuladas no suman, aunque se pida estado=TODAS.
+
+### Pedir solo las anuladas → totales en cero: una anulada nunca suma
+GET {{host}}/api/compras/totales?estado=ANULADA
+
+### Corregir la ficha del filtro INOKI — H7. Queda en la auditoría a nombre de quien entró.
+PUT {{host}}/api/repuestos/{{filtroInokiId}}
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "nombreProducto": "FILTRO ACEITE",
+  "categoriaId": "{{categoriaFiltros}}",
+  "aplicacionOriginal": "PULSAR NS 200/FI/AS 200-DUKE 200/3",
+  "codigo": "352B59K",
+  "marcaRepuesto": "INOKI",
+  "precio": 6500,
+  "stockMinimo": 4
+}
+
+### Las correcciones de la ficha, de la más antigua a la más reciente
+GET {{host}}/api/repuestos/{{filtroInokiId}}/correcciones
+
+# ⚠️ VERIFICAR: un evento CORREGIR_REPUESTO con "antes" y "despues" (precio 6000 → 6500,
+#    stockMinimo 5 → 4). Repetir el mismo PUT NO agrega otro evento: no cambió nada.
+
+### Desactivar la cuenta — RF-004. No hay DELETE: las compras la siguen nombrando.
+POST {{host}}/api/cuentas/{{cuentaId}}/desactivacion
+X-XSRF-TOKEN: {{xsrf}}
+
+# ⚠️ VERIFICAR: "activa": false, y GET /api/cuentas ya no la lista.
+#    El historial y los totales siguen mostrando su nombre en las compras que salieron de ella.
+
+### El kardex trae "compraId": la pantalla lo usa para abrir la compra desde la factura — H8
+GET {{host}}/api/repuestos/{{filtroInokiId}}/kardex
+
+###############################################################################
+# SPEC 0002 · FASE 7 · Buscar las compras de un repuesto
+#
+# Parte del código, el nombre, la marca o la moto. Solo cuentan los renglones
+# vigentes. Las cifras siguen siendo de las facturas completas.
+###############################################################################
+
+### Las compras donde vino el filtro INOKI (por la marca)
+# @name porRepuesto
+GET {{host}}/api/compras?repuesto=inoki&estado=VIGENTE
+
+### Por la moto a la que aplica
+GET {{host}}/api/compras?repuesto=duke
+
+### Los totales de esa misma búsqueda
+GET {{host}}/api/compras/totales?repuesto=inoki&estado=VIGENTE
+
+### El detalle con lo buscado marcado: cada renglón trae "coincide"
+GET {{host}}/api/compras/{{porRepuesto.response.body.elementos[0].id}}?repuesto=inoki
+
+# ⚠️ VERIFICAR: en FV-9912 el renglón INOKI trae "coincide": true y el FACTORY false.
+#    Toda compra que sale en la lista tiene al menos un renglón con "coincide": true.

@@ -1,0 +1,70 @@
+/* El respaldo (spec 0009, H2). */
+
+.tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--esp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+
+.etiqueta {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.valor { font-size: 24px; font-weight: 700; }
+
+/* Una ruta de Windows es larga y no tiene espacios: se parte donde sea antes que desbordar. */
+.ruta {
+  font-family: var(--fuente-mono);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.nota { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+
+.seccion { margin: 0 0 var(--esp-2); font-size: 15px; }
+
+.aviso,
+.avisoGrave,
+.exito {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 var(--esp-4);
+  padding: 10px 12px;
+  border-radius: var(--radio);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.aviso { background: var(--warn-soft); color: var(--warn); }
+.avisoGrave { background: var(--danger-soft); color: var(--danger); }
+.exito { background: var(--success-soft); color: var(--success); }
+
+.filaFallo td { color: var(--danger); }
+
+.archivo {
+  font-family: var(--fuente-mono);
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--text-muted);
+}
+
+.avisoFila { color: var(--warn); }
+
+.vacio { margin: 0; padding: var(--esp-4); text-align: center; color: var(--text-muted); }
+
+.pie { margin: var(--esp-3) 0 0; font-size: 12.5px; color: var(--text-muted); }

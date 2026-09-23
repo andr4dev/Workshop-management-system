@@ -1,0 +1,20 @@
+/* El ticket sobre una "mesa": el papel es blanco también en modo oscuro, porque así sale impreso. */
+.mesa {
+  display: flex;
+  justify-content: center;
+  padding: var(--esp-4);
+  border-radius: var(--radio-lg);
+  background: var(--surface-2);
+  overflow-x: auto;
+}
+
+/* 2 px de más: 80 mm son 302,36 px y el marco redondea a 302. Sin ese margen, el documento se pasa por
+   una fracción de píxel, sale una barra horizontal, y esa barra le quita alto y saca otra vertical. */
+.papel {
+  flex: none;
+  width: calc(80mm + 2px);
+  height: 560px;
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow);
+}

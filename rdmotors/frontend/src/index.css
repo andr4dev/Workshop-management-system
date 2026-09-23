@@ -1,0 +1,171 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   RD MOTORS — tokens de diseño
+
+   Derivados del logo, no inventados. Los tonos exactos se extrajeron del PNG:
+       rojo   #F80000   (la "D")
+       plata  #C8C8C8   (la "R")
+       negro  #000000   (MOTORS)
+
+   Tres decisiones que conviene entender antes de tocar nada:
+
+   1. EL ROJO ES ACENTO, NO DOMINANTE. El logo ya lo dice: MOTORS es negro, la R
+      es plata, y solo la D lleva rojo. La interfaz respeta esa proporción.
+
+   2. EL ROJO DE MARCA NO ES EL ROJO DE ERROR. En un punto de venta el rojo ya
+      significa "algo salió mal". Si el color de marca fuera el mismo, el cajero
+      no distinguiría la app de una alarma. Por eso --brand vive en cabecera,
+      navegación activa y botón primario; --danger es más profundo, vive en el
+      contenido, y NUNCA comunica solo con color: siempre lleva icono y borde.
+
+   3. NADA DE DEGRADADOS CROMADOS. El logo los tiene; la interfaz no. Son de otra
+      época y perjudican la legibilidad, que aquí importa más: el cajero lee con
+      un cliente enfrente y a veces con reflejo en la pantalla.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Identidad ─────────────────────────────────────────────────────────── */
+  --brand:            #D42A2A;  /* rojo del logo, profundizado para que no vibre */
+  --brand-hover:      #B02020;
+  --brand-active:     #8F1A1A;
+  --brand-soft:       #FCEDED;  /* fondo tenue para zonas de marca */
+  --silver:           #C8C8C8;  /* la "R" — bordes y separadores con carácter */
+  --graphite:         #14161A;  /* "MOTORS" — casi negro, no negro puro */
+
+  /* ── Superficies ───────────────────────────────────────────────────────── */
+  --bg:               #F4F5F7;  /* fondo de página, gris muy claro */
+  --surface:          #FFFFFF;  /* tarjetas y paneles */
+  --surface-2:        #FAFAFB;  /* filas alternas, zonas hundidas */
+  --surface-hover:    #F0F1F4;
+  --border:           #DDE0E5;
+  --border-subtle:    #EDEFF2;
+  --border-strong:    #C2C7D0;
+
+  /* ── Texto ─────────────────────────────────────────────────────────────── */
+  --text:             #14161A;  /* casi negro: #000 puro cansa en sesiones largas */
+  --text-muted:       #5C636E;
+  --text-faint:       #8A919C;
+  --text-inverse:     #FFFFFF;
+
+  /* ── Estado ────────────────────────────────────────────────────────────── */
+  /* --danger es MÁS PROFUNDO que --brand a propósito: se distinguen por
+     luminosidad, no solo por tono. Y nunca va solo: icono + borde + fondo. */
+  --danger:           #9B1C1C;
+  --danger-soft:      #FDECEC;
+  --warn:             #B45309;
+  --warn-soft:        #FEF6E7;
+  --success:          #15803D;
+  --success-soft:     #ECFAF0;
+  --info:             #1D4ED8;
+  --info-soft:        #EEF2FF;
+
+  /* ── Elevación ─────────────────────────────────────────────────────────── */
+  --shadow-sm:  0 1px 2px rgba(20, 22, 26, .06);
+  --shadow:     0 2px 8px rgba(20, 22, 26, .08);
+  --shadow-lg:  0 8px 28px rgba(20, 22, 26, .14);
+
+  /* ── Forma y ritmo ─────────────────────────────────────────────────────── */
+  --radio:      8px;
+  --radio-sm:   5px;
+  --radio-lg:   14px;
+
+  --esp-1: 4px;   --esp-2: 8px;   --esp-3: 12px;
+  --esp-4: 16px;  --esp-5: 24px;  --esp-6: 32px;  --esp-7: 48px;
+
+  /* Tipografía del sistema: nada que descargar, nada que esperar. En un POS el
+     primer render importa más que la personalidad de la fuente. */
+  --fuente: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --fuente-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
+
+  color-scheme: light;
+}
+
+/* ═══ Modo oscuro ═══════════════════════════════════════════════════════════
+   No es un lujo: los locales de repuestos suelen estar poco iluminados, y una
+   pantalla blanca a las 8 de la noche cansa. El negro + plata + rojo del logo
+   funciona aquí incluso mejor que en claro.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme='dark'] {
+  --brand:            #E8443C;  /* se aclara: un rojo profundo sobre negro se apaga */
+  --brand-hover:      #F05A52;
+  --brand-active:     #C93028;
+  --brand-soft:       #2A1618;
+  --silver:           #6B7280;
+  --graphite:         #0C0D10;
+
+  --bg:               #121316;
+  --surface:          #1A1C20;
+  --surface-2:        #212429;
+  --surface-hover:    #282C33;
+  --border:           #2E323A;
+  --border-subtle:    #24272D;
+  --border-strong:    #3D424C;
+
+  --text:             #E8EAED;
+  --text-muted:       #9AA1AC;
+  --text-faint:       #6B7280;
+  --text-inverse:     #14161A;
+
+  --danger:           #F07070;  /* se aclara para leerse; lo grave lo dice el icono */
+  --danger-soft:      #2E1818;
+  --warn:             #E0A458;
+  --warn-soft:        #2A2113;
+  --success:          #5BBF7F;
+  --success-soft:     #14251A;
+  --info:             #7A9BF5;
+  --info-soft:        #171C2E;
+
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, .40);
+  --shadow:     0 2px 8px rgba(0, 0, 0, .48);
+  --shadow-lg:  0 8px 28px rgba(0, 0, 0, .60);
+
+  color-scheme: dark;
+}
+
+/* ═══ Base ═════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--fuente);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Todo monto, sin excepción. Sin esto los dígitos bailan y la columna deja de
+   poder verificarse a ojo — y que la columna SUME LEÍDA DE ARRIBA ABAJO es un
+   requisito del negocio, no un detalle estético. */
+.cifra, td.cifra, th.cifra {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* El foco tiene que verse: el POS se opera con teclado, y perder de vista dónde
+   estás parado es perder la venta. */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--radio-sm);
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Contenido ancho: scrollea en su propio contenedor. El body nunca en horizontal. */
+.scroll-x { overflow-x: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}

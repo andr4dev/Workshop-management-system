@@ -1,0 +1,316 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Caja (spec 0006): formularios de gasto y retiro, la confirmación de un monto
+   grande, las categorías y el desglose del cierre.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  min-width: 0;
+}
+
+.dosColumnas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--esp-3);
+}
+
+/* ── Opciones excluyentes: del cajón o por fuera, efectivo o transferencia ─ */
+
+.segmento {
+  display: flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  overflow: hidden;
+}
+
+.opcion,
+.opcionActiva {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.opcion { background: var(--surface); color: var(--text-muted); }
+.opcion:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+.opcion:disabled { cursor: not-allowed; color: var(--text-faint); }
+.opcion + .opcion,
+.opcionActiva + .opcion,
+.opcion + .opcionActiva { border-left: 1px solid var(--border-strong); }
+/* Grafito: elegido, no alarma. */
+.opcionActiva { background: var(--graphite); color: #fff; }
+
+.select,
+.textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+}
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+.textarea { resize: vertical; }
+
+.nota {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* Lo que respondió el servidor: dato, en rojo, con icono. */
+.error {
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--danger);
+  border-left-width: 3px;
+  border-radius: var(--radio);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── ¿Seguro? (decisión 3): avisa, no bloquea ─────────────────────────────── */
+
+.confirmar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-3);
+  border: 1px solid var(--warn);
+  border-left-width: 3px;
+  border-radius: var(--radio);
+  background: var(--warn-soft);
+  color: var(--text);
+  font-size: 14px;
+}
+.confirmar strong { color: var(--warn); }
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--esp-2);
+}
+
+/* ── Categorías ───────────────────────────────────────────────────────────── */
+
+.nueva {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px auto;
+  align-items: end;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-4);
+  padding-bottom: var(--esp-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+}
+
+.fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+}
+.fila + .fila { border-top: 1px solid var(--border-subtle); }
+
+.nombre {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+.desactivada { color: var(--text-faint); }
+
+.etiqueta {
+  display: inline-block;
+  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.etiquetaCosto {
+  display: inline-block;
+  padding: 0 7px;
+  border: 1px solid var(--info);
+  border-radius: 999px;
+  background: var(--info-soft);
+  color: var(--info);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.renombrar {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  min-width: 0;
+}
+.renombrar input { flex: 1; min-width: 160px; }
+
+.errorFila {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.vacio {
+  margin: 0;
+  padding: var(--esp-4) 0;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+/* ── El cierre ────────────────────────────────────────────────────────────── */
+
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--esp-3);
+}
+
+.cifra,
+.cifraFaltante,
+.cifraSobrante,
+.cifraCuadra {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--esp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+}
+/* Un faltante nunca comunica solo con color: lleva icono y borde. */
+.cifraFaltante { border: 2px solid var(--danger); background: var(--danger-soft); }
+.cifraSobrante { border: 2px solid var(--warn); background: var(--warn-soft); }
+.cifraCuadra { border: 2px solid var(--success); background: var(--success-soft); }
+
+.cifraEtiqueta {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.cifraValor {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.cifraFaltante .cifraValor { color: var(--danger); }
+.cifraSobrante .cifraValor { color: var(--warn); }
+.cifraCuadra .cifraValor { color: var(--success); }
+
+.desglose {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.desglose td {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.desglose td:last-child {
+  padding-left: var(--esp-3);
+  text-align: right;
+  white-space: nowrap;
+}
+.resta td:last-child { color: var(--text-muted); }
+.desgloseTotal td {
+  padding-top: var(--esp-2);
+  border-top: 2px solid var(--border-strong);
+  border-bottom: none;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.observaciones {
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+.billetes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: var(--esp-2);
+  padding: var(--esp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface-2);
+}
+
+/* Una casilla con su texto al lado, clicable entera. */
+.casilla {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.casilla input { width: 18px; height: 18px; accent-color: var(--graphite); }
+.nueva .casilla { grid-column: 1 / -1; }
+
+/* Una acción secundaria dentro de un texto: parece enlace, pero es un botón (no navega). */
+.enlace {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.enviado { font-size: 13px; font-weight: 600; color: var(--success); }
+.fallo { font-size: 13px; font-weight: 600; color: var(--danger); }
+
+@media (max-width: 520px) {
+  .dosColumnas,
+  .cifras,
+  .nueva { grid-template-columns: minmax(0, 1fr); }
+}

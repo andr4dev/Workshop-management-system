@@ -1,0 +1,381 @@
+###############################################################################
+#  RD MOTORS — el camino infeliz
+#
+#  Un requisito sin su error es medio requisito. Esto cubre la sección 6 del
+#  spec 0001: qué debe pasar cuando las cosas salen mal.
+#
+#  Correr DESPUÉS de 01-flujo-completo.http, que deja los datos sembrados.
+###############################################################################
+
+@host = http://localhost:8081
+
+# ── Entrar (spec 0004) ───────────────────────────────────────────────────────
+# Sin sesión, toda la API responde 401. La sesión queda en una cookie que el
+# cliente REST guarda solo ("rest-client.rememberCookiesForSubsequentRequests").
+# Las escrituras llevan además el token anti-CSRF: la primera respuesta deja la
+# cookie XSRF-TOKEN; copia su valor en @xsrf.
+@usuarioAdmin = ruben
+@claveAdmin = escribe-aqui-tu-contraseña
+@xsrf = pega-aqui-el-valor-de-la-cookie-XSRF-TOKEN
+
+### Quién soy → 401 si no has entrado; deja la cookie XSRF-TOKEN
+GET {{host}}/api/sesion
+
+### Entrar → 200 y la cookie de sesión (el token no viene en el cuerpo)
+POST {{host}}/api/sesion
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{ "usuario": "{{usuarioAdmin}}", "contrasena": "{{claveAdmin}}" }
+
+###############################################################################
+# Código repetido → 409, diciendo CUÁL repuesto lo tiene
+#
+# Sin el nombre, el administrador no sabe si tecleó mal o si ya lo había creado
+# la semana pasada — que es justo lo que necesita para decidir qué hacer.
+###############################################################################
+
+POST {{host}}/api/repuestos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "nombreProducto": "OTRA COSA DISTINTA",
+  "codigo": "352B59K",
+  "marcaRepuesto": "CBI",
+  "precio": 9000,
+  "stockMinimo": 3
+}
+
+# ⚠️ ESPERADO: 409 Conflict
+#    "nombreDelQueLoTiene": "FILTRO ACEITE"
+#    Y ojo: NO debe haber quedado creado ningún "OTRA COSA DISTINTA".
+#    Verificarlo con la petición siguiente.
+
+### El concepto huérfano NO debe existir: el código se valida antes de crear nada
+GET {{host}}/api/productos?q=OTRA COSA
+
+# ⚠️ ESPERADO: lista vacía
+
+###############################################################################
+# El mismo código en minúsculas también se detecta
+###############################################################################
+
+POST {{host}}/api/repuestos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "nombreProducto": "PRUEBA MINUSCULAS",
+  "codigo": "352b59k",
+  "marcaRepuesto": "CBI",
+  "precio": 9000,
+  "stockMinimo": 3
+}
+
+# ⚠️ ESPERADO: 409 — el código se normaliza antes de comparar
+
+###############################################################################
+# Mandar concepto existente Y nuevo a la vez → 422
+#
+# El comando del dominio lo rechaza en su constructor: no llega ni al caso de uso.
+###############################################################################
+
+POST {{host}}/api/repuestos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "productoId": "00000000-0000-0000-0000-000000000001",
+  "nombreProducto": "FILTRO ACEITE",
+  "codigo": "NUEVO-1",
+  "marcaRepuesto": "CBI",
+  "precio": 9000,
+  "stockMinimo": 3
+}
+
+# ⚠️ ESPERADO: 422 — "Se recibió un concepto existente y uno nuevo a la vez. Es uno u otro."
+
+###############################################################################
+# SPEC 0005 · Un concepto nuevo sin categoría → 422
+#
+# Es como se encuentra en el catálogo del mostrador. Una marca nueva de un
+# concepto existente no la pide: hereda la del concepto.
+###############################################################################
+
+POST {{host}}/api/repuestos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "nombreProducto": "ALGO SIN CATEGORIA",
+  "codigo": "SINCAT-1",
+  "marcaRepuesto": "CBI",
+  "precio": 9000,
+  "stockMinimo": 3
+}
+
+# ⚠️ ESPERADO: 422 — "Escoge la categoría: es como se encuentra en el catálogo del mostrador"
+
+### Filtrar por una categoría Y por los sin categoría a la vez → 422
+GET {{host}}/api/inventario?categoriaId=00000000-0000-0000-0000-000000000001&sinCategoria=true
+
+# ⚠️ ESPERADO: 422 — "Filtra por una categoría o por los que no tienen, no por las dos"
+
+###############################################################################
+# No mandar ningún concepto → 422
+###############################################################################
+
+POST {{host}}/api/repuestos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "codigo": "NUEVO-2",
+  "marcaRepuesto": "CBI",
+  "precio": 9000,
+  "stockMinimo": 3
+}
+
+# ⚠️ ESPERADO: 422 — "Falta el concepto del repuesto"
+
+###############################################################################
+# Apuntar a un concepto que no existe → 422
+###############################################################################
+
+POST {{host}}/api/repuestos
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "productoId": "00000000-0000-0000-0000-000000000099",
+  "codigo": "NUEVO-3",
+  "marcaRepuesto": "CBI",
+  "precio": 9000,
+  "stockMinimo": 3
+}
+
+# ⚠️ ESPERADO: 422 — "El repuesto al que lo quieres asociar no existe"
+
+###############################################################################
+# Compra con costo cero → 422, con la razón dicha
+#
+# Sin costo real el repuesto reportaría 100% de utilidad, y eso envenena todos
+# los reportes de margen. Por eso se rechaza en vez de aceptarse como cero.
+###############################################################################
+
+POST {{host}}/api/compras
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "{{$uuid}}",
+  "proveedorId": "00000000-0000-0000-0000-000000000001",
+  "fechaDocumento": "2026-08-13",
+  "numeroFactura": "FV-MALA",
+  "formaPago": "EFECTIVO",
+  "lineas": [
+    { "varianteId": "00000000-0000-0000-0000-000000000001",
+      "cantidad": 5, "modo": "TOTAL", "costoTotal": 0 }
+  ]
+}
+
+# ⚠️ ESPERADO: 422 — "...reportaría 100% de utilidad"
+
+###############################################################################
+# Proveedor inexistente → 422
+###############################################################################
+
+POST {{host}}/api/compras
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "{{$uuid}}",
+  "proveedorId": "00000000-0000-0000-0000-000000000099",
+  "fechaDocumento": "2026-08-13",
+  "numeroFactura": "FV-SIN-PROVEEDOR",
+  "formaPago": "EFECTIVO",
+  "lineas": [
+    { "varianteId": "00000000-0000-0000-0000-000000000001",
+      "cantidad": 5, "modo": "UNITARIO", "costoUnitario": 1000 }
+  ]
+}
+
+# ⚠️ ESPERADO: 422 — "El proveedor no existe"
+
+###############################################################################
+# Búsquedas que no encuentran nada → lista vacía, no error
+#
+# No encontrar no es un fallo: es la señal de que la pantalla debe ofrecer
+# crear el repuesto con ese código ya puesto (RF-007b).
+###############################################################################
+
+### Código que no existe
+GET {{host}}/api/repuestos?codigo=NO-EXISTE-123
+
+### Texto sin coincidencias
+GET {{host}}/api/repuestos?q=bujiaquenoexiste
+
+### Búsqueda vacía → no devuelve el catálogo entero
+GET {{host}}/api/repuestos?q=
+
+### Un repuesto que no existe: 404 con mensaje, no lista vacía
+GET {{host}}/api/repuestos/00000000-0000-0000-0000-000000000000
+
+# ⚠️ VERIFICAR: 404 y {"mensaje": "Ese repuesto no existe"}
+
+### Parámetros absurdos en el inventario: se sanean, no revientan
+GET {{host}}/api/inventario?pagina=-3&tamano=100000
+
+# ⚠️ VERIFICAR: 200, "numero": 0 y "tamano": 100
+
+###############################################################################
+# Forma de pago y cuentas (spec 0002, fase 1)
+#
+# Las reglas las pone el dominio; aquí se comprueba que el borde las devuelve
+# con un mensaje legible y sin guardar nada.
+###############################################################################
+
+### Transferencia sin cuenta → 422, y no entra nada al inventario
+POST {{host}}/api/compras
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "{{$uuid}}",
+  "proveedorId": "00000000-0000-0000-0000-000000000000",
+  "fechaDocumento": "2026-09-10",
+  "formaPago": "TRANSFERENCIA",
+  "lineas": [
+    { "varianteId": "00000000-0000-0000-0000-000000000000", "cantidad": 1, "modo": "TOTAL", "costoTotal": 1000 }
+  ]
+}
+
+# ⚠️ VERIFICAR: 422. Con un proveedor real, el mensaje es
+#    "Una transferencia necesita la cuenta desde la que salió".
+
+### Sin forma de pago → 400: no hay efectivo por defecto
+POST {{host}}/api/compras
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "llave": "{{$uuid}}",
+  "proveedorId": "00000000-0000-0000-0000-000000000000",
+  "fechaDocumento": "2026-09-10",
+  "lineas": []
+}
+
+### La misma cuenta con otras mayúsculas → 422 que dice cuál existe
+POST {{host}}/api/cuentas
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "nombre": "NEQUI  del dueño"
+}
+
+# ⚠️ VERIFICAR: 422 y "Ya existe la cuenta «Nequi del dueño». Elígela en la lista."
+#    (requiere haber corrido el PASO 2b del flujo completo)
+
+### Cuenta sin nombre → 400
+POST {{host}}/api/cuentas
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "nombre": "   "
+}
+
+
+###############################################################################
+# Historial de compras (spec 0002, fase 2)
+###############################################################################
+
+### Rango de fechas al revés → 422 con el mensaje, no una lista vacía
+GET {{host}}/api/compras?desde=2026-09-30&hasta=2026-09-01
+
+# ⚠️ VERIFICAR: 422 y "La fecha inicial (2026-09-30) es posterior a la final (2026-09-01)"
+
+### Una compra que no existe → 404 con mensaje
+GET {{host}}/api/compras/00000000-0000-0000-0000-000000000000
+
+### Parámetros absurdos → se sanean, no revientan
+GET {{host}}/api/compras?pagina=-2&tamano=50000
+
+# ⚠️ VERIFICAR: 200, "numero": 0 y "tamano": 100
+
+###############################################################################
+# Corregir y anular (spec 0002, fases 3 a 5)
+###############################################################################
+
+### Anular sin motivo → 422: el motivo queda en la auditoría
+POST {{host}}/api/compras/00000000-0000-0000-0000-000000000000/anulacion
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "version": 0, "motivo": "   " }
+
+# ⚠️ ESPERADO: 422 — "Escribe el motivo: queda en el registro de auditoría"
+
+### Anular sin versión → 400
+POST {{host}}/api/compras/00000000-0000-0000-0000-000000000000/anulacion
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "motivo": "duplicada" }
+
+### Corregir una compra que no existe → 422
+POST {{host}}/api/compras/00000000-0000-0000-0000-000000000000/correcciones
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "version": 0, "motivo": "prueba", "proveedorId": "00000000-0000-0000-0000-000000000000",
+  "fechaDocumento": "2026-09-13", "formaPago": "EFECTIVO"
+}
+
+# ⚠️ ESPERADO: 422 — "La compra no existe"
+#
+# Nota de QA: desde Git Bash en Windows, un motivo con tildes enviado con `curl -d` llega como
+# texto mal codificado y responde 400. No es la aplicación: con UTF-8 (el navegador, o
+# `--data-binary @archivo.json`) pasa.
+
+###############################################################################
+# SPEC 0002 · FASE 6
+###############################################################################
+
+### Corregir la ficha sin haber entrado → 401. La auditoría no acepta correcciones anónimas.
+PUT {{host}}/api/repuestos/00000000-0000-0000-0000-000000000000
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{
+  "nombreProducto": "X", "codigo": "X-1", "marcaRepuesto": "CBI", "precio": 1000, "stockMinimo": 1
+}
+
+# ⚠️ ESPERADO: 401 si no has entrado (spec 0004). Con sesión: 404, el repuesto no existe.
+
+### Desactivar una cuenta que no existe → 422
+POST {{host}}/api/cuentas/00000000-0000-0000-0000-000000000000/desactivacion
+X-XSRF-TOKEN: {{xsrf}}
+
+# ⚠️ ESPERADO: 422 — "La cuenta no existe"
+
+### Totales con fechas al revés → 422, igual que el historial
+GET {{host}}/api/compras/totales?desde=2026-09-30&hasta=2026-09-01
+
+###############################################################################
+# SPEC 0002 · FASE 7 · Buscar por repuesto
+###############################################################################
+
+### Un % se busca tal cual, no trae todas las compras
+GET {{host}}/api/compras?repuesto=%25
+
+# ⚠️ ESPERADO: 200 con "total": 0
+
+### Búsqueda de más de 80 caracteres → 422
+GET {{host}}/api/compras?repuesto=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# ⚠️ ESPERADO: 422 — "La búsqueda de repuesto admite hasta 80 caracteres"

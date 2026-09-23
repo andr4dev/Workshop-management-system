@@ -1,0 +1,321 @@
+.pagina {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: var(--esp-5) var(--esp-4) var(--esp-7);
+}
+
+.titulo {
+  margin: 0 0 var(--esp-5);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── Cabecera de la factura ──────────────────────────────────────────────── */
+
+.cabecera {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) 180px 180px;
+  gap: var(--esp-4);
+  padding: var(--esp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+}
+.select:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+/* ── Con qué se pagó ─────────────────────────────────────────────────────── */
+
+/* Ocupa su propia fila dentro de la cabecera: es un dato de la factura, pero no
+   compite en ancho con proveedor, fecha y número. */
+.pago {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 260px minmax(220px, 440px);
+  gap: var(--esp-4);
+  align-items: start;
+  padding-top: var(--esp-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.segmento {
+  display: flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  overflow: hidden;
+}
+
+.segmentoOpcion,
+.segmentoActivo {
+  flex: 1;
+  padding: 9px 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmentoOpcion { background: var(--surface); color: var(--text-muted); }
+.segmentoOpcion:hover { background: var(--surface-hover); color: var(--text); }
+.segmentoOpcion + .segmentoOpcion,
+.segmentoActivo + .segmentoOpcion,
+.segmentoOpcion + .segmentoActivo { border-left: 1px solid var(--border-strong); }
+
+/* Grafito, como el modo del renglón: elegido, no alarma. */
+.segmentoActivo { background: var(--graphite); color: #fff; }
+
+.segmentoOpcion:disabled,
+.segmentoActivo:disabled { cursor: not-allowed; opacity: .7; }
+
+/* «Se pagó con plata del cajón» (spec 0006): al lado de la forma de pago, solo en efectivo. */
+.cajon {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  min-width: 0;
+  padding-top: 22px;
+}
+
+.cajonOpcion,
+.cajonBloqueado {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.cajonOpcion { cursor: pointer; }
+.cajonBloqueado { color: var(--text-muted); cursor: not-allowed; }
+.cajonOpcion input,
+.cajonBloqueado input { width: 18px; height: 18px; accent-color: var(--graphite); }
+
+.cajonAyuda { font-size: 12.5px; color: var(--text-muted); }
+
+/* ── Renglones ───────────────────────────────────────────────────────────── */
+
+.renglones { margin-top: var(--esp-5); }
+
+.encabezados {
+  display: grid;
+  grid-template-columns: 126px minmax(170px, 1fr) 68px 94px 140px 126px 152px 36px;
+  gap: var(--esp-2);
+  padding: 0 var(--esp-3) var(--esp-2);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+}
+
+.agregar { margin-top: var(--esp-3); }
+
+/* ── Cierre ──────────────────────────────────────────────────────────────── */
+
+.pie {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--esp-4);
+  margin-top: var(--esp-5);
+  padding: var(--esp-4) var(--esp-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.total {
+  display: flex;
+  flex-direction: column;
+  margin-right: auto;
+}
+
+.totalEtiqueta {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+}
+
+/* El dato más importante de la pantalla: tiene que cuadrar al peso con la
+   factura del proveedor, y el admin la compara a ojo. */
+.totalCifra {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.errorGeneral {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--danger);
+  border-left-width: 3px;
+  border-radius: var(--radio);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── Confirmación ────────────────────────────────────────────────────────── */
+
+.exito {
+  max-width: 720px;
+  margin: var(--esp-7) auto;
+  padding: var(--esp-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.exitoTitulo { margin: 0; font-size: 20px; color: var(--success); }
+.exitoProveedor { margin: var(--esp-1) 0 var(--esp-5); color: var(--text-muted); }
+
+.tablaExito {
+  width: 100%;
+  margin-bottom: var(--esp-5);
+  border-collapse: collapse;
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.tablaExito th {
+  padding: var(--esp-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-faint);
+}
+
+.tablaExito td {
+  padding: var(--esp-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tablaExito tfoot td {
+  border-bottom: none;
+  border-top: 2px solid var(--border-strong);
+  font-weight: 600;
+}
+
+.mono { font-family: var(--fuente-mono); }
+
+@media (max-width: 1080px) {
+  .encabezados { display: none; }   /* cada renglón se etiqueta solo en angosto */
+  .cabecera { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 640px) {
+  .cabecera { grid-template-columns: 1fr; }
+  .pago { grid-template-columns: 1fr; }
+  .cajon { padding-top: 0; }
+  .pie { flex-direction: column; align-items: stretch; }
+  .total { margin-right: 0; }
+}
+
+/* ── Proveedor con creación al vuelo ─────────────────────────────────────── */
+
+.proveedorFila {
+  display: flex;
+  gap: var(--esp-2);
+  align-items: stretch;
+}
+.proveedorFila .select { flex: 1; min-width: 0; }
+
+/* ── Desglose de la confirmación ─────────────────────────────────────────── */
+
+.exito { max-width: 980px; text-align: left; }
+.exitoTitulo { text-align: center; }
+.exitoProveedor { text-align: center; }
+
+.nombreLinea {
+  display: block;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.marcaLinea {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.enGanancia { color: var(--success); font-weight: 600; }
+
+/* La pérdida se ve, no se adivina: el admin acaba de fijar ese precio y tiene que
+   enterarse ahora, no cuando el reporte del mes le diga que vendió perdiendo. */
+.enPerdida { color: var(--danger); font-weight: 700; }
+
+.notaExito {
+  margin: 0 0 var(--esp-5);
+  padding: var(--esp-3);
+  border-left: 3px solid var(--info);
+  background: var(--info-soft);
+  border-radius: var(--radio-sm);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* ── Después de registrar ────────────────────────────────────────────────── */
+
+.accionesExito {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-4);
+}
+
+.enlaceExito {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.enlaceExito:hover { color: var(--text); }
+
+/* ── Corregir una compra ─────────────────────────────────────────────────── */
+
+.volver {
+  display: inline-block;
+  margin-bottom: var(--esp-3);
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.volver:hover { color: var(--text); text-decoration: underline; }
+
+.avisoCorreccion {
+  margin: calc(-1 * var(--esp-3)) 0 var(--esp-4);
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--info);
+  border-radius: var(--radio-sm);
+  background: var(--info-soft);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+

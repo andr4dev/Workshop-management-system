@@ -1,0 +1,98 @@
+.renglon {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) 128px 96px 104px 32px;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-2) var(--esp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+}
+.renglon:last-child { border-bottom: none; }
+
+/* Un renglón que no se puede cobrar así: franja roja, se ve sin leer. */
+.conProblema { box-shadow: inset 3px 0 0 var(--danger); background: var(--danger-soft); }
+
+.codigo {
+  font-family: var(--fuente-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.repuesto { display: flex; flex-direction: column; min-width: 0; }
+.nombre { font-weight: 600; color: var(--text); }
+.marca { font-size: 12px; color: var(--text-faint); }
+.problema { margin-top: 2px; font-size: 12px; font-weight: 700; color: var(--danger); }
+.aviso { margin-top: 2px; font-size: 12px; font-weight: 600; color: var(--warn); }
+
+.cantidad {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  overflow: hidden;
+}
+
+.paso {
+  border: none;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.paso:hover:not(:disabled) { background: var(--surface-hover); }
+.paso:disabled { color: var(--text-faint); cursor: not-allowed; }
+
+.numero {
+  min-width: 0;
+  padding: 7px 4px;
+  border: none;
+  border-left: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.numero:focus { outline: none; box-shadow: inset 0 0 0 2px var(--brand); }
+
+.precio, .total {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.precio { color: var(--text-muted); }
+.total { font-weight: 700; }
+
+.quitar {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radio-sm);
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 20px;
+  cursor: pointer;
+}
+.quitar:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); }
+
+/* Angosto: código y quitar arriba, el repuesto en su propia línea, y abajo cantidad, precio y total.
+   El código se sigue viendo: es lo que el cajero compara con la caja que tiene en la mano. */
+@media (max-width: 760px) {
+  .renglon {
+    grid-template-columns: 120px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "codigo codigo quitar"
+      "repuesto repuesto repuesto"
+      "cantidad precio total";
+    row-gap: var(--esp-1);
+  }
+  .codigo { grid-area: codigo; }
+  .repuesto { grid-area: repuesto; }
+  .cantidad { grid-area: cantidad; }
+  .precio { grid-area: precio; font-size: 12.5px; }
+  .total { grid-area: total; }
+  .quitar { grid-area: quitar; justify-self: end; }
+}

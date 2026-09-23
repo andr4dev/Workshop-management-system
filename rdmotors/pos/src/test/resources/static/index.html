@@ -1,0 +1,17 @@
+<!doctype html>
+<!--
+  La pantalla de mentira de las pruebas (spec 0011, fase 1).
+
+  En el proyecto real este archivo no existe: lo construye Node y lo mete adentro del jar el Dockerfile. Pero las
+  pruebas no construyen la pantalla —tardaría minutos y no probaría nada de lo que se quiere probar— y sin un
+  index.html no hay forma de comprobar el enrutado.
+
+  Lo que se está probando es a DÓNDE manda el servidor cada dirección, no qué dice la pantalla. Por eso basta con
+  esto y con la marca de abajo, que es lo que las pruebas buscan en la respuesta.
+-->
+<html lang="es">
+  <head><meta charset="utf-8"><title>RD MOTORS</title></head>
+  <body>
+    <div id="raiz">ESTA-ES-LA-PANTALLA</div>
+  </body>
+</html>

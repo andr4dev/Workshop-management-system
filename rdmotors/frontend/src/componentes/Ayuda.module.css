@@ -1,0 +1,74 @@
+.contenedor {
+  position: relative;
+  display: inline-flex;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.boton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: help;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .12s, color .12s;
+}
+.boton:hover,
+.boton:focus-visible {
+  color: var(--brand);
+  background: var(--brand-soft);
+  outline: none;
+}
+.boton:focus-visible { box-shadow: 0 0 0 2px var(--brand); }
+
+/* Área táctil de 44px sin agrandar el ícono. */
+.boton::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+
+/* La posición la calcula Ayuda.jsx en línea; aquí solo el aspecto. Oscuro en los dos temas: en el
+   oscuro lo separa el borde. */
+.globo {
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--graphite);
+  box-shadow: var(--shadow-lg);
+  color: #E8EAED;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+  cursor: default;
+}
+
+.titulo {
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Cada línea de la explicación es un <span> (dentro de un <th> no cabe un <p>). */
+.globo > span { display: block; }
+
+.globo strong { color: #FFFFFF; }
+.globo em { color: #FFFFFF; font-style: normal; font-weight: 600; }

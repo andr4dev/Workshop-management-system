@@ -1,0 +1,76 @@
+.explicacion {
+  margin: 0 0 var(--esp-3);
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+}
+
+.fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+}
+.fila + .fila { border-top: 1px solid var(--border-subtle); }
+
+.nombre {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pregunta {
+  min-width: 0;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.acciones {
+  display: inline-flex;
+  gap: var(--esp-2);
+}
+
+/* Un rechazo del servidor sobre esa cuenta: dato, en rojo. */
+.error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+/* No se pudo leer la lista: conexión, en ámbar. */
+.avisoRed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-3);
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--warn);
+  border-radius: var(--radio);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.vacio {
+  margin: 0;
+  padding: var(--esp-4) 0;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}

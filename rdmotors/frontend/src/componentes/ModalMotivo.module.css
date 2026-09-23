@@ -1,0 +1,44 @@
+.descripcion {
+  margin: 0 0 var(--esp-3);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.cambios { margin-bottom: var(--esp-4); }
+
+.cambiosTitulo {
+  margin: 0 0 var(--esp-2);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+}
+
+.motivo {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+}
+.motivo:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.error {
+  margin: var(--esp-3) 0 0;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--danger);
+  border-left-width: 3px;
+  border-radius: var(--radio);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}

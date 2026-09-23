@@ -1,0 +1,224 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Piezas comunes de las pantallas de consulta: página, filtros, tabla,
+   estados vacíos y paginación.
+
+   Nació con el historial de compras (spec 0002, fase 2). Inventario y la ficha
+   del repuesto todavía tienen su propia copia de estas clases: se pasan a esta
+   cuando se vuelvan a tocar, no en un cambio aparte.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.pagina {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: var(--esp-5) var(--esp-4) var(--esp-7);
+}
+
+.encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--esp-4);
+  margin-bottom: var(--esp-4);
+}
+
+.titulo {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.subtitulo {
+  margin: var(--esp-1) 0 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+/* Un enlace con aspecto de botón secundario: navega, no ejecuta nada. */
+.accion {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.accion:hover { background: var(--surface-hover); }
+
+.volver {
+  display: inline-block;
+  margin-bottom: var(--esp-3);
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.volver:hover { color: var(--text); text-decoration: underline; }
+
+/* ── Filtros ─────────────────────────────────────────────────────────────── */
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-3);
+  padding: var(--esp-3) var(--esp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.etiquetaFiltro {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+}
+
+.control {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+}
+.control:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.controlError { border-color: var(--danger); }
+
+.errorFiltro {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+/* ── Tabla ───────────────────────────────────────────────────────────────── */
+
+.marco {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  box-shadow: var(--shadow-sm);
+  transition: opacity .15s;
+}
+
+/* Mientras llega la página nueva se ve la anterior, atenuada: sin saltos ni pantalla en blanco. */
+.atenuado { opacity: .55; }
+
+.tabla {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.tabla th {
+  padding: var(--esp-3) var(--esp-3) var(--esp-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.tabla td {
+  padding: var(--esp-2) var(--esp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.tabla tbody tr:last-child td { border-bottom: none; }
+
+.fila { cursor: pointer; }
+.fila:hover td { background: var(--surface-hover); }
+
+.mono {
+  font-family: var(--fuente-mono);
+  font-size: 12.5px;
+}
+
+.tenue {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* ── Estados ─────────────────────────────────────────────────────────────── */
+
+.vacio {
+  padding: var(--esp-6) var(--esp-4);
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radio-lg);
+}
+.vacio p { margin: 0 0 var(--esp-3); }
+
+.paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--esp-2);
+  margin-top: var(--esp-3);
+}
+
+.rango {
+  margin-right: auto;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .encabezado { flex-direction: column; }
+  .filtros { flex-direction: column; align-items: stretch; }
+}
+
+/* Un enlace dentro de una celda: la fila entera abre, el enlace es para el teclado. */
+.enlace {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+.enlace:hover { text-decoration: underline; }
+
+/* Una compra anulada en una lista: se ve, pero su total no se lee como plata que salió. */
+.anulada {
+  display: inline-block;
+  margin-left: var(--esp-2);
+  padding: 0 7px;
+  border: 1px solid var(--warn);
+  border-radius: 999px;
+  color: var(--warn);
+  background: var(--warn-soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tachado { text-decoration: line-through; color: var(--text-faint); }
+

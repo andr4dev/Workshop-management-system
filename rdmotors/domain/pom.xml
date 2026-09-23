@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>com.workshopmanagement</groupId>
+		<artifactId>rdmotors-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>domain</artifactId>
+	<name>domain</name>
+	<description>Reglas de negocio y puertos. Sin Spring, sin web, sin HTTP.</description>
+
+	<!--
+	  MIRA LO QUE NO ESTA AQUI: spring-boot-starter-web, spring-boot-starter-data-jpa,
+	  jackson, spring-security. Nada de eso se puede importar desde el dominio porque
+	  ni siquiera esta en el classpath.
+
+	  Lo unico que entra:
+	    jakarta.persistence-api  anotaciones de mapeo. Son metadatos INERTES: un @Entity
+	                             no impide construir el objeto en una prueba y llamarle
+	                             un metodo sin base de datos. Se acepta para no tener que
+	                             duplicar cada clase del dominio con su mapper.
+	    spring-tx                SOLO por @Transactional, y SOLO en el paquete aplicacion
+	                             (los casos de uso son duenos de la transaccion).
+	                             Prohibido en el paquete dominio.
+	-->
+	<dependencies>
+		<dependency>
+			<groupId>jakarta.persistence</groupId>
+			<artifactId>jakarta.persistence-api</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-tx</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

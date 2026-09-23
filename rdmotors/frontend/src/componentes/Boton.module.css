@@ -1,0 +1,59 @@
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-2);
+  border: 1px solid transparent;
+  border-radius: var(--radio);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color .12s, border-color .12s, color .12s;
+  white-space: nowrap;
+}
+
+.boton:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/* ── Tamaños ─────────────────────────────────────────────────────────────── */
+
+.normal  { padding: 9px 16px;  font-size: 14px; }
+.grande  { padding: 13px 24px; font-size: 16px; }
+.chico   { padding: 5px 10px;  font-size: 13px; }
+
+/* ── Variantes ───────────────────────────────────────────────────────────── */
+
+/* El rojo de marca vive aquí: en la acción principal. Es el único sitio del
+   contenido donde aparece, para que no compita con el rojo de error. */
+.primario {
+  background: var(--brand);
+  color: #fff;
+}
+.primario:hover:not(:disabled) { background: var(--brand-hover); }
+.primario:active:not(:disabled) { background: var(--brand-active); }
+
+.secundario {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.secundario:hover:not(:disabled) { background: var(--surface-hover); }
+
+.fantasma {
+  background: transparent;
+  color: var(--text-muted);
+}
+.fantasma:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* Destructivo. Deliberadamente MÁS PROFUNDO que --brand: si fuera el mismo rojo,
+   "registrar compra" y "anular" se verían igual de invitantes. */
+.peligro {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.peligro:hover:not(:disabled) { background: var(--danger-soft); }

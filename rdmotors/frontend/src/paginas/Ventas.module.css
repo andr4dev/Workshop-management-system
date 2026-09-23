@@ -1,0 +1,110 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Ventas del turno: buscar por número y los totales (spec 0003, H7 y H10).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.buscar {
+  display: grid;
+  grid-template-columns: auto 110px auto;
+  align-items: center;
+  gap: var(--esp-1) var(--esp-2);
+}
+
+.buscarEtiqueta {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.buscarCampo { font-variant-numeric: tabular-nums; }
+
+.buscarError {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--danger);
+  text-align: right;
+}
+
+.totales {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-3);
+  transition: opacity .15s;
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.etiqueta {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.valor {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.nota { font-size: 12px; color: var(--text-faint); }
+
+.descuadre {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radio);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.repuestos { min-width: 220px; }
+
+/* A nombre de quién quedó una venta (spec 0008), debajo de cómo se pagó. */
+.cliente {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* La etiqueta de la venta con descuento (H6): se ve en la lista sin abrirla. El motivo, al pasar encima. */
+.conDescuento {
+  display: inline-block;
+  margin-right: var(--esp-2);
+  padding: 0 7px;
+  border: 1px solid var(--info);
+  border-radius: 999px;
+  background: var(--info-soft);
+  color: var(--info);
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+
+@media (max-width: 760px) {
+  .totales { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .buscar { grid-template-columns: minmax(0, 1fr) auto; }
+  .buscarEtiqueta { grid-column: 1 / -1; }
+  .buscarError { text-align: left; }
+}

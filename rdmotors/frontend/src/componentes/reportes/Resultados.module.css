@@ -1,0 +1,552 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Reportes › Resultados (spec 0007): el período, las cifras grandes, las que
+   importan, y el día por día con su gráfica.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── El período ──────────────────────────────────────────────────────────── */
+
+.selector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-4);
+  padding: var(--esp-3) var(--esp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.atajos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+}
+
+.atajo,
+.atajoActivo {
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.atajo:hover { background: var(--surface-hover); color: var(--text); }
+.atajoActivo {
+  border-color: var(--graphite);
+  background: var(--graphite);
+  color: #fff;
+}
+[data-theme='dark'] .atajoActivo { border-color: var(--text); background: var(--text); color: var(--text-inverse); }
+
+.navegacion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-3);
+}
+
+.flechas {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  min-width: 0;
+}
+
+.flecha {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.flecha:hover:not(:disabled) { background: var(--surface-hover); }
+.flecha:disabled { opacity: .35; cursor: default; }
+
+.tituloPeriodo {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+.tituloPeriodo::first-letter { text-transform: uppercase; }
+
+.rango {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--esp-3);
+}
+
+.modo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+/* El segmento reparte el ancho por igual; aquí cada opción mide lo que su texto. */
+.modo button { flex: 0 0 auto; white-space: nowrap; }
+
+/* ── Cifras grandes ──────────────────────────────────────────────────────── */
+
+.franja {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-3);
+  transition: opacity .15s;
+}
+
+.cifra {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  min-width: 0;
+  padding: var(--esp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+/* La ganancia: la cifra que se vino a buscar. */
+.cifraDestacada {
+  composes: cifra;
+  border-color: var(--graphite);
+  box-shadow: var(--shadow);
+}
+[data-theme='dark'] .cifraDestacada { border-color: var(--text-muted); }
+
+.etiqueta {
+  display: flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.valor {
+  font-size: 26px;
+  font-weight: 750;
+  line-height: 1.2;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.negativo { color: var(--danger); }
+
+.asterisco {
+  margin-left: 2px;
+  color: var(--warn);
+  font-weight: 800;
+}
+
+.margen {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.nota {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.verCalculo {
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.verCalculo:hover { color: var(--brand); }
+
+.noCuadra {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+/* ── Avisos ──────────────────────────────────────────────────────────────── */
+
+.avisos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-4);
+}
+
+.aviso,
+.avisoSinCosto,
+.descuadre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--info);
+  border-radius: var(--radio);
+  background: var(--info-soft);
+  color: var(--text);
+  font-size: 13.5px;
+}
+.avisoSinCosto { border-left-color: var(--warn); background: var(--warn-soft); }
+.descuadre { border-left-color: var(--danger); background: var(--danger-soft); color: var(--danger); font-weight: 600; }
+
+.enlaceBoton {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ── Cifras que importan ─────────────────────────────────────────────────── */
+
+.seccion {
+  margin: var(--esp-5) 0 var(--esp-3);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+}
+
+.importantes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--esp-3);
+  transition: opacity .15s;
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.valorChico {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.pagos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--esp-3);
+  margin: var(--esp-1) 0 0;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+.pagos dt { color: var(--text-muted); }
+.pagos dd { margin: 0; text-align: right; font-weight: 600; }
+
+.proporcion {
+  display: flex;
+  height: 6px;
+  margin-top: var(--esp-2);
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border-subtle);
+}
+.proporcionEfectivo { background: var(--graphite); }
+.proporcionTransferencia { background: var(--silver); }
+.proporcionFiado { background: var(--warn); }
+[data-theme='dark'] .proporcionEfectivo { background: var(--text); }
+
+/* ── Día por día ─────────────────────────────────────────────────────────── */
+
+.grafica {
+  margin: 0 0 var(--esp-3);
+  padding: var(--esp-3) var(--esp-3) var(--esp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: opacity .15s;
+}
+
+/* En el celular no se encoge hasta volverse ilegible: se desliza. */
+.grafica svg {
+  display: block;
+  width: 100%;
+  min-width: 680px;
+  height: auto;
+}
+
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-4);
+  margin: 0 0 var(--esp-2);
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.leyenda li { display: inline-flex; align-items: center; gap: 6px; }
+.muestra { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+
+.barraVentas { fill: var(--border-strong); }
+[data-theme='dark'] .barraVentas { fill: var(--silver); }
+.barraUtilidad { fill: var(--success); }
+.barraPerdida { fill: var(--danger); }
+.muestraVentas { background: var(--border-strong); }
+[data-theme='dark'] .muestraVentas { background: var(--silver); }
+.muestraUtilidad { background: var(--success); }
+.muestraPerdida { background: var(--danger); }
+
+.lineaEje { stroke: var(--border-subtle); stroke-width: 1; }
+.lineaCero { stroke: var(--text-faint); stroke-width: 1; }
+.textoEje { fill: var(--text-faint); font-size: 12px; font-family: var(--fuente); }
+
+.tabla {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.tabla th {
+  padding: var(--esp-3) var(--esp-3) var(--esp-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+  white-space: nowrap;
+  text-align: left;
+}
+.tabla td {
+  padding: 6px var(--esp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.tabla th.cifraCol, .tabla td.cifraCol { text-align: right; font-variant-numeric: tabular-nums; }
+.sinMovimiento td { color: var(--text-faint); }
+.filaDelMes td { background: var(--surface-2); font-style: italic; }
+.totales td {
+  border-top: 2px solid var(--border-strong);
+  border-bottom: none;
+  font-weight: 700;
+}
+
+/* ── Panel de cálculo ────────────────────────────────────────────────────── */
+
+.pregunta {
+  margin: 0 0 var(--esp-3);
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+
+.calculo {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.calculo td { padding: 5px 0; vertical-align: top; }
+.calculo .signo { width: 1.5em; color: var(--text-muted); font-weight: 700; }
+.calculo .monto { text-align: right; white-space: nowrap; }
+.hijo td { padding: 2px 0; font-size: 13px; color: var(--text-muted); }
+.hijo td:nth-child(2) { padding-left: var(--esp-4); }
+.subtotalCalculo td {
+  padding-top: var(--esp-2);
+  border-top: 1px solid var(--border-strong);
+  font-weight: 700;
+}
+.notaCalculo { font-size: 12px; color: var(--warn); }
+
+.cuadra {
+  margin: var(--esp-3) 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+/* ── Sin costo ───────────────────────────────────────────────────────────── */
+
+.listaSinCosto {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.listaSinCosto li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--esp-1) var(--esp-3);
+  padding: var(--esp-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13.5px;
+}
+.listaSinCosto li:last-child { border-bottom: none; }
+.codigo { font-family: var(--fuente-mono); font-size: 12.5px; color: var(--text-muted); }
+
+.atenuado { opacity: .55; }
+
+@media (max-width: 900px) {
+  .franja, .importantes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 480px) {
+  .franja, .importantes { grid-template-columns: minmax(0, 1fr); }
+  .valor { font-size: 24px; }
+  .selector { padding: var(--esp-3); }
+}
+
+/* ── Comparación con el período anterior (P2) ────────────────────────────── */
+
+.variacion,
+.variacionBuena,
+.variacionMala {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.variacionBuena { color: var(--success); }
+.variacionMala { color: var(--danger); }
+
+.comparacion {
+  margin: 0 0 var(--esp-3);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* ── Repuestos, categorías, gastos y control (P2) ────────────────────────── */
+
+.encabezadoSeccion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2) var(--esp-4);
+  margin: var(--esp-5) 0 var(--esp-3);
+}
+.encabezadoSeccion .seccion { margin: 0; }
+.encabezadoSeccion button { flex: 0 0 auto; white-space: nowrap; }
+
+.subseccion {
+  margin: var(--esp-4) 0 var(--esp-2);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pie {
+  margin: var(--esp-2) 0 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.sub {
+  display: block;
+  font-family: var(--fuente-mono);
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.filaPerdida td { background: var(--danger-soft); }
+
+.barraParte {
+  display: inline-block;
+  width: 60px;
+  height: 6px;
+  margin-right: var(--esp-2);
+  overflow: hidden;
+  vertical-align: middle;
+  border-radius: 999px;
+  background: var(--border-subtle);
+}
+.barraParte span { display: block; height: 100%; background: var(--graphite); }
+[data-theme='dark'] .barraParte span { background: var(--text-muted); }
+
+.dosColumnas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--esp-4);
+  transition: opacity .15s;
+}
+
+.panel {
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.lista {
+  margin: 0 0 var(--esp-2);
+  padding: 0;
+  list-style: none;
+}
+.lista li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--esp-1) var(--esp-2);
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13.5px;
+}
+.lista li:last-child { border-bottom: none; }
+.lista .monto {
+  margin-left: auto;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chip {
+  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .dosColumnas { grid-template-columns: minmax(0, 1fr); }
+}

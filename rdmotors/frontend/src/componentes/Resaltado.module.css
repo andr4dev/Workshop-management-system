@@ -1,0 +1,12 @@
+/* Resaltador: fondo ámbar tenue y subrayado. Se lee en claro y en oscuro sin cambiar el color del
+   texto, que puede ser un enlace o una marca atenuada. */
+.marca {
+  padding: 0 1px;
+  border-radius: 2px;
+  background: var(--warn-soft);
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--warn);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}

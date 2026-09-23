@@ -1,0 +1,78 @@
+.segmento {
+  display: flex;
+  margin-bottom: var(--esp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  overflow: hidden;
+}
+.segmentoOpcion,
+.segmentoActivo {
+  flex: 1;
+  padding: 9px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.segmentoOpcion { background: var(--surface); color: var(--text-muted); }
+.segmentoOpcion:hover { background: var(--surface-hover); color: var(--text); }
+.segmentoOpcion + .segmentoActivo,
+.segmentoActivo + .segmentoOpcion { border-left: 1px solid var(--border-strong); }
+.segmentoActivo { background: var(--graphite); color: #fff; }
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--esp-3);
+}
+.etiqueta {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+}
+.entrada,
+.entradaMotivo {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+}
+.entrada { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.entrada:focus,
+.entradaMotivo:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+
+.resultado {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  margin: 0 0 var(--esp-4);
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--radio);
+  background: var(--surface-2);
+  font-size: 14px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.resultado strong { color: var(--text); }
+
+.motivos { display: flex; flex-wrap: wrap; gap: var(--esp-2); }
+.motivo,
+.motivoElegido {
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.motivo { background: var(--surface); color: var(--text); }
+.motivo:hover { background: var(--surface-hover); }
+.motivoElegido { background: var(--graphite); border-color: var(--graphite); color: #fff; }
+
+.problema { margin: 0; font-size: 13px; font-weight: 700; color: var(--danger); }

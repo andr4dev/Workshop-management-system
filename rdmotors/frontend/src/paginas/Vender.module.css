@@ -1,0 +1,204 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Vender: la pantalla del mostrador (spec 0003).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* El turno en curso: una franja discreta arriba. Se ve siempre, sin robarle espacio a la venta. */
+.turno {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2) var(--esp-4);
+  padding: var(--esp-2) var(--esp-4);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--success);
+  border-radius: var(--radio);
+  background: var(--surface);
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.turnoEstado {
+  font-weight: 700;
+  color: var(--success);
+}
+
+.turnoFondo {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Avisos sobre la venta ─────────────────────────────────────────────── */
+
+.cobrada,
+.sinRespuesta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2) var(--esp-4);
+  margin-top: var(--esp-3);
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: var(--radio);
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--text);
+}
+.sinRespuesta { border-left-color: var(--warn); background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+
+/* La venta que se acaba de cobrar: el cambio en grande, que es lo que el cajero tiene que contar. */
+.cobrada { border-left-color: var(--success); background: var(--success-soft); }
+.cobradaCambio {
+  margin-left: auto;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lo fiado no entró al cajón: se dice aparte, en ámbar, a nombre de quién quedó (spec 0008). */
+.cobradaFiado {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--warn);
+  font-variant-numeric: tabular-nums;
+}
+
+.cobradaAcciones { display: inline-flex; flex-wrap: wrap; gap: var(--esp-2); }
+
+/* Lo que pasó con el comprobante: en su propia línea, debajo de la venta cobrada. */
+.impresion,
+.impresionFallo {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12.5px;
+}
+.impresion { color: var(--text-muted); }
+.impresionFallo { font-weight: 600; color: var(--danger); }
+
+.cerrarAviso {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.nota { margin: var(--esp-2) 0 0; font-size: 12.5px; color: var(--warn); }
+
+/* ── Mostrador: la venta a la izquierda, el total siempre a la vista a la derecha ─── */
+
+.mostrador {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+  gap: var(--esp-4);
+  margin-top: var(--esp-4);
+}
+
+.venta { min-width: 0; }
+
+.aviso {
+  margin: var(--esp-3) 0 0;
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radio);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.vacia {
+  margin: var(--esp-4) 0 0;
+  padding: var(--esp-6) var(--esp-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radio-lg);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.renglones {
+  margin: var(--esp-3) 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.resumen {
+  position: sticky;
+  top: var(--esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radio-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.cifras { margin: 0 0 var(--esp-2); }
+.cifras > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  padding: 4px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.cifras dt, .cifras dd { margin: 0; }
+
+.descuento dd { color: var(--text); }
+.motivo { display: block; font-size: 12px; color: var(--text-faint); }
+
+.total {
+  margin-top: var(--esp-2);
+  padding-top: var(--esp-2) !important;
+  border-top: 1px solid var(--border);
+}
+.total dt { font-weight: 700; color: var(--text); }
+.total dd { font-size: 30px; font-weight: 800; color: var(--text); }
+
+.perdida { margin: 0; font-size: 13px; font-weight: 600; color: var(--warn); }
+
+.botonCobrar { width: 100%; }
+
+.tecla {
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-family: var(--fuente-mono);
+  font-size: 11px;
+  opacity: .8;
+}
+
+@media (max-width: 900px) {
+  .mostrador { grid-template-columns: minmax(0, 1fr); }
+  .resumen { position: static; }
+}
+
+@media (max-width: 640px) {
+  .turnoFondo { margin-left: 0; }
+}
+
+/* ── Catálogo (spec 0005) ─────────────────────────────────────────────── */
+
+/* El buscador ocupa lo que queda; el botón del catálogo, a su lado. */
+.buscarFila { display: flex; align-items: flex-start; gap: var(--esp-2); }
+.buscarFila > :first-child { flex: 1; min-width: 0; }
+.botonCatalogo { flex: none; min-height: 48px; }
+
+.accionesSinTurno { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: var(--esp-2); }
+
+@media (max-width: 640px) {
+  .buscarFila { flex-direction: column; align-items: stretch; }
+}

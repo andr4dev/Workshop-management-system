@@ -1,0 +1,79 @@
+/* Usuarios (spec 0004, fase 4): la lista de quienes entran al sistema. */
+
+.estado {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.activo {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+/* Una fila de alguien desactivado: se ve, pero no compite con quien sí entra. */
+.desactivado td {
+  opacity: 0.6;
+}
+
+.acciones {
+  display: flex;
+  gap: var(--esp-2);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.rol {
+  min-width: 10rem;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radio-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.rol:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.formulario {
+  display: grid;
+  gap: var(--esp-3);
+}
+
+/* La contraseña temporal: se dicta una vez y no se vuelve a ver. */
+.temporal {
+  display: block;
+  margin: var(--esp-3) 0;
+  padding: var(--esp-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radio-sm);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.4rem;
+  letter-spacing: 0.1em;
+  text-align: center;
+  color: var(--text);
+}
+
+.nota {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.error {
+  margin: var(--esp-2) 0 0;
+  color: var(--danger);
+}
+
+/* Qué navegador dijo ser el equipo: va debajo de la IP, sin robarle atención. */
+.navegador {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}

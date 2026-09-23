@@ -1,0 +1,157 @@
+.app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Grafito, como el "MOTORS" del logo. Es el ancla visual de toda la aplicación. */
+.barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-4);
+  padding: var(--esp-3) var(--esp-5);
+  background: var(--graphite);
+  border-bottom: 3px solid var(--brand);
+}
+
+.marca {
+  display: flex;
+  align-items: baseline;
+  gap: var(--esp-2);
+}
+
+/* Las dos mitades del logotipo: "RD" en plata, y el rojo como acento. Sin degradados
+   cromados — se toman los colores del logo, no su tratamiento. */
+.logoR {
+  font-size: 21px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -.02em;
+  color: var(--silver);
+}
+
+.logoMotors {
+  font-size: 21px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -.02em;
+  color: #fff;
+}
+
+.tagline {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--brand);
+  padding-left: var(--esp-2);
+  border-left: 1px solid rgba(255, 255, 255, .18);
+}
+
+/* ── Módulos ─────────────────────────────────────────────────────────────── */
+
+.navegacion {
+  display: flex;
+  gap: var(--esp-1);
+  margin-right: auto;
+  margin-left: var(--esp-5);
+}
+
+.enlace {
+  padding: 6px 14px;
+  border-radius: var(--radio);
+  color: rgba(255, 255, 255, .72);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.enlace:hover { color: #fff; background: rgba(255, 255, 255, .08); }
+
+/* La pestaña activa lleva el rojo de marca: es navegación, no una alerta. */
+.activo {
+  color: #fff;
+  background: rgba(255, 255, 255, .10);
+  box-shadow: inset 0 -2px 0 var(--brand);
+}
+
+.tema {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .20);
+  border-radius: var(--radio);
+  background: transparent;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+}
+.tema:hover { background: rgba(255, 255, 255, .10); }
+a.tema { margin-left: auto; text-decoration: none; }
+a.tema + .tema { margin-left: var(--esp-2); }
+
+.contenido { flex: 1; }
+
+/* Mientras se sabe quién está adentro, o si no hay conexión con el servidor. */
+.cargando {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: var(--esp-7) var(--esp-4);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.volver {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.soloAdministrador {
+  margin: 0 0 var(--esp-2);
+  font-size: 1.25rem;
+  color: var(--text);
+}
+
+/* Celular: las pestañas bajan a su propia fila, a todo el ancho. Arriba quedan la marca y los dos botones.
+   Antes se achicaban letras y márgenes para que todo cupiera en una línea: con tres pestañas alcanzaba, con la
+   cuarta (Reportes) la barra se pasaba de la pantalla y la página se desplazaba de lado. Así cabe con las que
+   vengan: si no alcanzan, la fila se desliza sola, sin empujar la página. */
+/* Tablet: la marca y las cuatro pestañas caben en una línea, el lema no. */
+@media (max-width: 960px) {
+  .tagline { display: none; }
+  .navegacion { margin-left: var(--esp-3); }
+}
+
+@media (max-width: 760px) {
+  .barra {
+    flex-wrap: wrap;
+    row-gap: var(--esp-2);
+    padding: var(--esp-2) var(--esp-4) 0;
+  }
+  a.tema { margin-left: auto; }
+
+  .navegacion {
+    order: 3;
+    flex-basis: 100%;
+    margin: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .navegacion::-webkit-scrollbar { display: none; }
+
+  /* Cada pestaña reparte el ancho, y es alta para el dedo. El subrayado rojo queda pegado al borde de la barra. */
+  .enlace {
+    flex: 1 0 auto;
+    padding: 10px 12px;
+    border-radius: var(--radio) var(--radio) 0 0;
+    text-align: center;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 380px) {
+  .barra { padding: var(--esp-2) var(--esp-3) 0; }
+  .logoR, .logoMotors { font-size: 18px; }
+  .enlace { padding: 10px 8px; font-size: 13.5px; }
+}
