@@ -16,9 +16,10 @@ import { proveedoresApi } from '../../api/cliente'
  * Solo el nombre es obligatorio. Exigir NIT y teléfono para registrar una compra que YA ocurrió
  * sería pedir datos que quizá no tiene a mano, para bloquear algo que de todos modos pasó.
  */
-export default function ModalProveedorNuevo({ abierto, onCerrar, onCreado }) {
-  const [nombre, setNombre] = useState('')
-  const [nit, setNit] = useState('')
+export default function ModalProveedorNuevo({ abierto, onCerrar, onCreado, nombreInicial = '', nitInicial = '' }) {
+  // La pre-carga de una factura (spec 0012) ya sabe el NIT impreso: se trae escrito.
+  const [nombre, setNombre] = useState(nombreInicial)
+  const [nit, setNit] = useState(nitInicial)
   const [telefono, setTelefono] = useState('')
   const [error, setError] = useState(null)
   const [guardando, setGuardando] = useState(false)

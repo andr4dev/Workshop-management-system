@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  fechaCorta, opcionDeCajon, precioParaEnviar, problemaDelRenglon, problemasDelPago, renglonesRepetidos,
-  textoDelPago, ultimaCategoriaElegida, ultimaCompraDe,
+  fechaCorta, hayCostosEscritos, opcionDeCajon, precioParaEnviar, problemaDelRenglon, problemasDelPago,
+  renglonesRepetidos, sumarIva, textoDelPago, ultimaCategoriaElegida, ultimaCompraDe,
 } from './compra.js'
 
 // El kardex llega del más reciente al más antiguo (el controlador lo invierte).
@@ -153,4 +153,20 @@ test('al corregir una compra del cajón: con su turno abierto se cambia; con su 
   assert.equal(cerrado.bloqueaFormaDePago, true)
   assert.match(cerrado.porQue, /ya se cerró/)
   assert.equal(opcionDeCajon({ formaPago: 'EFECTIVO', correccion, turnoAbierto: null }).bloqueaFormaDePago, true)
+})
+
+test('spec 0012, RF-020: sumar el 19% a los costos escritos, al peso, en el campo que se esté usando', () => {
+  const renglones = [
+    { id: 1, modo: 'TOTAL', costoTotal: '308.274', costoUnitario: '' },
+    { id: 2, modo: 'UNITARIO', costoTotal: '', costoUnitario: '7280' },
+    { id: 3, modo: 'TOTAL', costoTotal: '', costoUnitario: '' },
+  ]
+  const conIva = sumarIva(renglones, 19)
+  assert.equal(conIva[0].costoTotal, '366846')
+  assert.equal(conIva[1].costoUnitario, '8663')
+  assert.equal(conIva[2].costoTotal, '')
+  // No toca los de antes: con ellos se deshace.
+  assert.equal(renglones[0].costoTotal, '308.274')
+  assert.equal(hayCostosEscritos(renglones), true)
+  assert.equal(hayCostosEscritos([renglones[2]]), false)
 })

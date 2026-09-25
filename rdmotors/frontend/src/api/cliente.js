@@ -56,6 +56,11 @@ export class ErrorApi extends Error {
     return this.estado === 409 && this.cuerpo.codigo === 'TURNO_CERRADO'
   }
 
+  /** 409: esa factura ya tiene una carga (spec 0012). `cuerpo.cargaId` es la que ya está, para abrirla. */
+  get esFacturaYaCargada() {
+    return this.estado === 409 && this.cuerpo.cargaId != null
+  }
+
   /** 422: regla de negocio. El mensaje está escrito para que lo lea el cajero. */
   get esReglaDeNegocio() {
     return this.estado === 422
@@ -69,15 +74,17 @@ export class ErrorApi extends Error {
 
 async function pedir(metodo, ruta, cuerpo, { reintentoCsrf = false } = {}) {
   const escribe = metodo !== 'GET'
+  // Un archivo va como formulario (spec 0012): el navegador pone el tipo con su separador, y a mano saldría mal.
+  const esArchivo = typeof FormData !== 'undefined' && cuerpo instanceof FormData
   let respuesta
   try {
     respuesta = await fetch(ruta, {
       method: metodo,
       headers: {
-        'Content-Type': 'application/json',
+        ...(esArchivo ? {} : { 'Content-Type': 'application/json' }),
         ...(escribe ? { [ENCABEZADO_CSRF]: leerCookie('XSRF-TOKEN', document.cookie) ?? '' } : {}),
       },
-      body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+      body: cuerpo === undefined ? undefined : esArchivo ? cuerpo : JSON.stringify(cuerpo),
     })
   } catch {
     // fetch solo lanza si no hubo respuesta: red caída o servidor apagado.
@@ -364,6 +371,39 @@ export const tiendaApi = {
   obtener: () => api.get('/api/tienda'),
   // PUT: reemplaza todos los datos, así repetirlo deja el mismo estado.
   actualizar: (datos) => api.put('/api/tienda', datos),
+}
+
+/**
+ * La carga de inventario desde la factura (spec 0012). Cada gesto sobre la pre-carga responde la carga entera,
+ * revisada de nuevo: la pantalla reemplaza lo que tenía por lo que llega.
+ */
+export const cargasApi = {
+  lista: () => api.get('/api/cargas'),
+  /** El PDF de Jotapartes tal como llegó, o la plantilla en .xlsx o .csv. */
+  subir: (archivo) => {
+    const formulario = new FormData()
+    formulario.append('archivo', archivo)
+    return api.post('/api/cargas', formulario)
+  },
+  detalle: (id) => api.get(`/api/cargas/${id}`),
+  datos: (id, { proveedorId, numeroFactura, fechaFactura, formaPago, cuentaId }) =>
+    api.put(`/api/cargas/${id}/datos`, { proveedorId, numeroFactura, fechaFactura, formaPago, cuentaId }),
+  subtotal: (id, subtotal) => api.put(`/api/cargas/${id}/subtotal`, { subtotal }),
+  regla: (id, { ivaPct, gananciaPct, redondeo }) => api.put(`/api/cargas/${id}/regla`, { ivaPct, gananciaPct, redondeo }),
+  precio: (id, posicion, precio) => api.put(`/api/cargas/${id}/renglones/${posicion}/precio`, { precio }),
+  volverAlSugerido: (id, posicion) => api.borrar(`/api/cargas/${id}/renglones/${posicion}/precio`),
+  lectura: (id, posicion, datos) => api.put(`/api/cargas/${id}/renglones/${posicion}/lectura`, datos),
+  quitado: (id, posicion, valor) => api.put(`/api/cargas/${id}/renglones/${posicion}/quitado`, { valor }),
+  precioNuevo: (id, posicion, valor) => api.put(`/api/cargas/${id}/renglones/${posicion}/precio-nuevo`, { valor }),
+  /** A los `posiciones`, o con `losQueNoTienen` a todos los que no tienen marca. */
+  marca: (id, { posiciones = [], losQueNoTienen = false, marca }) =>
+    api.put(`/api/cargas/${id}/marca`, { posiciones, losQueNoTienen, marca }),
+  categoria: (id, { posiciones = [], losQueNoTienen = false, categoriaId }) =>
+    api.put(`/api/cargas/${id}/categoria`, { posiciones, losQueNoTienen, categoriaId }),
+  /** Manda cuántas reposiciones veía la pantalla: si ahora son otras, el servidor avisa antes de registrar. */
+  confirmar: (id, reposicionesVistas) => api.post(`/api/cargas/${id}/confirmacion`, { reposicionesVistas }),
+  descartar: (id) => api.post(`/api/cargas/${id}/descarte`),
+  urlPlantilla: '/api/cargas/plantilla',
 }
 
 export const comprasApi = {

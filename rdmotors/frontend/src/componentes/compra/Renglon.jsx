@@ -182,7 +182,7 @@ export default function Renglon({
           })}
           title={costoSugerido ? 'Costo de la última compra: revísalo contra la factura' : undefined}
           placeholder={renglon.modo === 'TOTAL' ? 'Pagué' : 'C/u'}
-          aria-label={renglon.modo === 'TOTAL' ? 'Total pagado' : 'Costo por unidad'}
+          aria-label={renglon.modo === 'TOTAL' ? 'Total pagado, con IVA' : 'Costo por unidad, con IVA'}
           inputMode="numeric"
           disabled={!enganchado}
         />

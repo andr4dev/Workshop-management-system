@@ -16,6 +16,8 @@ import Compra from './paginas/Compra'
 import HistorialCompras from './paginas/HistorialCompras'
 import DetalleCompra from './paginas/DetalleCompra'
 import CorregirCompra from './paginas/CorregirCompra'
+import Cargas from './paginas/Cargas'
+import PreCarga from './paginas/PreCarga'
 import Inventario from './paginas/Inventario'
 import Cartera from './paginas/Cartera'
 import Correos from './paginas/Correos'
@@ -166,6 +168,8 @@ function Sistema() {
           <Route path="/compras/historial" element={<HistorialCompras />} />
           <Route path="/compras/historial/:id" element={<DetalleCompra />} />
           <Route path="/compras/historial/:id/corregir" element={<CorregirCompra />} />
+          <Route path="/compras/cargas" element={<Cargas />} />
+          <Route path="/compras/cargas/:id" element={<PreCarga />} />
           <Route path="/cartera" element={<Cartera />} />
           <Route path="/cartera/:id" element={<FichaCliente />} />
           <Route path="/inventario" element={<Inventario />} />

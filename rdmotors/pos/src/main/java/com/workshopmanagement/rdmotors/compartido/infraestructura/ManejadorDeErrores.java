@@ -7,9 +7,12 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.workshopmanagement.rdmotors.carga.dominio.CargaCambioException;
+import com.workshopmanagement.rdmotors.carga.dominio.FacturaYaCargadaException;
 import com.workshopmanagement.rdmotors.caja.dominio.MasDeLoQueDeberiaHaberException;
 import com.workshopmanagement.rdmotors.caja.dominio.MovimientoRepetidoException;
 import com.workshopmanagement.rdmotors.caja.dominio.TurnoAjenoException;
@@ -193,6 +196,36 @@ class ManejadorDeErrores {
     }
 
     /**
+     * 409: esa factura ya tiene una carga (spec 0012). Lleva su id para que la pantalla ofrezca abrirla en vez de
+     * solo negarse.
+     */
+    @ExceptionHandler(FacturaYaCargadaException.class)
+    ResponseEntity<ErrorCarga> facturaYaCargada(FacturaYaCargadaException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorCarga(e.getMessage(), e.getCargaId(), Instant.now()));
+    }
+
+    /**
+     * 409: el inventario cambió mientras se revisaba la pre-carga (spec 0012, §6). No es un error de nadie: la
+     * salida es volver a mirarla y confirmar otra vez.
+     */
+    @ExceptionHandler(CargaCambioException.class)
+    ResponseEntity<Error> cargaCambio(CargaCambioException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new Error(e.getMessage(), Instant.now()));
+    }
+
+    /**
+     * 413: el archivo pasa del límite (spec 0012, §7). Lo corta Spring antes de que llegue a nadie, así que el
+     * mensaje se escribe aquí.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<Error> archivoMuyGrande(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
+                .body(new Error("El archivo pesa más de 5 MB: una factura no pesa tanto. Revisa que sea el archivo "
+                        + "correcto.", Instant.now()));
+    }
+
+    /**
      * 422 y no 400: la peticion esta bien formada, lo que no se puede es lo que pide. El mensaje
      * va tal cual porque esta escrito para que lo lea el cajero, no un programador.
      */
@@ -230,6 +263,9 @@ class ManejadorDeErrores {
     }
 
     record Error(String mensaje, Instant momento) {
+    }
+
+    record ErrorCarga(String mensaje, UUID cargaId, Instant momento) {
     }
 
     record ErrorBloqueados(String mensaje, List<String> codigosBloqueados, Instant momento) {

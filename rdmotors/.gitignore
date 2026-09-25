@@ -14,6 +14,10 @@ frontend/dist/
 *.dump
 clave-token
 
+### Facturas de proveedores (spec 0012): traen datos personales y costos, y el repositorio es público ###
+# Las pruebas fabrican sus propias facturas; la real se usa desde afuera con RDMOTORS_FACTURA_REAL.
+*.pdf
+
 ### STS ###
 .apt_generated
 .classpath

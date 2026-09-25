@@ -162,3 +162,25 @@ export function opcionDeCajon({ formaPago, correccion = null, turnoAbierto = nul
   }
   return { visible: true, bloqueada: false, bloqueaFormaDePago: false, porQue: null }
 }
+
+/**
+ * El costo se escribe CON el IVA incluido (spec 0012, decisión 1 y RF-020): es la misma regla de la carga desde la
+ * factura, y si las compras a mano lo metieran sin IVA el costo promedio de un repuesto mezclaría las dos cosas.
+ *
+ * Cuando la factura trae el IVA aparte, esto se lo suma a los costos ya escritos, redondeado al peso. Devuelve los
+ * renglones nuevos y los de antes, para poder deshacerlo.
+ */
+export function sumarIva(renglones, porcentaje = 19) {
+  const factor = 1 + porcentaje / 100
+  const conIva = (texto) => {
+    const digitos = String(texto ?? '').replace(/\D/g, '')
+    return digitos ? String(Math.round(Number(digitos) * factor)) : texto
+  }
+  return renglones.map((r) => (r.modo === 'TOTAL'
+    ? { ...r, costoTotal: conIva(r.costoTotal) }
+    : { ...r, costoUnitario: conIva(r.costoUnitario) }))
+}
+
+/** Si algún renglón tiene un costo escrito: sin eso no hay a qué sumarle el IVA. */
+export const hayCostosEscritos = (renglones) =>
+  renglones.some((r) => String(r.modo === 'TOTAL' ? r.costoTotal : r.costoUnitario ?? '').replace(/\D/g, '') !== '')

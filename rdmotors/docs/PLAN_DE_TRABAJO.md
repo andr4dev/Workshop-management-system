@@ -80,6 +80,15 @@ de caja), la 2 (cobrar en el backend) y la 3 (pantalla de venta y cobro), la 4 (
    mismo commit y una tarea lo manda reintentando, para que un corte de internet no lo pierda (V24).
    [Plan](specs/0010-correo-del-cierre/plan.md) · **implementado el 2026-09-22**. Falta que el dueño cree la cuenta
    de Brevo, ponga `BREVO_API_KEY` y escriba los destinatarios en *Ajustes › Correos*.
+9. ✅ [Spec 0012](specs/0012-carga-de-inventario-desde-excel/spec.md) — **cargar una factura entera de una vez**,
+   pedido el 2026-09-25 (*«es muy tedioso y demorado cargar inventario»*): se sube el **PDF de Jotapartes tal como
+   llega** (o la plantilla en Excel/CSV), se revisa una **pre-carga guardada en el servidor** con el precio sugerido
+   (*valor total ÷ cantidad + 19% de IVA + 45%*, redondeado a $100), se ajustan precios, marcas y categorías, y al
+   confirmar entra como **una sola compra por lo que se pagó con IVA**. Decidido con el usuario: **el costo lleva el
+   IVA**, también en las compras a mano. [Plan](specs/0012-carga-de-inventario-desde-excel/plan.md) · **las 6 fases
+   hechas el 2026-09-25** (V26). Medido con la MAG477 real en un contenedor con los límites del plan gratis:
+   592 renglones, confirmar en 41 s. Guía: [CARGAR_FACTURA.md](CARGAR_FACTURA.md). Falta: **la primera carga real
+   la hace el dueño** en producción.
 
 ---
 
@@ -283,6 +292,9 @@ spec retroactivo — sería papeleo. Queda anotado en [`docs/specs/README.md`](s
 
 ## 6. Lo siguiente, concreto
 
+0. **La primera carga real (spec 0012)**: el dueño sube la MAG477 en producción. Antes de confirmar se revisa con él
+   que la pre-carga diga 592 renglones, que cuadre y que el total sea $17.528.132. Y anular la compra de prueba que
+   quedó en producción antes de esa carga.
 1. ✅ **Dos cambios chicos** (2026-09-19): la fase 9 del spec 0002 (sin buscar, cada factura dice qué trae) y
    la venta a medias que se retoma sola (spec 0003, RF-028). Quedan para el QA general del usuario.
 2. **Verificar el [spec 0006](specs/0006-cierre-de-caja/plan.md)** — implementado; falta recorrerlo en el

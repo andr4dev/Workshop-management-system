@@ -73,6 +73,20 @@
 			<optional>true</optional>
 		</dependency>
 
+		<!-- Leer la factura (spec 0012). PDFBox saca el texto del PDF con la POSICION de cada palabra: sin eso
+		     no se sabe a que columna pertenece un numero. fastexcel-reader lee .xlsx sin cargar el archivo entero
+		     en memoria, que en el contenedor de 512 MB importa; Apache POI hace lo mismo con diez veces el peso. -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>3.0.8</version>
+		</dependency>
+		<dependency>
+			<groupId>org.dhatim</groupId>
+			<artifactId>fastexcel-reader</artifactId>
+			<version>0.20.2</version>
+		</dependency>
+
 		<!-- Comodidad de DESARROLLO: levanta el compose.yaml solo al hacer spring-boot:run.
 		     Va como 'optional' para que no viaje al jar que se instala en la tienda, donde
 		     Postgres es nativo y no hay Docker. Se apaga con spring.docker.compose.enabled=false. -->

@@ -1,5 +1,6 @@
 package com.workshopmanagement.rdmotors.inventario.infraestructura;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,6 +54,16 @@ class RepositorioVariantesJpa implements RepositorioVariantes {
     @Override
     public Optional<Variante> buscarPorCodigo(String codigo) {
         return jpa.findByCodigo(codigo);
+    }
+
+    @Override
+    public List<Variante> buscarPorCodigos(Collection<String> codigos) {
+        return codigos.isEmpty() ? List.of() : jpa.buscarPorCodigos(codigos);
+    }
+
+    @Override
+    public List<String> marcasEnUso() {
+        return jpa.marcasEnUso();
     }
 
     @Override
@@ -120,6 +131,13 @@ interface VariantesSpringData extends JpaRepository<Variante, UUID> {
     Optional<Variante> bloquearPorId(@Param("id") UUID id);
 
     Optional<Variante> findByCodigo(String codigo);
+
+    /** Con el concepto en la misma consulta: la pre-carga muestra el nombre del repuesto que ya existe. */
+    @Query("select v from Variante v join fetch v.producto where v.codigo in :codigos")
+    List<Variante> buscarPorCodigos(@Param("codigos") Collection<String> codigos);
+
+    @Query("select distinct v.marcaRepuesto from Variante v where v.activa")
+    List<String> marcasEnUso();
 
     /**
      * El {@code join fetch} no es opcional: sin el, leer el nombre del concepto por cada fila

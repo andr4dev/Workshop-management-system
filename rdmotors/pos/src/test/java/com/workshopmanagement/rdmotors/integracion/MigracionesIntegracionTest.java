@@ -687,6 +687,77 @@ class MigracionesIntegracionTest {
         }
     }
 
+    @Test
+    @DisplayName("V26 sobre una base con compras: solo agrega; un borrador guarda renglones malos, y lo confirmado exige su compra")
+    void v26CargaDeInventario() throws SQLException {
+        Flyway hastaV25 = flywayHasta("25");
+        hastaV25.clean();
+        hastaV25.migrate();
+        UUID ruben = UUID.randomUUID();
+        UUID proveedorId = UUID.randomUUID();
+        try (Connection c = conexion()) {
+            ejecutar(c, """
+                    insert into usuario (id, usuario, usuario_normalizado, nombre, hash, rol, activo,
+                                         debe_cambiar_contrasena, version_sesion, intentos_fallidos, creado_en)
+                    values (?, 'ruben', 'ruben', 'Rubén', '{bcrypt}x', 'ADMINISTRADOR', true, false, 1, 0, now())
+                    """, ruben);
+            ejecutar(c, "insert into proveedor (id, nombre) values (?, 'Importadora Jotapartes')", proveedorId);
+            ejecutar(c, """
+                    insert into compra (id, proveedor_id, fecha_documento, fecha_registro, numero_factura, total,
+                                        registrado_por_id, forma_pago, pagada_de_caja, llave_idempotencia)
+                    values (gen_random_uuid(), ?, date '2026-09-20', now(), 'DE-PRUEBA', 238172, ?, 'EFECTIVO',
+                            false, gen_random_uuid())
+                    """, proveedorId, ruben);
+        }
+
+        flywayHasta(null).migrate();
+
+        String nuevaCarga = """
+                insert into carga_inventario (id, estado, origen, nit_proveedor, numero_factura, subtotal_leido,
+                                              iva_pct, ganancia_pct, redondeo, creada_por_id, creada_en,
+                                              modificada_en, cerrada_por_id, cerrada_en)
+                values (?, ?, 'PDF_JOTAPARTES', '900576528', 'MAG477', true, 19, 45, 100, ?, now(), now(), ?, ?)
+                """;
+        try (Connection c = conexion()) {
+            assertThat(valor(c, "select count(*) from compra")).isEqualTo(1L);
+
+            // Un borrador guarda lo leído aunque esté mal: sin código y sin cantidad. Es para mostrarlo marcado.
+            UUID borrador = UUID.randomUUID();
+            ejecutar(c, nuevaCarga, borrador, "BORRADOR", ruben, null, null);
+            ejecutar(c, """
+                    insert into renglon_carga (id, carga_id, posicion, codigo, cantidad, valor_total,
+                                               marca_propuesta, categoria_propuesta, ajustado_a_mano, quitado,
+                                               aplicar_precio_nuevo)
+                    values (gen_random_uuid(), ?, 0, null, null, 308274, false, false, false, false, false)
+                    """, borrador);
+
+            // Dos borradores de la misma factura no: confirmar los dos entraría la mercancía dos veces.
+            try (PreparedStatement ps = c.prepareStatement(nuevaCarga)) {
+                ps.setObject(1, UUID.randomUUID());
+                ps.setObject(2, "BORRADOR");
+                ps.setObject(3, ruben);
+                ps.setObject(4, null);
+                ps.setObject(5, null);
+                org.assertj.core.api.Assertions.assertThatThrownBy(ps::executeUpdate)
+                        .hasMessageContaining("ux_carga_factura_en_borrador");
+            }
+            // Confirmada sin la compra que dejó, tampoco.
+            try (PreparedStatement ps = c.prepareStatement(nuevaCarga)) {
+                ps.setObject(1, UUID.randomUUID());
+                ps.setObject(2, "CONFIRMADA");
+                ps.setObject(3, ruben);
+                ps.setObject(4, ruben);
+                ps.setObject(5, java.sql.Timestamp.from(java.time.Instant.now()));
+                org.assertj.core.api.Assertions.assertThatThrownBy(ps::executeUpdate)
+                        .hasMessageContaining("ck_carga_confirmada_con_compra");
+            }
+            // Una descartada de la misma factura sí convive con el borrador: se descartó para subirla de nuevo.
+            ejecutar(c, nuevaCarga, UUID.randomUUID(), "DESCARTADA", ruben, ruben,
+                    java.sql.Timestamp.from(java.time.Instant.now()));
+            assertThat(valor(c, "select count(*) from carga_inventario")).isEqualTo(2L);
+        }
+    }
+
     private static Object valor(Connection c, String sql, Object... parametros) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             for (int i = 0; i < parametros.length; i++) {

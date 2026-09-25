@@ -68,6 +68,12 @@ import com.workshopmanagement.rdmotors.inventario.dominio.Variante;
 import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioCategorias;
 import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioKardex;
 import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioProductos;
+import com.workshopmanagement.rdmotors.carga.dominio.CargaDeInventario;
+import com.workshopmanagement.rdmotors.carga.dominio.EstadoCarga;
+import com.workshopmanagement.rdmotors.carga.dominio.FacturaLeida;
+import com.workshopmanagement.rdmotors.carga.dominio.ResumenCarga;
+import com.workshopmanagement.rdmotors.carga.dominio.puerto.LectorDeFactura;
+import com.workshopmanagement.rdmotors.carga.dominio.puerto.RepositorioCargas;
 import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioVariantes;
 import com.workshopmanagement.rdmotors.reportes.dominio.CarteraDelPeriodo;
 import com.workshopmanagement.rdmotors.reportes.dominio.Control;
@@ -180,6 +186,20 @@ public final class Falsos {
         @Override
         public Optional<Variante> buscarPorCodigo(String codigo) {
             return datos.values().stream().filter(v -> v.getCodigo().equals(codigo)).findFirst();
+        }
+
+        public int vecesBuscadaPorCodigos = 0;
+
+        @Override
+        public List<Variante> buscarPorCodigos(java.util.Collection<String> codigos) {
+            vecesBuscadaPorCodigos++;
+            return datos.values().stream().filter(v -> codigos.contains(v.getCodigo())).toList();
+        }
+
+        @Override
+        public List<String> marcasEnUso() {
+            return datos.values().stream().filter(Variante::isActiva).map(Variante::getMarcaRepuesto).distinct()
+                    .toList();
         }
 
         /** Imita al adaptador real: coincidencia parcial, sin mayúsculas ni tildes, acotada. */
@@ -1448,4 +1468,81 @@ public final class Falsos {
         }
     }
 
+
+    public static final class CargasEnMemoria implements RepositorioCargas {
+        private final Map<UUID, CargaDeInventario> datos = new LinkedHashMap<>();
+        public int vecesBuscadaParaModificar = 0;
+
+        @Override
+        public Optional<CargaDeInventario> buscar(UUID id) {
+            return Optional.ofNullable(datos.get(id));
+        }
+
+        @Override
+        public Optional<CargaDeInventario> buscarParaModificar(UUID id) {
+            vecesBuscadaParaModificar++;
+            return buscar(id);
+        }
+
+        /** Imita al adaptador: la que está en borrador primero; si no, la última confirmada. */
+        @Override
+        public Optional<CargaDeInventario> deLaFactura(String nitProveedor, String numeroFactura) {
+            return datos.values().stream()
+                    .filter(c -> c.getEstado() != EstadoCarga.DESCARTADA)
+                    .filter(c -> java.util.Objects.equals(c.getNitProveedor(), nitProveedor)
+                            && java.util.Objects.equals(c.getNumeroFactura(), numeroFactura))
+                    .min(Comparator.comparing((CargaDeInventario c) -> c.getEstado() != EstadoCarga.BORRADOR)
+                            .thenComparing(CargaDeInventario::getCreadaEn, Comparator.reverseOrder()));
+        }
+
+        @Override
+        public List<ResumenCarga> recientes(int cerradasQueSeMuestran) {
+            List<ResumenCarga> lista = new ArrayList<>();
+            datos.values().stream().filter(c -> c.getEstado() == EstadoCarga.BORRADOR)
+                    .sorted(Comparator.comparing(CargaDeInventario::getModificadaEn).reversed())
+                    .map(CargasEnMemoria::resumen).forEach(lista::add);
+            datos.values().stream().filter(c -> c.getEstado() != EstadoCarga.BORRADOR)
+                    .sorted(Comparator.comparing(CargaDeInventario::getCerradaEn).reversed())
+                    .limit(cerradasQueSeMuestran)
+                    .map(CargasEnMemoria::resumen).forEach(lista::add);
+            return lista;
+        }
+
+        private static ResumenCarga resumen(CargaDeInventario c) {
+            return new ResumenCarga(c.getId(), c.getEstado(), c.getOrigen(), c.getNombreArchivo(), c.getNumeroFactura(),
+                    c.getFechaFactura(), c.getProveedorId(), c.getRenglones().size(), c.getCreadaEn(),
+                    c.getModificadaEn(), c.getCerradaEn(), c.getCompraId());
+        }
+
+        @Override
+        public CargaDeInventario guardar(CargaDeInventario carga) {
+            datos.put(carga.getId(), carga);
+            return carga;
+        }
+
+        public int cuantas() {
+            return datos.size();
+        }
+    }
+
+    /** Un lector que reconoce una extensión y devuelve lo que la prueba le dio. */
+    public static final class LectorFalso implements LectorDeFactura {
+        private final String extension;
+        private final FacturaLeida factura;
+
+        public LectorFalso(String extension, FacturaLeida factura) {
+            this.extension = extension;
+            this.factura = factura;
+        }
+
+        @Override
+        public boolean reconoce(String nombreArchivo, byte[] contenido) {
+            return nombreArchivo != null && nombreArchivo.toLowerCase(java.util.Locale.ROOT).endsWith(extension);
+        }
+
+        @Override
+        public FacturaLeida leer(byte[] contenido) {
+            return factura;
+        }
+    }
 }

@@ -1,5 +1,7 @@
 package com.workshopmanagement.rdmotors.compartido.infraestructura;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -33,6 +35,13 @@ import com.workshopmanagement.rdmotors.clientes.dominio.puerto.ConsultasDeCarter
 import com.workshopmanagement.rdmotors.clientes.dominio.puerto.RepositorioAbonos;
 import com.workshopmanagement.rdmotors.clientes.dominio.puerto.RepositorioClientes;
 import com.workshopmanagement.rdmotors.clientes.dominio.puerto.RepositorioDeudas;
+import com.workshopmanagement.rdmotors.carga.aplicacion.ConfirmarCarga;
+import com.workshopmanagement.rdmotors.carga.aplicacion.ConsultarCarga;
+import com.workshopmanagement.rdmotors.carga.aplicacion.DescartarCarga;
+import com.workshopmanagement.rdmotors.carga.aplicacion.EditarCarga;
+import com.workshopmanagement.rdmotors.carga.aplicacion.SubirFactura;
+import com.workshopmanagement.rdmotors.carga.dominio.puerto.LectorDeFactura;
+import com.workshopmanagement.rdmotors.carga.dominio.puerto.RepositorioCargas;
 import com.workshopmanagement.rdmotors.compartido.aplicacion.ActualizarDatosTienda;
 import com.workshopmanagement.rdmotors.compartido.dominio.puerto.RepositorioDatosTienda;
 import com.workshopmanagement.rdmotors.compartido.dominio.puerto.Reloj;
@@ -120,6 +129,45 @@ class ConfiguracionCasosDeUso {
                                     RepositorioKardex kardex,
                                     Reloj reloj) {
         return new RegistrarCompra(compras, proveedores, cuentas, turnos, variantes, kardex, crearRepuesto,
+                reloj);
+    }
+
+    // ── Carga de inventario desde la factura (spec 0012) ─────────────────────
+
+    /** Los lectores llegan en su {@code @Order}: el PDF de Jotapartes, el Excel, el CSV. */
+    @Bean
+    SubirFactura subirFactura(List<LectorDeFactura> lectores, RepositorioCargas cargas,
+                              RepositorioProveedores proveedores, RepositorioCuentas cuentas,
+                              RepositorioCompras compras, RepositorioVariantes variantes,
+                              RepositorioCategorias categorias, Reloj reloj) {
+        return new SubirFactura(lectores, cargas, proveedores, cuentas, compras, variantes, categorias, reloj);
+    }
+
+    @Bean
+    ConsultarCarga consultarCarga(RepositorioCargas cargas, RepositorioVariantes variantes,
+                                  RepositorioCategorias categorias, RepositorioProveedores proveedores,
+                                  RepositorioCuentas cuentas) {
+        return new ConsultarCarga(cargas, variantes, categorias, proveedores, cuentas);
+    }
+
+    @Bean
+    EditarCarga editarCarga(RepositorioCargas cargas, RepositorioVariantes variantes,
+                            RepositorioCategorias categorias, RepositorioProveedores proveedores,
+                            RepositorioCuentas cuentas, Reloj reloj) {
+        return new EditarCarga(cargas, variantes, categorias, proveedores, cuentas, reloj);
+    }
+
+    @Bean
+    DescartarCarga descartarCarga(RepositorioCargas cargas, Reloj reloj) {
+        return new DescartarCarga(cargas, reloj);
+    }
+
+    /** Recibe {@code RegistrarCompra} ya envuelto por Spring: la compra se une a la transacción de confirmar. */
+    @Bean
+    ConfirmarCarga confirmarCarga(RepositorioCargas cargas, RepositorioCompras compras, RegistrarCompra registrarCompra,
+                                  RepositorioVariantes variantes, RepositorioCategorias categorias,
+                                  RepositorioProveedores proveedores, RepositorioCuentas cuentas, Reloj reloj) {
+        return new ConfirmarCarga(cargas, compras, registrarCompra, variantes, categorias, proveedores, cuentas,
                 reloj);
     }
 

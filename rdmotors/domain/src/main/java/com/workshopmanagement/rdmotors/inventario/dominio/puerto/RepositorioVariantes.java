@@ -1,5 +1,6 @@
 package com.workshopmanagement.rdmotors.inventario.dominio.puerto;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,6 +36,17 @@ public interface RepositorioVariantes {
     Optional<Variante> buscarParaModificar(UUID id);
 
     Optional<Variante> buscarPorCodigo(String codigo);
+
+    /**
+     * Las que tienen alguno de esos códigos, activas o no, con su concepto. De una vez: la carga de una factura
+     * pregunta por 600 códigos, y de a uno serían 600 viajes a la base (spec 0012).
+     *
+     * @param codigos como los guarda la ficha: en mayúsculas y sin espacios al borde
+     */
+    List<Variante> buscarPorCodigos(Collection<String> codigos);
+
+    /** Las marcas que ya tiene algún repuesto activo, sin repetir: con ellas se proponen las de una factura. */
+    List<String> marcasEnUso();
 
     /**
      * Coincidencia parcial en nombre del concepto, marca del repuesto o texto de aplicación.

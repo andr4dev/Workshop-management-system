@@ -14,8 +14,8 @@ import { comprasApi, cuentasApi, proveedoresApi, repuestosApi, turnosApi } from 
 import { llaveNueva } from '../utils/venta'
 import { desgloseDeCambios } from '../utils/auditoria'
 import {
-  codigoDelRenglon, estaVacio, opcionDeCajon, precioParaEnviar, problemaDelRenglon, problemasDelPago,
-  renglonesRepetidos, textoDelPago, ultimaCategoriaElegida, ultimaCompraDe,
+  codigoDelRenglon, estaVacio, hayCostosEscritos, opcionDeCajon, precioParaEnviar, problemaDelRenglon,
+  problemasDelPago, renglonesRepetidos, sumarIva, textoDelPago, ultimaCategoriaElegida, ultimaCompraDe,
 } from '../utils/compra'
 import {
   fotografiaDelDetalle, fotografiaDelFormulario, lineaParaCorregir, mismaEntrada, renglonesDesdeDetalle,
@@ -306,6 +306,19 @@ export default function Compra({ correccion = null }) {
     if (correccion?.cuentaId === cuenta.id) return
     setCuentas((cs) => cs.filter((c) => c.id !== cuenta.id))
     setCuentaId((actual) => (actual === cuenta.id ? '' : actual))
+  }
+
+  // Los costos antes de sumarles el IVA: para deshacerlo si fue un error (RF-020).
+  const [antesDelIva, setAntesDelIva] = useState(null)
+
+  function ponerIva() {
+    setAntesDelIva(renglones)
+    setRenglones((rs) => sumarIva(rs, 19))
+  }
+
+  function deshacerIva() {
+    if (antesDelIva) setRenglones(antesDelIva)
+    setAntesDelIva(null)
   }
 
   const agregar = () => setRenglones((rs) => [...rs, renglonVacio()])
@@ -672,10 +685,25 @@ export default function Compra({ correccion = null }) {
       </section>
 
       {/* ── Renglones ─────────────────────────────────────────────────────── */}
+      {/* El costo va con el IVA incluido (spec 0012, RF-020): la misma regla de la carga desde la factura. */}
+      <div className={estilos.iva}>
+        <span>El costo se escribe <strong>con el IVA incluido</strong>: es lo que de verdad se pagó.</span>
+        {!correccion && (antesDelIva
+          ? (
+            <button type="button" className={estilos.ivaBoton} onClick={deshacerIva}>
+              Se sumó el 19% · Deshacer
+            </button>
+          ) : (
+            <button type="button" className={estilos.ivaBoton} onClick={ponerIva}
+              disabled={!hayCostosEscritos(renglones)}>
+              La factura trae el IVA aparte: sumar 19%
+            </button>
+          ))}
+      </div>
       <section className={estilos.renglones}>
         <div className={estilos.encabezados}>
           <span>Código</span><span>Repuesto</span><span>Cant.</span>
-          <span>Costo viene por</span><span>Costo compra</span><span>Precio venta</span>
+          <span>Costo viene por</span><span>Costo con IVA</span><span>Precio venta</span>
           <span>Margen</span><span />
         </div>
 

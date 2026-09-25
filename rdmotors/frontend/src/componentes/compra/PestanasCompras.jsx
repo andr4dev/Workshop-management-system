@@ -12,6 +12,8 @@ export default function PestanasCompras() {
       {/* `end`: sin él, "Registrar" quedaría marcada también dentro del historial. */}
       <NavLink to="/compras" end className={clase}>Registrar</NavLink>
       <NavLink to="/compras/historial" className={clase}>Historial</NavLink>
+      {/* Una factura entera de una vez, con pre-carga (spec 0012). */}
+      <NavLink to="/compras/cargas" className={clase}>Cargar factura</NavLink>
     </nav>
   )
 }
