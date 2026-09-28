@@ -153,8 +153,8 @@ function Reporte({ r, tipo, cargando, onPanel }) {
           {avisoDelMes && <p className={estilos.aviso}>{avisoDelMes} <AyudaDe clave="gastosDelMes" /></p>}
           {!pagosCuadran(c) && (
             <p className={estilos.descuadre} role="alert">
-              <span aria-hidden>⚠</span> Efectivo, transferencia y fiado suman{' '}
-              {formatoCOP(c.efectivo + c.transferencia + (c.fiado ?? 0))} y las ventas netas son {formatoCOP(c.ventasNetas)}.
+              <span aria-hidden>⚠</span> Efectivo y transferencia suman{' '}
+              {formatoCOP(c.efectivo + c.transferencia)} y las ventas netas son {formatoCOP(c.ventasNetas)}.
             </p>
           )}
         </div>
@@ -163,14 +163,16 @@ function Reporte({ r, tipo, cargando, onPanel }) {
       <h2 className={estilos.seccion}>Las cifras que importan</h2>
       <section className={`${estilos.importantes} ${atenuado}`} aria-label="Las cifras que importan">
         <div className={estilos.tarjeta}>
-          <span className={estilos.etiqueta}>Ventas</span>
+          <span className={estilos.etiqueta}>Ventas <AyudaDe clave="ventas" /></span>
           <span className={estilos.valorChico}>{c.ventas}</span>
-          <p className={estilos.nota}>{c.unidades} {c.unidades === 1 ? 'unidad vendida' : 'unidades vendidas'}</p>
+          <p className={estilos.nota}>
+            {c.unidades} {c.unidades === 1 ? 'unidad' : 'unidades'} · de contado o fiadas ya pagadas
+          </p>
         </div>
         <div className={estilos.tarjeta}>
           <span className={estilos.etiqueta}>Ticket promedio <AyudaDe clave="ticket" /></span>
           <span className={estilos.valorChico}>{c.ticketPromedio == null ? GUION : formatoCOP(c.ticketPromedio)}</span>
-          <p className={estilos.nota}>Lo que dejó cada venta</p>
+          <p className={estilos.nota}>De las ventas completas del período</p>
         </div>
         <div className={estilos.tarjeta}>
           <span className={estilos.etiqueta}>Descuentos <AyudaDe clave="descuentos" /></span>
@@ -181,20 +183,24 @@ function Reporte({ r, tipo, cargando, onPanel }) {
               : 'No se dieron descuentos'}
           </p>
         </div>
-        {/* El fiado y la cartera (spec 0008, RF-024): lo vendido fiado es de este período; lo por cobrar, de hoy. */}
-        {(c.fiado > 0 || r.cartera?.porCobrar > 0 || r.cartera?.cobrado > 0) && (
+        {/* El fiado (spec 0014): no entra a las ventas hasta que se cobra, pero se ve aquí. Lo vendido fiado es de este
+            período; lo por cobrar, de hoy. */}
+        {(r.cartera?.vendidoFiado > 0 || r.cartera?.porCobrar > 0 || r.cartera?.cobrado > 0) && (
           <div className={estilos.tarjeta}>
-            <span className={estilos.etiqueta}>Fiado y cartera</span>
+            <span className={estilos.etiqueta}>Fiado <AyudaDe clave="fiado" /></span>
             <dl className={estilos.pagos}>
-              <dt>Vendido fiado</dt><dd>{formatoCOP(c.fiado)}</dd>
+              <dt>Vendido fiado</dt><dd>{formatoCOP(r.cartera?.vendidoFiado ?? 0)}</dd>
               <dt>Cobrado en abonos</dt><dd>{formatoCOP(r.cartera?.cobrado ?? 0)}</dd>
+              {r.cartera?.cobradoDelCuaderno > 0 && (
+                <><dt>· del cuaderno</dt><dd>{formatoCOP(r.cartera.cobradoDelCuaderno)}</dd></>
+              )}
               <dt>Por cobrar hoy</dt><dd>{formatoCOP(r.cartera?.porCobrar ?? 0)}</dd>
             </dl>
             <p className={estilos.nota}>
               {r.cartera?.clientesQueDeben
                 ? `${r.cartera.clientesQueDeben} ${r.cartera.clientesQueDeben === 1 ? 'cliente debe' : 'clientes deben'} hoy · `
                 : ''}
-              Un abono es un cobro, no una venta
+              Lo fiado entra a las ventas cuando lo abonan
             </p>
           </div>
         )}
@@ -204,16 +210,13 @@ function Reporte({ r, tipo, cargando, onPanel }) {
           <dl className={estilos.pagos}>
             <dt>Efectivo</dt><dd>{formatoCOP(c.efectivo)}</dd>
             <dt>Transferencia</dt><dd>{formatoCOP(c.transferencia)}</dd>
-            {/* Lo fiado es venta del día en que se vendió, aunque todavía no haya entrado (spec 0008). */}
-            {c.fiado > 0 && <><dt>Fiado</dt><dd>{formatoCOP(c.fiado)}</dd></>}
+            {/* Lo cobrado de ventas fiadas (spec 0014): ya está en el efectivo y la transferencia de arriba. */}
+            {c.deAbonos > 0 && <><dt>· de abonos a fiados</dt><dd>{formatoCOP(c.deAbonos)}</dd></>}
           </dl>
           {c.ventasNetas > 0 && (
             <div className={estilos.proporcion} aria-hidden>
               <span className={estilos.proporcionEfectivo} style={{ width: `${(c.efectivo / c.ventasNetas) * 100}%` }} />
               <span className={estilos.proporcionTransferencia} style={{ width: `${(c.transferencia / c.ventasNetas) * 100}%` }} />
-              {c.fiado > 0 && (
-                <span className={estilos.proporcionFiado} style={{ width: `${(c.fiado / c.ventasNetas) * 100}%` }} />
-              )}
             </div>
           )}
         </div>

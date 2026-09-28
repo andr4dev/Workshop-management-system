@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import com.workshopmanagement.rdmotors.caja.dominio.NaturalezaGasto;
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
+import com.workshopmanagement.rdmotors.compartido.dominio.FormaPago;
 import com.workshopmanagement.rdmotors.reportes.dominio.ResultadosDelPeriodo.Cifras;
 import com.workshopmanagement.rdmotors.reportes.dominio.ResultadosDelPeriodo.Fila;
 import com.workshopmanagement.rdmotors.reportes.dominio.ResultadosDelPeriodo.PorCategoria;
@@ -66,14 +67,15 @@ class ResultadosDelPeriodoTest {
     }
 
     @Test
-    @DisplayName("las partes suman: renglones − descuentos, efectivo + transferencia + fiado, las utilidades y las categorías")
+    @DisplayName("las partes suman: renglones − descuentos, efectivo + transferencia, las utilidades y las categorías")
     void lasPartesSuman() {
         ResultadosDelPeriodo r = DatosDeReporte.semanaDelEjemplo()
                 .calcular(LUNES_14, DOMINGO_20, HOY);
         Cifras c = r.cifras();
 
         assertThat(c.renglones().menos(c.descuentos())).isEqualTo(c.ventasNetas());
-        assertThat(c.efectivo().mas(c.transferencia()).mas(c.fiado())).isEqualTo(c.ventasNetas());
+        assertThat(c.efectivo().mas(c.transferencia())).isEqualTo(c.ventasNetas());
+        assertThat(c.deAbonos()).as("todo de contado").isEqualTo(Dinero.CERO);
         assertThat(c.ventasNetas().menos(c.costoVendido()).menos(c.costosAdicionales())).isEqualTo(c.utilidadBruta());
         assertThat(c.utilidadBruta().menos(c.gastos())).isEqualTo(c.utilidadOperativa());
         assertThat(DatosDeReporte.suma(r.costosPorCategoria(), PorCategoria::monto)).isEqualTo(c.costosAdicionales());
@@ -81,19 +83,34 @@ class ResultadosDelPeriodoTest {
     }
 
     @Test
-    @DisplayName("lo fiado es venta el día que se vende (spec 0008): suma a las ventas netas y su costo cuenta ese día")
-    void loFiadoEsVentaElDiaQueSeVende() {
+    @DisplayName("SPEC 0014: lo fiado cuenta cuando se cobra y en la parte que se cobra, con su parte del costo; la venta se cuenta el día que se termina de pagar")
+    void loFiadoCuentaAlCobrarse() {
         DatosDeReporte datos = new DatosDeReporte();
-        datos.ventaFiada(LUNES_14, 30_000, 50_000, DatosDeReporte.conCosto("F1", 1, 80_000, 60_000));
+        VentaCobrada fiada = datos.ventaFiada(LUNES_14, 30_000, 50_000, DatosDeReporte.conCosto("F1", 1, 80_000, 60_000));
         datos.venta(LUNES_14, 0, 20_000, 0, DatosDeReporte.conCosto("F2", 1, 20_000, 12_000));
+        LocalDate miercoles = LUNES_14.plusDays(2);
+        datos.abono(fiada, miercoles, 50_000, FormaPago.TRANSFERENCIA);
 
-        Cifras c = datos.calcular(LUNES_14, LUNES_14, HOY).cifras();
+        Cifras lunes = datos.calcular(LUNES_14, LUNES_14, HOY).cifras();
+        assertThat(lunes.ventasNetas()).as("los $30.000 de la fiada y la de contado").isEqualTo(Dinero.de(50_000));
+        assertThat(lunes.costoVendido()).as("3/8 de $60.000 y los $12.000").isEqualTo(Dinero.de(22_500 + 12_000));
+        assertThat(lunes.ventas()).as("la fiada todavía no se cuenta").isEqualTo(1);
+        assertThat(lunes.unidades()).isEqualTo(1);
+        assertThat(lunes.efectivo().mas(lunes.transferencia())).isEqualTo(lunes.ventasNetas());
 
-        assertThat(c.ventasNetas()).isEqualTo(Dinero.de(100_000));
-        assertThat(c.efectivo()).isEqualTo(Dinero.de(50_000));
-        assertThat(c.fiado()).isEqualTo(Dinero.de(50_000));
-        assertThat(c.efectivo().mas(c.transferencia()).mas(c.fiado())).isEqualTo(c.ventasNetas());
-        assertThat(c.utilidadBruta()).isEqualTo(Dinero.de(28_000));
+        Cifras miercolesC = datos.calcular(miercoles, miercoles, HOY).cifras();
+        assertThat(miercolesC.ventasNetas()).isEqualTo(Dinero.de(50_000));
+        assertThat(miercolesC.costoVendido()).as("el resto del costo").isEqualTo(Dinero.de(37_500));
+        assertThat(miercolesC.ventas()).as("se terminó de pagar: ese día cuenta").isEqualTo(1);
+        assertThat(miercolesC.transferencia()).isEqualTo(Dinero.de(50_000));
+        assertThat(miercolesC.deAbonos()).isEqualTo(Dinero.de(50_000));
+        assertThat(miercolesC.ticketPromedio()).as("el total de la que se completó").isEqualTo(Dinero.de(80_000));
+
+        Cifras semana = datos.calcular(LUNES_14, DOMINGO_20, HOY).cifras();
+        assertThat(semana.ventasNetas()).isEqualTo(Dinero.de(100_000));
+        assertThat(semana.costoVendido()).as("completo: ni un peso de más ni de menos").isEqualTo(Dinero.de(72_000));
+        assertThat(semana.utilidadBruta()).isEqualTo(Dinero.de(28_000));
+        assertThat(semana.ventas()).isEqualTo(2);
     }
 
     @Test
@@ -266,6 +283,21 @@ class ResultadosDelPeriodoTest {
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("Arriendo", 800_000L),
                         org.assertj.core.groups.Tuple.tuple("Servicios públicos", 310_000L));
         lasFilasSuman(octubre);
+
+        // Ver cálculo (spec 0014, RF-008): cada categoría trae sus gastos, con lo que cargan en el período.
+        ResultadosDelPeriodo.GastoCargado servicios = semana.gastosPorCategoria().getFirst().gastos().getFirst();
+        assertThat(servicios.monto()).isEqualTo(Dinero.de(310_000));
+        assertThat(servicios.cargado()).isEqualTo(Dinero.de(70_000));
+        assertThat(servicios.dias()).isEqualTo(7);
+        assertThat(servicios.diasDelMes()).isEqualTo(31);
+        assertThat(octubre.gastosPorCategoria().getFirst().gastos()).singleElement().satisfies(arriendo -> {
+            assertThat(arriendo.cargado()).as("entero").isEqualTo(Dinero.de(800_000));
+            assertThat(arriendo.dias()).isZero();
+        });
+        for (ResultadosDelPeriodo.PorCategoria c : octubre.gastosPorCategoria()) {
+            assertThat(DatosDeReporte.suma(c.gastos(), ResultadosDelPeriodo.GastoCargado::cargado))
+                    .as("los gastos suman su categoría").isEqualTo(c.monto());
+        }
     }
 
     @Test
@@ -315,16 +347,19 @@ class ResultadosDelPeriodoTest {
     }
 
     @Test
-    @DisplayName("una venta fuera del período o un renglón de otra venta no se callan: son un error de lectura")
-    void filasQueNoSonDelPeriodo() {
+    @DisplayName("un cobro de una venta que no vino, una venta sin renglones o lo cobrado de más no se callan: son un error de lectura")
+    void filasQueNoCuadran() {
         DatosDeReporte datos = new DatosDeReporte();
         VentaCobrada lunes = datos.venta(LUNES_14, 0, 10_000, 0, conCosto("FILTRO", 1, 10_000, 6_000));
-        Periodo martes = new Periodo(LUNES_14.plusDays(1), LUNES_14.plusDays(1));
+        Periodo delLunes = new Periodo(LUNES_14, LUNES_14);
 
-        assertThatThrownBy(() -> ResultadosDelPeriodo.calcular(martes, List.of(lunes), datos.renglones, List.of(), HOY)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> ResultadosDelPeriodo.calcular(new Periodo(LUNES_14, LUNES_14), List.of(),
-                datos.renglones, List.of(), HOY))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ResultadosDelPeriodo.calcular(delLunes, List.of(), datos.renglones, datos.cobros,
+                List.of(), HOY)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ResultadosDelPeriodo.calcular(delLunes, List.of(lunes), List.of(), datos.cobros,
+                List.of(), HOY)).isInstanceOf(IllegalArgumentException.class);
+        datos.abono(lunes, LUNES_14, 1);
+        assertThatThrownBy(() -> ResultadosDelPeriodo.calcular(delLunes, List.of(lunes), datos.renglones, datos.cobros,
+                List.of(), HOY)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("le entraron");
     }
 
     @Test

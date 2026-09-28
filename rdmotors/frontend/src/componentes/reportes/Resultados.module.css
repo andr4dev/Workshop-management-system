@@ -550,3 +550,25 @@
 @media (max-width: 900px) {
   .dosColumnas { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Ver cálculo (spec 0014): cada gasto debajo de su categoría, con su enlace. */
+.gastoDelCalculo td {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.gastoDelCalculo td:nth-child(2) {
+  padding-left: var(--esp-5, 24px);
+}
+
+.enlaceGasto {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.enlaceGasto:hover {
+  color: var(--text);
+}

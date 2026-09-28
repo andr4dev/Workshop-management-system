@@ -23,7 +23,7 @@ import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
  * el total al peso, y cada igualdad tiene su prueba:
  * <pre>
  *   renglones − descuentos          = ventas netas
- *   efectivo + transferencia + fiado = ventas netas
+ *   efectivo + transferencia        = ventas netas
  *   ventas netas − costo vendido − costos adicionales = utilidad bruta
  *   utilidad bruta − gastos         = utilidad operativa
  *   Σ filas (+ la de gastos del mes) = las cifras
@@ -31,10 +31,12 @@ import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
  *   Σ repuestos y Σ categorías de repuesto = ventas netas (con el descuento repartido)
  * </pre>
  *
- * <p><b>Lo fiado es venta el día que se vende</b> (spec 0008): baja el stock y deja su costo ese día, así que su
- * ganancia también es de ese día. Lo que después se abona es un cobro, no otra venta.
+ * <p><b>Cuenta lo cobrado</b> (spec 0014): lo de contado el día de la venta, y lo fiado en la parte que se abona, el día
+ * en que entra (ver {@link LoCobrado}). Cada peso cobrado trae su parte de los renglones y de su costo. Una venta fiada
+ * se cuenta como venta —en el número de ventas, sus unidades y sus renglones— el día que se termina de pagar. Lo fiado
+ * que falta no está aquí: está en la cartera del reporte.
  *
- * <p><b>Ingreso y costo miden lo mismo:</b> los dos salen de los mismos renglones de las mismas ventas. Un renglón sin
+ * <p><b>Ingreso y costo miden lo mismo:</b> los dos salen de los mismos cobros de las mismas ventas. Un renglón sin
  * costo no suma $0: se cuenta aparte, y la utilidad queda sobrestimada (RF-007).
  *
  * @param filaGastosDelMes los gastos del mes que van enteros y cuentan en el período (spec 0014, decisión 5): no son
@@ -56,19 +58,35 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
     /**
      * Las cifras del período (RF-004 a RF-014).
      *
-     * @param renglones la suma de los renglones antes del descuento
-     * @param ticketPromedio ventas netas ÷ ventas, redondeado al peso; {@code null} sin ventas
-     * @param fiado lo vendido que quedó debiendo el cliente (spec 0008)
-     * @param costoVendido solo de los renglones con costo
+     * @param ventas las que se completaron en el período: de contado, o fiadas que se terminaron de pagar
+     * @param unidades las de esas ventas
+     * @param renglones lo cobrado de los renglones antes del descuento
+     * @param ticketPromedio el total de las ventas que se completaron ÷ cuántas, redondeado al peso; {@code null} sin
+     *                       ventas
+     * @param efectivo lo cobrado en efectivo: de contado y en abonos
+     * @param deAbonos la parte de lo cobrado que vino de abonos a ventas fiadas (spec 0014)
+     * @param costoVendido solo de los renglones con costo, en la parte cobrada
      * @param margenBruto porcentaje con un decimal; {@code null} sin ventas netas
      */
     public record Cifras(int ventas, int unidades, Dinero renglones, Dinero descuentos, int ventasConDescuento,
                          Dinero ventasNetas, Dinero ticketPromedio, Dinero efectivo, Dinero transferencia,
-                         Dinero fiado, Dinero costoVendido, Dinero costosAdicionales, Dinero utilidadBruta, BigDecimal margenBruto,
+                         Dinero deAbonos, Dinero costoVendido, Dinero costosAdicionales, Dinero utilidadBruta, BigDecimal margenBruto,
                          Dinero gastos, Dinero utilidadOperativa, BigDecimal margenOperativo) {
     }
 
-    public record PorCategoria(UUID categoriaId, String categoria, Dinero monto) {
+    /** Una categoría de costo o de gasto, con los gastos que la forman (spec 0014, RF-008): su monto es la suma. */
+    public record PorCategoria(UUID categoriaId, String categoria, Dinero monto, List<GastoCargado> gastos) {
+    }
+
+    /**
+     * Un gasto en <i>Ver cálculo</i> (spec 0014, RF-008): cuánto es y cuánto carga en el período.
+     *
+     * @param cargado     lo que suma en el período: entero, o las cuotas de sus días si se reparte
+     * @param dias        si se reparte, cuántos días de su mes caen en el período; 0 si no
+     * @param diasDelMes  si se reparte, cuántos días tiene su mes; 0 si no
+     */
+    public record GastoCargado(UUID id, LocalDate fecha, String descripcion, Dinero monto, Dinero cargado, int dias,
+                               int diasDelMes) {
     }
 
     /**
@@ -115,8 +133,17 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
                        int renglonesSinCosto) {
     }
 
-    /** Un renglón con su parte del descuento ya restada. */
-    private record Vendido(RenglonVendido renglon, LocalDate dia, Dinero neto) {
+    /**
+     * Un renglón en la parte que trae un cobro (spec 0014), con su parte del descuento ya restada.
+     *
+     * @param costo    su parte del costo; {@code null} si el renglón no tiene costo
+     * @param completa el cobro completó la venta: el renglón y sus unidades cuentan ese día
+     */
+    private record Vendido(RenglonVendido renglon, LocalDate dia, Dinero neto, Dinero costo, boolean completa) {
+
+        boolean tieneCosto() {
+            return costo != null;
+        }
     }
 
     /** Lo que un gasto carga en el período. {@code dia} es {@code null} si va entero en la fila de gastos del mes. */
@@ -127,39 +154,47 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
     private record Cargos(List<Cargo> cargos, Dinero fuera) {
     }
 
+    /**
+     * @param ventas    las ventas de los cobros, no anuladas; pueden ser de antes del período
+     * @param renglones los de esas ventas
+     * @param cobros    los de esas ventas hasta el final del período, también los de antes (hacen falta para repartir
+     *                  por acumulado); solo cuentan los que caen en el período
+     */
     public static ResultadosDelPeriodo calcular(Periodo periodo, List<VentaCobrada> ventas,
-                                                List<RenglonVendido> renglones, List<GastoDelPeriodo> gastos,
-                                                LocalDate hoy) {
-        for (VentaCobrada venta : ventas) {
-            if (!periodo.contiene(venta.dia())) {
-                throw new IllegalArgumentException("La venta " + venta.id() + " es del " + venta.dia()
-                        + ", fuera del período " + periodo);
-            }
-        }
-        List<Vendido> vendidos = conDescuentoRepartido(ventas, renglones);
+                                                List<RenglonVendido> renglones, List<CobroDeVenta> cobros,
+                                                List<GastoDelPeriodo> gastos, LocalDate hoy) {
+        List<LoCobrado.Cobrado> cobrados = LoCobrado.de(ventas, renglones, cobros).stream()
+                .filter(c -> periodo.contiene(c.dia()))
+                .toList();
+        List<LoCobrado.Cobrado> completas = cobrados.stream().filter(LoCobrado.Cobrado::completa).toList();
+        List<Vendido> vendidos = cobrados.stream()
+                .flatMap(c -> c.pedazos().stream()
+                        .map(p -> new Vendido(p.renglon(), c.dia(), p.neto(), p.costo(), c.completa())))
+                .toList();
         Cargos deLosGastos = cargosDe(gastos, periodo, hoy);
         List<Cargo> cargos = deLosGastos.cargos();
 
-        Dinero ventasNetas = suma(ventas, VentaCobrada::total);
+        Dinero ventasNetas = suma(cobrados, LoCobrado.Cobrado::monto);
         Dinero costosAdicionales = sumaDeCargos(cargos, NaturalezaGasto.COSTO);
         Dinero gastosDelLocal = sumaDeCargos(cargos, NaturalezaGasto.GASTO);
-        Dinero costoVendido = suma(vendidos.stream().filter(v -> v.renglon().tieneCosto()).toList(),
-                v -> v.renglon().costo());
+        Dinero costoVendido = suma(vendidos.stream().filter(Vendido::tieneCosto).toList(), Vendido::costo);
         Dinero utilidadBruta = ventasNetas.menos(costoVendido).menos(costosAdicionales);
         Dinero utilidadOperativa = utilidadBruta.menos(gastosDelLocal);
+        Dinero totalDeLasCompletas = suma(completas, c -> c.venta().total());
 
         Cifras cifras = new Cifras(
-                ventas.size(),
-                renglones.stream().mapToInt(RenglonVendido::cantidad).sum(),
-                suma(renglones, RenglonVendido::total),
-                suma(ventas, VentaCobrada::descuento),
-                (int) ventas.stream().filter(v -> !v.descuento().esCero()).count(),
+                completas.size(),
+                vendidos.stream().filter(Vendido::completa).mapToInt(v -> v.renglon().cantidad()).sum(),
+                suma(cobrados, LoCobrado.Cobrado::bruto),
+                suma(cobrados, LoCobrado.Cobrado::descuento),
+                (int) completas.stream().filter(c -> !c.venta().descuento().esCero()).count(),
                 ventasNetas,
-                ventas.isEmpty() ? null
-                        : Dinero.de(ventasNetas.valor().divide(BigDecimal.valueOf(ventas.size()), 0, RoundingMode.HALF_UP)),
-                suma(ventas, VentaCobrada::efectivo),
-                suma(ventas, VentaCobrada::transferencia),
-                suma(ventas, VentaCobrada::fiado),
+                completas.isEmpty() ? null
+                        : Dinero.de(totalDeLasCompletas.valor()
+                                .divide(BigDecimal.valueOf(completas.size()), 0, RoundingMode.HALF_UP)),
+                suma(cobrados, LoCobrado.Cobrado::efectivo),
+                suma(cobrados, LoCobrado.Cobrado::transferencia),
+                suma(cobrados, LoCobrado.Cobrado::deAbonos),
                 costoVendido,
                 costosAdicionales,
                 utilidadBruta,
@@ -172,7 +207,7 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
         return new ResultadosDelPeriodo(periodo, periodo.agrupacion(), cifras,
                 porCategoria(cargos, NaturalezaGasto.COSTO), porCategoria(cargos, NaturalezaGasto.GASTO),
                 new GastosDelMes(incluidos, deLosGastos.fuera()), sinCostoDe(vendidos),
-                filasDe(periodo, ventas, vendidos, cargos), filaDeGastosDelMes(periodo, cargos),
+                filasDe(periodo, cobrados, vendidos, cargos), filaDeGastosDelMes(periodo, cargos),
                 agrupados(vendidos, r -> r.varianteId(), false), agrupados(vendidos, r -> r.categoriaId(), true));
     }
 
@@ -188,9 +223,8 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
                     List<Vendido> delGrupo = grupo.getValue();
                     RenglonVendido primero = delGrupo.getFirst().renglon();
                     Dinero ventasNetas = suma(delGrupo, Vendido::neto);
-                    Dinero costo = suma(delGrupo.stream().filter(v -> v.renglon().tieneCosto()).toList(),
-                            v -> v.renglon().costo());
-                    int sinCosto = (int) delGrupo.stream().filter(v -> !v.renglon().tieneCosto()).count();
+                    Dinero costo = suma(delGrupo.stream().filter(Vendido::tieneCosto).toList(), Vendido::costo);
+                    int sinCosto = distintos(delGrupo.stream().filter(v -> !v.tieneCosto()).toList()).size();
                     Dinero utilidad = sinCosto > 0 ? null : ventasNetas.menos(costo);
                     String categoria = primero.categoriaId() == null ? SIN_CATEGORIA : primero.categoria();
                     return new Vendidos(grupo.getKey(),
@@ -198,8 +232,8 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
                             porCategoria ? categoria : primero.nombre(),
                             porCategoria ? null : primero.marca(),
                             categoria,
-                            delGrupo.size(),
-                            delGrupo.stream().mapToInt(v -> v.renglon().cantidad()).sum(),
+                            (int) delGrupo.stream().filter(Vendido::completa).count(),
+                            delGrupo.stream().filter(Vendido::completa).mapToInt(v -> v.renglon().cantidad()).sum(),
                             ventasNetas, costo, sinCosto, utilidad,
                             utilidad == null ? null : margen(utilidad, ventasNetas),
                             utilidad != null && utilidad.esNegativo());
@@ -208,29 +242,13 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
                 .toList();
     }
 
-    /** Cada renglón con el descuento de su venta repartido (decisión 3), en el orden de las ventas y sus posiciones. */
-    private static List<Vendido> conDescuentoRepartido(List<VentaCobrada> ventas, List<RenglonVendido> renglones) {
-        Map<UUID, List<RenglonVendido>> porVenta = new HashMap<>();
-        for (RenglonVendido renglon : renglones) {
-            porVenta.computeIfAbsent(renglon.ventaId(), id -> new ArrayList<>()).add(renglon);
+    /** Los renglones, una vez cada uno, aunque vengan en varios cobros. */
+    private static List<RenglonVendido> distintos(List<Vendido> vendidos) {
+        Map<String, RenglonVendido> unicos = new LinkedHashMap<>();
+        for (Vendido v : vendidos) {
+            unicos.putIfAbsent(v.renglon().ventaId() + "/" + v.renglon().posicion(), v.renglon());
         }
-        List<Vendido> vendidos = new ArrayList<>();
-        for (VentaCobrada venta : ventas) {
-            List<RenglonVendido> deLaVenta = porVenta.remove(venta.id());
-            if (deLaVenta == null) {
-                continue;
-            }
-            deLaVenta.sort(Comparator.comparingInt(RenglonVendido::posicion));
-            List<Dinero> netos = RepartoDeDescuento.netos(deLaVenta.stream().map(RenglonVendido::total).toList(),
-                    venta.descuento());
-            for (int i = 0; i < deLaVenta.size(); i++) {
-                vendidos.add(new Vendido(deLaVenta.get(i), venta.dia(), netos.get(i)));
-            }
-        }
-        if (!porVenta.isEmpty()) {
-            throw new IllegalArgumentException("Hay renglones de ventas que no están en el período: " + porVenta.keySet());
-        }
-        return vendidos;
+        return List.copyOf(unicos.values());
     }
 
     /**
@@ -263,7 +281,7 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
         return new Cargos(cargos, fuera);
     }
 
-    private static List<Fila> filasDe(Periodo periodo, List<VentaCobrada> ventas, List<Vendido> vendidos,
+    private static List<Fila> filasDe(Periodo periodo, List<LoCobrado.Cobrado> cobrados, List<Vendido> vendidos,
                                       List<Cargo> cargos) {
         List<Periodo> tramos = periodo.tramos();
         Map<LocalDate, Acumulado> porDia = new HashMap<>();
@@ -275,8 +293,8 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
                 porDia.put(dia, acumulado);
             }
         }
-        for (VentaCobrada venta : ventas) {
-            porDia.get(venta.dia()).venta(venta);
+        for (LoCobrado.Cobrado cobrado : cobrados) {
+            porDia.get(cobrado.dia()).cobro(cobrado);
         }
         for (Vendido vendido : vendidos) {
             porDia.get(vendido.dia()).vendido(vendido);
@@ -300,31 +318,49 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
         return acumulado.fila();
     }
 
+    /** Cada categoría con sus gastos, de más a menos; los gastos de cada una, por fecha. */
     private static List<PorCategoria> porCategoria(List<Cargo> cargos, NaturalezaGasto naturaleza) {
-        Map<UUID, PorCategoria> porId = new LinkedHashMap<>();
+        Map<UUID, List<Cargo>> porCategoria = new LinkedHashMap<>();
         for (Cargo cargo : cargos) {
-            GastoDelPeriodo gasto = cargo.gasto();
-            if (gasto.naturaleza() == naturaleza) {
-                porId.merge(gasto.categoriaId(), new PorCategoria(gasto.categoriaId(), gasto.categoria(), cargo.monto()),
-                        (a, b) -> new PorCategoria(a.categoriaId(), a.categoria(), a.monto().mas(b.monto())));
+            if (cargo.gasto().naturaleza() == naturaleza) {
+                porCategoria.computeIfAbsent(cargo.gasto().categoriaId(), id -> new ArrayList<>()).add(cargo);
             }
         }
-        return porId.values().stream()
+        return porCategoria.values().stream()
+                .map(deLaCategoria -> {
+                    GastoDelPeriodo primero = deLaCategoria.getFirst().gasto();
+                    Map<UUID, List<Cargo>> porGasto = new LinkedHashMap<>();
+                    deLaCategoria.forEach(c -> porGasto.computeIfAbsent(c.gasto().id(), id -> new ArrayList<>()).add(c));
+                    List<GastoCargado> gastos = porGasto.values().stream()
+                            .map(delGasto -> {
+                                GastoDelPeriodo g = delGasto.getFirst().gasto();
+                                boolean repartido = g.repartido();
+                                return new GastoCargado(g.id(), g.fecha(), g.descripcion(), g.monto(),
+                                        suma(delGasto, Cargo::monto), repartido ? delGasto.size() : 0,
+                                        repartido ? g.mes().lengthOfMonth() : 0);
+                            })
+                            .sorted(Comparator.comparing(GastoCargado::fecha).thenComparing(GastoCargado::descripcion))
+                            .toList();
+                    return new PorCategoria(primero.categoriaId(), primero.categoria(),
+                            suma(deLaCategoria, Cargo::monto), gastos);
+                })
                 .sorted(Comparator.comparing(PorCategoria::monto).reversed().thenComparing(PorCategoria::categoria))
                 .toList();
     }
 
+    /** Los renglones sin costo que trajeron algo en el período, cada uno una vez, con lo que se cobró de ellos. */
     private static SinCosto sinCostoDe(List<Vendido> vendidos) {
-        List<Vendido> sinCosto = vendidos.stream().filter(v -> !v.renglon().tieneCosto()).toList();
+        List<Vendido> sinCosto = vendidos.stream().filter(v -> !v.tieneCosto()).toList();
+        List<RenglonVendido> renglones = distintos(sinCosto);
         Map<UUID, RepuestoSinCosto> porRepuesto = new LinkedHashMap<>();
-        for (Vendido v : sinCosto) {
-            RenglonVendido r = v.renglon();
+        for (RenglonVendido r : renglones) {
+            Dinero vendido = suma(sinCosto.stream().filter(v -> v.renglon() == r).toList(), Vendido::neto);
             porRepuesto.merge(r.varianteId(),
-                    new RepuestoSinCosto(r.varianteId(), r.codigo(), r.nombre(), r.marca(), r.cantidad(), v.neto()),
+                    new RepuestoSinCosto(r.varianteId(), r.codigo(), r.nombre(), r.marca(), r.cantidad(), vendido),
                     (a, b) -> new RepuestoSinCosto(a.varianteId(), a.codigo(), a.nombre(), a.marca(),
                             a.unidades() + b.unidades(), a.vendido().mas(b.vendido())));
         }
-        return new SinCosto(sinCosto.size(), sinCosto.stream().mapToInt(v -> v.renglon().cantidad()).sum(),
+        return new SinCosto(renglones.size(), renglones.stream().mapToInt(RenglonVendido::cantidad).sum(),
                 suma(sinCosto, Vendido::neto),
                 porRepuesto.values().stream()
                         .sorted(Comparator.comparing(RepuestoSinCosto::vendido).reversed()
@@ -361,14 +397,16 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
             this.hasta = hasta;
         }
 
-        void venta(VentaCobrada venta) {
-            ventas++;
-            ventasNetas = ventasNetas.mas(venta.total());
+        void cobro(LoCobrado.Cobrado cobrado) {
+            if (cobrado.completa()) {
+                ventas++;
+            }
+            ventasNetas = ventasNetas.mas(cobrado.monto());
         }
 
         void vendido(Vendido vendido) {
-            if (vendido.renglon().tieneCosto()) {
-                costoVendido = costoVendido.mas(vendido.renglon().costo());
+            if (vendido.tieneCosto()) {
+                costoVendido = costoVendido.mas(vendido.costo());
             } else {
                 renglonesSinCosto++;
             }

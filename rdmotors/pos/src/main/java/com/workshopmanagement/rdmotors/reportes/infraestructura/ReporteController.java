@@ -96,11 +96,13 @@ class ReporteController {
      * El fiado y la cartera (spec 0008, RF-024). {@code cobrado} es de <b>este período</b>; {@code porCobrar}, lo que
      * deben hoy, sea de cuando sea.
      */
+    /** {@code vendidoFiado}: lo que quedó fiado de las ventas del período; {@code cobrado}: todos los abonos (spec 0014). */
     record RespuestaCartera(long abonosEfectivo, long abonosTransferencia, long cobrado, long porCobrar,
-                            int clientesQueDeben) {
+                            int clientesQueDeben, long vendidoFiado, long cobradoDelCuaderno) {
         static RespuestaCartera de(CarteraDelPeriodo c) {
             return new RespuestaCartera(pesos(c.abonosEfectivo()), pesos(c.abonosTransferencia()), pesos(c.cobrado()),
-                    pesos(c.porCobrar()), c.clientesQueDeben());
+                    pesos(c.porCobrar()), c.clientesQueDeben(), pesos(c.vendidoFiado()),
+                    pesos(c.cobradoDelCuaderno()));
         }
     }
 
@@ -122,22 +124,32 @@ class ReporteController {
 
     /** {@code efectivo + transferencia + fiado = ventasNetas} (spec 0008). */
     record RespuestaCifras(int ventas, int unidades, long renglones, long descuentos, int ventasConDescuento,
-                           long ventasNetas, Long ticketPromedio, long efectivo, long transferencia, long fiado,
+                           long ventasNetas, Long ticketPromedio, long efectivo, long transferencia, long deAbonos,
                            long costoVendido, long costosAdicionales, long utilidadBruta, BigDecimal margenBruto,
                            long gastos, long utilidadOperativa, BigDecimal margenOperativo) {
         static RespuestaCifras de(ResultadosDelPeriodo.Cifras c) {
             return new RespuestaCifras(c.ventas(), c.unidades(), pesos(c.renglones()), pesos(c.descuentos()),
                     c.ventasConDescuento(), pesos(c.ventasNetas()),
                     c.ticketPromedio() == null ? null : pesos(c.ticketPromedio()), pesos(c.efectivo()),
-                    pesos(c.transferencia()), pesos(c.fiado()), pesos(c.costoVendido()), pesos(c.costosAdicionales()),
+                    pesos(c.transferencia()), pesos(c.deAbonos()), pesos(c.costoVendido()), pesos(c.costosAdicionales()),
                     pesos(c.utilidadBruta()), c.margenBruto(), pesos(c.gastos()), pesos(c.utilidadOperativa()),
                     c.margenOperativo());
         }
     }
 
-    record RespuestaCategoria(UUID categoriaId, String categoria, long monto) {
+    /** Con los gastos que la forman, para *Ver cálculo* (spec 0014, RF-008). */
+    record RespuestaCategoria(UUID categoriaId, String categoria, long monto, List<RespuestaGastoCargado> gastos) {
         static RespuestaCategoria de(ResultadosDelPeriodo.PorCategoria c) {
-            return new RespuestaCategoria(c.categoriaId(), c.categoria(), pesos(c.monto()));
+            return new RespuestaCategoria(c.categoriaId(), c.categoria(), pesos(c.monto()),
+                    c.gastos().stream().map(RespuestaGastoCargado::de).toList());
+        }
+    }
+
+    record RespuestaGastoCargado(UUID id, LocalDate fecha, String descripcion, long monto, long cargado, int dias,
+                                 int diasDelMes) {
+        static RespuestaGastoCargado de(ResultadosDelPeriodo.GastoCargado g) {
+            return new RespuestaGastoCargado(g.id(), g.fecha(), g.descripcion(), pesos(g.monto()), pesos(g.cargado()),
+                    g.dias(), g.diasDelMes());
         }
     }
 

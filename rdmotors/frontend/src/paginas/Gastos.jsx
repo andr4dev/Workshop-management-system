@@ -30,6 +30,8 @@ import estilos from './Caja.module.css'
 export default function Gastos() {
   const [params, setParams] = useSearchParams()
   const filtros = filtrosDeGastos(params)
+  // El que abrió "Ver cálculo" (spec 0014, RF-009): se resalta y se lleva a la vista.
+  const resaltado = params.get('gasto')
   const errorRango = problemaDelRango(filtros)
   const [intento, setIntento] = useState(0)
 
@@ -193,7 +195,8 @@ export default function Gastos() {
               </thead>
               <tbody>
                 {datos.elementos.map((g) => (
-                  <tr key={g.id}>
+                  <tr key={g.id} className={g.id === resaltado ? estilos.resaltado : undefined}
+                    ref={g.id === resaltado ? (fila) => fila?.scrollIntoView({ block: 'center' }) : undefined}>
                     <td>{fechaDia(fechaLocal(g.fecha))}</td>
                     <td>
                       {g.categoria}

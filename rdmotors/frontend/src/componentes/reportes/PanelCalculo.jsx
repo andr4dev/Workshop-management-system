@@ -1,11 +1,16 @@
 import { Fragment } from 'react'
+import { Link } from 'react-router-dom'
 import Modal from '../Modal'
 import Boton from '../Boton'
-import { formatoCOP } from '../../utils/formato'
+import { fechaDia, formatoCOP } from '../../utils/formato'
+import { fechaLocal } from '../../utils/inventario'
+import { compraDelGasto, enlaceAlGasto, textoDelReparto } from '../../utils/resultados'
 import estilos from './Resultados.module.css'
 
 /**
  * *Ver cálculo* (spec 0007, RF-012): de dónde sale una cifra, parte por parte, con cada categoría de costo y de gasto.
+ *
+ * Cada categoría de costo y de gasto se abre en sus gastos, con un enlace a cada uno (spec 0014, RF-008 a RF-010).
  *
  * Dice si cuadra. Si un subtotal no es lo que suman sus partes, lo dice en rojo con lo que dan las partes, y **no lo
  * corrige**: una memoria de cálculo que miente es peor que no tenerla.
@@ -48,11 +53,32 @@ export default function PanelCalculo({ calculo, onCerrar }) {
                 <td className={estilos.monto}>{formatoCOP(fila.monto)}</td>
               </tr>
               {fila.hijos?.map((hijo) => (
-                <tr key={hijo.categoriaId ?? hijo.etiqueta} className={estilos.hijo}>
-                  <td />
-                  <td>{hijo.etiqueta}</td>
-                  <td className={estilos.monto}>{formatoCOP(hijo.monto)}</td>
-                </tr>
+                <Fragment key={hijo.categoriaId ?? hijo.etiqueta}>
+                  <tr className={estilos.hijo}>
+                    <td />
+                    <td>{hijo.etiqueta}</td>
+                    <td className={estilos.monto}>{formatoCOP(hijo.monto)}</td>
+                  </tr>
+                  {hijo.gastos?.map((gasto) => {
+                    const reparto = textoDelReparto(gasto, formatoCOP)
+                    const compra = compraDelGasto(gasto)
+                    return (
+                      <tr key={gasto.id} className={estilos.gastoDelCalculo}>
+                        <td />
+                        <td>
+                          <Link to={enlaceAlGasto(gasto, hijo.categoriaId)} className={estilos.enlaceGasto}>
+                            {fechaDia(fechaLocal(gasto.fecha))} · {gasto.descripcion.replace(/\s*\[compra [^\]]+\]/i, '')}
+                          </Link>
+                          {reparto && <span className={estilos.notaCalculo}> ({reparto})</span>}
+                          {compra && (
+                            <> · <Link to={`/compras/historial/${compra}`} className={estilos.enlaceGasto}>ver la compra</Link></>
+                          )}
+                        </td>
+                        <td className={estilos.monto}>{formatoCOP(gasto.cargado)}</td>
+                      </tr>
+                    )
+                  })}
+                </Fragment>
               ))}
             </Fragment>
           )))}

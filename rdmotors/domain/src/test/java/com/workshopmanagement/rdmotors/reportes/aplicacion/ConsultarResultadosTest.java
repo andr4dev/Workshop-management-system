@@ -37,11 +37,12 @@ class ConsultarResultadosTest {
     private void sembrar(DatosDeReporte datos) {
         reportes.ventas.addAll(datos.ventas);
         reportes.renglones.addAll(datos.renglones);
+        reportes.cobros.addAll(datos.cobros);
         reportes.gastos.addAll(datos.gastos);
     }
 
     @Test
-    @DisplayName("la semana pasada lee ventas y renglones con el mismo intervalo, de medianoche a medianoche de Colombia, y da las cifras del ejemplo")
+    @DisplayName("la semana pasada lee los cobros de medianoche a medianoche de Colombia, y da las cifras del ejemplo")
     void semanaPasada() {
         sembrar(DatosDeReporte.semanaDelEjemplo());
 
@@ -49,7 +50,7 @@ class ConsultarResultadosTest {
 
         List<Instant> semana = List.of(Instant.parse("2026-09-14T05:00:00Z"), Instant.parse("2026-09-21T05:00:00Z"));
         List<Instant> semanaAnterior = List.of(Instant.parse("2026-09-07T05:00:00Z"), Instant.parse("2026-09-14T05:00:00Z"));
-        assertThat(reportes.intervalosPedidos).containsExactly(semana, semana, semanaAnterior, semanaAnterior);
+        assertThat(reportes.intervalosPedidos).containsExactly(semana, semanaAnterior);
         assertThat(r.cifras().ventasNetas()).isEqualTo(Dinero.de(1_220_000));
         assertThat(r.cifras().utilidadOperativa()).isEqualTo(Dinero.de(320_000));
         DatosDeReporte.lasFilasSuman(r);

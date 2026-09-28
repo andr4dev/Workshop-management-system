@@ -7,20 +7,20 @@
 export const AYUDA = {
   ventasNetas: {
     titulo: 'Ventas netas',
-    que: 'Lo que pagaron los clientes por lo que se vendió en el período, ya con los descuentos.',
-    formula: 'Renglones vendidos − descuentos dados. Cuenta el día en que se cobró, en hora de Colombia.',
-    noIncluye: 'Las ventas anuladas, se hayan anulado cuando se hayan anulado: una venta del lunes anulada el miércoles sale del lunes.',
+    que: 'Lo que entró por ventas en el período, ya con los descuentos: lo de contado y lo que abonaron de lo fiado.',
+    formula: 'Renglones cobrados − descuentos. Lo de contado cuenta el día de la venta; lo fiado, en la parte que se abona, el día en que entra (en hora de Colombia).',
+    noIncluye: 'Lo fiado que todavía no se paga: está en la tarjeta del fiado. Tampoco las ventas anuladas, se hayan anulado cuando se hayan anulado.',
   },
   utilidadBruta: {
     titulo: 'Utilidad bruta',
-    que: 'Lo que dejó la mercancía: lo vendido menos lo que costó.',
-    formula: 'Ventas netas − costo de los repuestos vendidos − costos adicionales (las categorías de gasto que son costo, como un flete de mercancía). El costo es el que tenía cada repuesto el día que se vendió.',
+    que: 'Lo que dejó la mercancía: lo cobrado menos lo que costó eso que se cobró.',
+    formula: 'Ventas netas − costo de los repuestos vendidos − costos adicionales (las categorías de gasto que son costo, como un flete de mercancía). El costo es el que tenía cada repuesto el día que se vendió; de una venta fiada entra la parte que ya se cobró.',
     noIncluye: 'Los gastos del local. Y comprar mercancía no resta: el costo entra cuando se vende.',
   },
   gastos: {
     titulo: 'Gastos del local',
     que: 'Lo que costó tener la tienda abierta: almuerzos, aseo, papelería, arriendo.',
-    formula: 'Los gastos no anulados de categorías de gasto con fecha en el período, del cajón y por fuera. Los gastos del mes, según cómo se lean (arriba, junto al período).',
+    formula: 'Los gastos no anulados de categorías de gasto con fecha en el período, del cajón y por fuera. Los gastos del mes, como se registró cada uno: repartidos día a día, o enteros en el reporte de su mes.',
     noIncluye: 'Los retiros del dueño, las compras de mercancía ni las diferencias de caja: no son gasto.',
   },
   utilidadOperativa: {
@@ -31,8 +31,8 @@ export const AYUDA = {
   },
   ticket: {
     titulo: 'Ticket promedio',
-    que: 'Lo que dejó, en promedio, cada venta.',
-    formula: 'Ventas netas ÷ número de ventas, redondeado al peso.',
+    que: 'De cuánto es, en promedio, una venta.',
+    formula: 'El total de las ventas que se completaron en el período ÷ cuántas son, redondeado al peso. Una fiada cuenta el día que se termina de pagar.',
   },
   descuentos: {
     titulo: 'Descuentos',
@@ -41,9 +41,20 @@ export const AYUDA = {
   },
   pagos: {
     titulo: 'Cómo pagaron',
-    que: 'Cómo entró la plata de esas mismas ventas, y cuánto quedó fiado.',
-    formula: 'Efectivo + transferencia + fiado = ventas netas. Lo fiado es venta el día que se vende, aunque se pague después.',
+    que: 'Cómo entró la plata de las ventas netas: de contado y en abonos a lo fiado.',
+    formula: 'Efectivo + transferencia = ventas netas. "De abonos a fiados" es la parte que vino de abonos, y ya está sumada arriba.',
     noIncluye: 'Lo que el cajón devolvió al anular: eso es del cierre de caja.',
+  },
+  ventas: {
+    titulo: 'Ventas',
+    que: 'Cuántas ventas se completaron en el período, y sus unidades.',
+    formula: 'Una de contado cuenta el día que se vende. Una fiada, el día que se termina de pagar: mientras tanto lo que abonan sí entra a las ventas netas, pero la venta no se cuenta.',
+  },
+  fiado: {
+    titulo: 'Fiado',
+    que: 'Lo que se vendió fiado en el período, lo que se cobró en abonos y lo que deben hoy.',
+    formula: 'Lo fiado entra a las ventas netas a medida que lo abonan, con su parte del costo. Lo que se abona del saldo del cuaderno (deudas de antes del sistema) no es venta: se ve aquí.',
+    noIncluye: 'Lo por cobrar no es de un período: es lo que deben hoy todos los clientes.',
   },
   gastosDelMes: {
     titulo: 'Gastos del mes',

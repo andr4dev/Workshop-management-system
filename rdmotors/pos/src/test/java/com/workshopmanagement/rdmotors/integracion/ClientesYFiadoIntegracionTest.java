@@ -2,8 +2,10 @@ package com.workshopmanagement.rdmotors.integracion;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.groups.Tuple.tuple;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,8 +64,9 @@ import com.workshopmanagement.rdmotors.inventario.dominio.Variante;
 import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioCategorias;
 import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioVariantes;
 import com.workshopmanagement.rdmotors.reportes.dominio.CarteraDelPeriodo;
+import com.workshopmanagement.rdmotors.reportes.dominio.LoCobrado;
+import com.workshopmanagement.rdmotors.reportes.dominio.CobroDeVenta;
 import com.workshopmanagement.rdmotors.reportes.dominio.Periodo;
-import com.workshopmanagement.rdmotors.reportes.dominio.VentaCobrada;
 import com.workshopmanagement.rdmotors.reportes.dominio.puerto.RepositorioReportes;
 import com.workshopmanagement.rdmotors.ventas.aplicacion.AnularVenta;
 import com.workshopmanagement.rdmotors.ventas.aplicacion.CobrarVenta;
@@ -99,6 +102,7 @@ class ClientesYFiadoIntegracionTest {
     @Autowired BuscarClientes buscarClientes;
     @Autowired ConsultarCartera consultarCartera;
     @Autowired RegistrarAbono registrarAbono;
+    @Autowired com.workshopmanagement.rdmotors.clientes.aplicacion.CargarSaldoDelCuaderno cargarSaldoDelCuaderno;
     @Autowired AnularAbono anularAbono;
     @Autowired RepositorioClientes clientes;
     @Autowired RepositorioDeudas deudas;
@@ -246,14 +250,72 @@ class ClientesYFiadoIntegracionTest {
         assertThat(esperado())
                 .as("solo entran los $30.000 en efectivo").isEqualTo(esperadoAntes.mas(Dinero.de(30_000)));
 
+        // El reporte (spec 0014): de esta venta hoy entraron los $30.000, no los $80.000.
         LocalDate hoy = LocalDate.now(Periodo.ZONA);
-        List<VentaCobrada> delDia = reportes.ventasCobradas(hoy.atStartOfDay(Periodo.ZONA).toInstant(),
-                hoy.plusDays(1).atStartOfDay(Periodo.ZONA).toInstant());
-        assertThat(delDia).filteredOn(v -> v.id().equals(venta.getId())).singleElement().satisfies(v -> {
-            assertThat(v.fiado()).isEqualTo(Dinero.de(50_000));
-            assertThat(v.efectivo().mas(v.transferencia()).mas(v.fiado())).isEqualTo(v.total());
+        assertThat(cobrosDe(venta, hoy)).singleElement().satisfies(c -> {
+            assertThat(c.monto()).isEqualTo(Dinero.de(30_000));
+            assertThat(c.deAbono()).isFalse();
         });
+        assertThat(reportes.ventasPorId(List.of(venta.getId()))).singleElement()
+                .satisfies(v -> assertThat(v.fiado()).isEqualTo(Dinero.de(50_000)));
         assertThat(buscarClientes.porId(juan.getId()).orElseThrow().debe()).isEqualTo(Dinero.de(50_000));
+    }
+
+    /** Los cobros de una venta que cuentan hasta el final del día, como los lee el reporte. */
+    private List<CobroDeVenta> cobrosDe(Venta venta, LocalDate dia) {
+        return reportes.cobrosDeVentas(dia.atStartOfDay(Periodo.ZONA).toInstant(),
+                        dia.plusDays(1).atStartOfDay(Periodo.ZONA).toInstant()).stream()
+                .filter(c -> c.ventaId().equals(venta.getId())).toList();
+    }
+
+    @Test
+    @DisplayName("LO COBRADO contra Postgres (spec 0014): el abono cuenta con la venta que paga; al anularla pasa a la otra; el cuaderno va aparte")
+    void loCobradoContraPostgres() {
+        Cliente juan = cliente("Juan Pérez", cedulaNueva());
+        LocalDate hoy = LocalDate.now(Periodo.ZONA);
+        Instant inicio = hoy.atStartOfDay(Periodo.ZONA).toInstant();
+        Instant fin = hoy.plusDays(1).atStartOfDay(Periodo.ZONA).toInstant();
+        CarteraDelPeriodo antes = reportes.cartera(inicio, fin);
+        Venta la41 = cobrarVenta.ejecutar(fiado(repuestoConStock(5, 50_000), juan, 10_000)).venta();
+        Venta la57 = cobrarVenta.ejecutar(fiado(repuestoConStock(5, 30_000), juan, 0)).venta();
+
+        Abono abono = registrarAbono.ejecutar(UUID.randomUUID(), juan.getId(), Dinero.de(25_000),
+                FormaPago.TRANSFERENCIA, "Nequi", null, null, cajero);
+
+        // Lo pagado al cobrar y el abono, en orden; el abono cuenta con la venta más vieja.
+        assertThat(cobrosDe(la41, hoy)).extracting(CobroDeVenta::monto, CobroDeVenta::deAbono, CobroDeVenta::forma)
+                .containsExactly(tuple(Dinero.de(10_000), false, FormaPago.EFECTIVO),
+                        tuple(Dinero.de(25_000), true, FormaPago.TRANSFERENCIA));
+        assertThat(cobrosDe(la57, hoy)).as("nada entró todavía por la 57").isEmpty();
+        List<LoCobrado.Cobrado> dela41 = LoCobrado.de(reportes.ventasPorId(List.of(la41.getId())),
+                reportes.renglonesDe(List.of(la41.getId())), cobrosDe(la41, hoy));
+        assertThat(dela41).extracting(LoCobrado.Cobrado::completa).containsExactly(false, false);
+        assertThat(dela41.stream().map(LoCobrado.Cobrado::monto).reduce(Dinero.CERO, Dinero::mas))
+                .isEqualTo(Dinero.de(35_000));
+
+        // Se anula la 41: su abono pasa a la 57, y el reporte lo ve ahí.
+        anularVenta.ejecutar(la41.getId(), "Se equivocó de repuesto", cajero);
+        assertThat(cobrosDe(la41, hoy)).as("una venta anulada no suma").isEmpty();
+        assertThat(cobrosDe(la57, hoy)).singleElement().satisfies(c -> {
+            assertThat(c.monto()).isEqualTo(Dinero.de(25_000));
+            assertThat(c.deAbono()).isTrue();
+            // Cuenta cuando entró la plata, no cuando se volvió a aplicar al anular (decisión 2).
+            assertThat(c.momento()).isCloseTo(abono.getRecibidoEn(),
+                    org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS));
+        });
+
+        // Lo vendido fiado del día, en la cartera; y lo del cuaderno, aparte.
+        CarteraDelPeriodo despues = reportes.cartera(inicio, fin);
+        assertThat(despues.vendidoFiado().menos(antes.vendidoFiado())).as("solo la 57: la 41 se anuló")
+                .isEqualTo(Dinero.de(30_000));
+
+        Cliente pedro = cliente("Pedro Gómez", cedulaNueva());
+        cargarSaldoDelCuaderno.ejecutar(pedro.getId(), Dinero.de(40_000), hoy.minusDays(30), "Cuaderno de agosto",
+                personas.administrador());
+        registrarAbono.ejecutar(UUID.randomUUID(), pedro.getId(), Dinero.de(15_000), FormaPago.EFECTIVO, null, null,
+                null, cajero);
+        assertThat(reportes.cartera(inicio, fin).cobradoDelCuaderno().menos(despues.cobradoDelCuaderno()))
+                .as("lo del cuaderno, aparte: no es venta").isEqualTo(Dinero.de(15_000));
     }
 
     @Test

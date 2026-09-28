@@ -1,6 +1,6 @@
 # Spec 0014 · Lo fiado cuenta en los reportes cuando se cobra, los gastos del mes se escogen uno por uno, y *Ver cálculo* dice de dónde sale
 
-**Estado:** revisado por el usuario el 2026-09-28: decisiones 1 a 5 tomadas · [plan](plan.md)
+**Estado:** implementado el 2026-09-28 (decisiones 1 a 5 tomadas por el usuario) · [plan](plan.md) · pendiente la P3
 
 **Pedido del usuario (2026-09-28):** *«560.000 en ventas incluye los 134.000 fiados de reportes? No debería: en
 reportes solo entra hasta que la plata se cobre, así el repuesto haya salido.»* Y: *«la idea es que cuando le dé

@@ -15,7 +15,34 @@ export function consultaDeResultados({ desde, hasta }) {
 const parte = (etiqueta, monto, signo, extra = {}) => ({ tipo: 'PARTE', etiqueta, monto, signo, ...extra })
 const subtotal = (etiqueta, monto) => ({ tipo: 'SUBTOTAL', etiqueta, monto })
 
-const hijosDe = (categorias) => categorias.map((c) => ({ etiqueta: c.categoria, monto: c.monto, categoriaId: c.categoriaId }))
+const hijosDe = (categorias) => categorias.map((c) => ({
+  etiqueta: c.categoria, monto: c.monto, categoriaId: c.categoriaId, gastos: c.gastos ?? [],
+}))
+
+/**
+ * Adónde lleva un gasto en *Ver cálculo* (spec 0014, RF-009): a *Reportes › Gastos*, en su día y su categoría, con él
+ * resaltado.
+ */
+export function enlaceAlGasto(gasto, categoriaId) {
+  const params = new URLSearchParams({ desde: gasto.fecha, hasta: gasto.fecha, gasto: gasto.id })
+  if (categoriaId) params.set('categoriaId', categoriaId)
+  return `/reportes/gastos?${params}`
+}
+
+/**
+ * La compra a la que se refiere un gasto, si su descripción la nombra: "… [compra 728b3d46-…]" (spec 0014, RF-010).
+ * Así se enlazó el envío de la WE-10238 mientras el spec 0013 no le dé su enlace propio. `null` si no nombra ninguna.
+ */
+export function compraDelGasto(gasto) {
+  const encontrada = /\[compra ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i.exec(gasto?.descripcion ?? '')
+  return encontrada ? encontrada[1] : null
+}
+
+/** "7 de 31 días de $310.000" en uno repartido; `null` en uno que carga entero. */
+export function textoDelReparto(gasto, formato) {
+  if (!gasto.diasDelMes) return null
+  return `${gasto.dias} de ${gasto.diasDelMes} días de ${formato(gasto.monto)}`
+}
 
 /**
  * Recorre las filas y comprueba cada igualdad: cada subtotal es lo que suman las partes de arriba, y los hijos de
@@ -80,9 +107,12 @@ export function calculoDe(cifra, r) {
   }
 }
 
-/** Efectivo + transferencia + fiado = ventas netas (RF-014; spec 0008): las mismas ventas. */
+/**
+ * Efectivo + transferencia = ventas netas (RF-014; spec 0014): lo cobrado, de contado y en abonos. Lo fiado que falta
+ * no está en las ventas netas: está en la tarjeta del fiado.
+ */
 export function pagosCuadran(c) {
-  return c.efectivo + c.transferencia + (c.fiado ?? 0) === c.ventasNetas
+  return c.efectivo + c.transferencia === c.ventasNetas
 }
 
 /**

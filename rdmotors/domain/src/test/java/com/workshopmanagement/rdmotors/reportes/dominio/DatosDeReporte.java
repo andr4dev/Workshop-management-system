@@ -15,6 +15,7 @@ import java.util.stream.Stream;
 
 import com.workshopmanagement.rdmotors.caja.dominio.NaturalezaGasto;
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
+import com.workshopmanagement.rdmotors.compartido.dominio.FormaPago;
 import com.workshopmanagement.rdmotors.reportes.dominio.ResultadosDelPeriodo.Fila;
 
 /**
@@ -28,7 +29,10 @@ public class DatosDeReporte {
 
     public final List<VentaCobrada> ventas = new ArrayList<>();
     public final List<RenglonVendido> renglones = new ArrayList<>();
+    /** Lo pagado al cobrar cada venta, y los abonos (spec 0014): lo que devolvería la base. */
+    public final List<CobroDeVenta> cobros = new ArrayList<>();
     public final List<GastoDelPeriodo> gastos = new ArrayList<>();
+    private int segundos;
     private final Map<String, UUID> ids = new HashMap<>();
 
     /** @param categoria de repuesto; {@code null} si no tiene */
@@ -56,6 +60,7 @@ public class DatosDeReporte {
         VentaCobrada venta = new VentaCobrada(UUID.randomUUID(), dia, Dinero.de(subtotal - descuento),
                 Dinero.de(descuento), Dinero.de(efectivo), Dinero.de(transferencia));
         ventas.add(venta);
+        alCobrar(venta, efectivo, transferencia);
         for (int i = 0; i < deLaVenta.length; i++) {
             Renglon r = deLaVenta[i];
             renglones.add(new RenglonVendido(venta.id(), i, id(r.codigo()), r.codigo(), "Repuesto " + r.codigo(),
@@ -75,6 +80,7 @@ public class DatosDeReporte {
         VentaCobrada venta = new VentaCobrada(UUID.randomUUID(), dia, Dinero.de(subtotal), Dinero.CERO,
                 Dinero.de(efectivo), Dinero.CERO, Dinero.de(fiado));
         ventas.add(venta);
+        alCobrar(venta, efectivo, 0);
         for (int i = 0; i < deLaVenta.length; i++) {
             Renglon r = deLaVenta[i];
             renglones.add(new RenglonVendido(venta.id(), i, id(r.codigo()), r.codigo(), "Repuesto " + r.codigo(),
@@ -84,9 +90,40 @@ public class DatosDeReporte {
         return venta;
     }
 
+    /** Lo pagado al cobrar, el día de la venta. Una venta de $0 se completa sola, con un cobro de $0. */
+    private void alCobrar(VentaCobrada venta, long efectivo, long transferencia) {
+        if (efectivo > 0 || venta.total().esCero() && transferencia == 0) {
+            cobros.add(cobro(venta.id(), venta.dia(), FormaPago.EFECTIVO, efectivo, false));
+        }
+        if (transferencia > 0) {
+            cobros.add(cobro(venta.id(), venta.dia(), FormaPago.TRANSFERENCIA, transferencia, false));
+        }
+    }
+
+    /**
+     * Un abono a una venta fiada (spec 0014): cuenta el más tardío entre el día de la venta y el del abono
+     * (decisión 2), como lo lee la base.
+     */
+    public CobroDeVenta abono(VentaCobrada venta, LocalDate dia, long monto, FormaPago forma) {
+        LocalDate cuenta = dia.isBefore(venta.dia()) ? venta.dia() : dia;
+        CobroDeVenta abono = cobro(venta.id(), cuenta, forma, monto, true);
+        cobros.add(abono);
+        return abono;
+    }
+
+    public CobroDeVenta abono(VentaCobrada venta, LocalDate dia, long monto) {
+        return abono(venta, dia, monto, FormaPago.EFECTIVO);
+    }
+
+    /** Cada cobro, un segundo después del anterior: el orden en que entran es el orden en que se agregan. */
+    private CobroDeVenta cobro(UUID ventaId, LocalDate dia, FormaPago forma, long monto, boolean deAbono) {
+        return new CobroDeVenta(ventaId, dia.atStartOfDay(Periodo.ZONA).toInstant().plusSeconds(3_600 + segundos++),
+                dia, forma, Dinero.de(monto), deAbono);
+    }
+
     public GastoDelPeriodo gasto(LocalDate fecha, String categoria, NaturalezaGasto naturaleza, long monto) {
-        return agregar(new GastoDelPeriodo(UUID.randomUUID(), fecha, id(categoria), categoria, naturaleza, false,
-                null, Dinero.de(monto)));
+        return agregar(new GastoDelPeriodo(UUID.randomUUID(), fecha, id(categoria), categoria, naturaleza,
+                categoria + " del " + fecha, false, null, Dinero.de(monto)));
     }
 
     /** Del mes, repartido día a día. */
@@ -101,8 +138,8 @@ public class DatosDeReporte {
 
     public GastoDelPeriodo gastoDelMes(LocalDate fecha, String categoria, NaturalezaGasto naturaleza, long monto,
                                        boolean repartir) {
-        return agregar(new GastoDelPeriodo(UUID.randomUUID(), fecha, id(categoria), categoria, naturaleza, true,
-                repartir, Dinero.de(monto)));
+        return agregar(new GastoDelPeriodo(UUID.randomUUID(), fecha, id(categoria), categoria, naturaleza,
+                categoria + " de " + fecha.getMonth(), true, repartir, Dinero.de(monto)));
     }
 
     public UUID id(String nombre) {
@@ -114,13 +151,19 @@ public class DatosDeReporte {
         return gasto;
     }
 
-    /** Calcula con las ventas del período y sus renglones, como las devolvería la base; los gastos van todos. */
+    /**
+     * Calcula con los cobros como los devolvería la base: los de las ventas con alguno en el período, hasta su final, y
+     * sus ventas y renglones. Los gastos van todos.
+     */
     public ResultadosDelPeriodo calcular(LocalDate desde, LocalDate hasta, LocalDate hoy) {
         Periodo periodo = new Periodo(desde, hasta);
-        List<VentaCobrada> delPeriodo = ventas.stream().filter(v -> periodo.contiene(v.dia())).toList();
-        Set<UUID> ids = delPeriodo.stream().map(VentaCobrada::id).collect(Collectors.toSet());
-        return ResultadosDelPeriodo.calcular(periodo, delPeriodo,
-                renglones.stream().filter(r -> ids.contains(r.ventaId())).toList(), gastos, hoy);
+        Set<UUID> ids = cobros.stream().filter(c -> periodo.contiene(c.dia())).map(CobroDeVenta::ventaId)
+                .collect(Collectors.toSet());
+        return ResultadosDelPeriodo.calcular(periodo,
+                ventas.stream().filter(v -> ids.contains(v.id())).toList(),
+                renglones.stream().filter(r -> ids.contains(r.ventaId())).toList(),
+                cobros.stream().filter(c -> ids.contains(c.ventaId()) && !c.dia().isAfter(hasta)).toList(),
+                gastos, hoy);
     }
 
     /**

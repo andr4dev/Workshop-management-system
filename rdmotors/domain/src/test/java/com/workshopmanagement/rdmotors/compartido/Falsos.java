@@ -76,6 +76,7 @@ import com.workshopmanagement.rdmotors.carga.dominio.puerto.LectorDeFactura;
 import com.workshopmanagement.rdmotors.carga.dominio.puerto.RepositorioCargas;
 import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioVariantes;
 import com.workshopmanagement.rdmotors.reportes.dominio.CarteraDelPeriodo;
+import com.workshopmanagement.rdmotors.reportes.dominio.CobroDeVenta;
 import com.workshopmanagement.rdmotors.reportes.dominio.Control;
 import com.workshopmanagement.rdmotors.reportes.dominio.GastoDelPeriodo;
 import com.workshopmanagement.rdmotors.reportes.dominio.Periodo;
@@ -909,26 +910,28 @@ public final class Falsos {
     public static final class ReportesEnMemoria implements RepositorioReportes {
         public final List<VentaCobrada> ventas = new ArrayList<>();
         public final List<RenglonVendido> renglones = new ArrayList<>();
+        public final List<CobroDeVenta> cobros = new ArrayList<>();
         public final List<GastoDelPeriodo> gastos = new ArrayList<>();
-        /** Cada intervalo que se pidió, para ver que ventas y renglones se leen con el mismo. */
+        /** Cada intervalo que se pidió, para ver que se lee de medianoche a medianoche de Colombia. */
         public final List<List<Instant>> intervalosPedidos = new ArrayList<>();
 
-        private List<VentaCobrada> ventasEntre(Instant desde, Instant hasta) {
+        /** Como la base: todos los cobros de las ventas con alguno en el período, hasta su final. */
+        @Override
+        public List<CobroDeVenta> cobrosDeVentas(Instant desde, Instant hasta) {
             intervalosPedidos.add(List.of(desde, hasta));
-            return ventas.stream().filter(v -> {
-                Instant inicioDelDia = v.dia().atStartOfDay(Periodo.ZONA).toInstant();
-                return !inicioDelDia.isBefore(desde) && inicioDelDia.isBefore(hasta);
-            }).toList();
+            java.util.Set<UUID> conAlguno = cobros.stream()
+                    .filter(c -> !c.momento().isBefore(desde) && c.momento().isBefore(hasta))
+                    .map(CobroDeVenta::ventaId).collect(java.util.stream.Collectors.toSet());
+            return cobros.stream().filter(c -> conAlguno.contains(c.ventaId()) && c.momento().isBefore(hasta)).toList();
         }
 
         @Override
-        public List<VentaCobrada> ventasCobradas(Instant desde, Instant hasta) {
-            return ventasEntre(desde, hasta);
+        public List<VentaCobrada> ventasPorId(java.util.Collection<UUID> ids) {
+            return ventas.stream().filter(v -> ids.contains(v.id())).toList();
         }
 
         @Override
-        public List<RenglonVendido> renglonesVendidos(Instant desde, Instant hasta) {
-            List<UUID> ids = ventasEntre(desde, hasta).stream().map(VentaCobrada::id).toList();
+        public List<RenglonVendido> renglonesDe(java.util.Collection<UUID> ids) {
             return renglones.stream().filter(r -> ids.contains(r.ventaId())).toList();
         }
 

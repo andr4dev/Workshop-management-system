@@ -1,9 +1,9 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  avisoDeGastosDelMes, calculoDe, CIFRAS, columnasQueNoCuadran, enlaceAGastos, hayMovimientos, pagosCuadran,
+  avisoDeGastosDelMes, calculoDe, CIFRAS, columnasQueNoCuadran, compraDelGasto, enlaceAGastos, enlaceAlGasto, hayMovimientos, pagosCuadran,
   participacion, porcentajeDeDescuentos, rankingDeRepuestos, sumanLasVentasNetas, textoDeDiferencia, textoDeMargen,
-  textoDeVariacion, textoSinCosto, variacion, vendidosConPerdida,
+  textoDelReparto, textoDeVariacion, textoSinCosto, variacion, vendidosConPerdida,
 } from './resultados.js'
 
 const pesos = (n) => `$${n.toLocaleString('es-CO')}`
@@ -96,6 +96,9 @@ describe('las partes suman', () => {
     const r = semanaDelEjemplo()
     assert.equal(pagosCuadran(r.cifras), true)
     assert.equal(pagosCuadran({ ...r.cifras, efectivo: 1 }), false)
+    // Spec 0014: lo fiado que falta ya no está en las ventas netas; lo abonado sí, dentro del efectivo.
+    assert.equal(pagosCuadran({ ...r.cifras, fiado: 50_000 }), true, 'un fiado suelto no cuenta')
+    assert.equal(pagosCuadran({ ...r.cifras, deAbonos: 100_000 }), true, 'los abonos ya están en el efectivo')
   })
 
   test('las filas del día por día suman las cifras; la de gastos del mes cuenta', () => {
@@ -198,5 +201,35 @@ describe('P2: repuestos, categorías, anterior y control', () => {
     assert.equal(textoDeDiferencia(0, pesos), 'cuadró')
     assert.equal(enlaceAGastos({ desde: '2026-09-14', hasta: '2026-09-20' }, 'abc'),
       '/reportes/gastos?desde=2026-09-14&hasta=2026-09-20&categoriaId=abc')
+  })
+})
+
+describe('Ver cálculo con enlaces (spec 0014, RF-008 a RF-010)', () => {
+  const nomina = { id: 'f8e40db5-0c1d-49c4-851f-6398a6419539', fecha: '2026-09-28', descripcion: 'Pago día · Gustavo',
+    monto: 50_000, cargado: 50_000, dias: 0, diasDelMes: 0 }
+
+  test('cada gasto lleva a su día en Gastos, resaltado', () => {
+    assert.equal(enlaceAlGasto(nomina, 'cat-1'),
+      '/reportes/gastos?desde=2026-09-28&hasta=2026-09-28&gasto=f8e40db5-0c1d-49c4-851f-6398a6419539&categoriaId=cat-1')
+  })
+
+  test('un gasto que nombra su compra la enlaza; uno que no, no', () => {
+    const envio = { descripcion: 'Envío de la factura WE-10238 · ver Compras [compra 728b3d46-7fed-4a75-943d-94f448b9c29b]' }
+    assert.equal(compraDelGasto(envio), '728b3d46-7fed-4a75-943d-94f448b9c29b')
+    assert.equal(compraDelGasto(nomina), null)
+    assert.equal(compraDelGasto({ descripcion: '[compra 123]' }), null)
+  })
+
+  test('un repartido dice cuántos días de cuántos; uno entero, nada', () => {
+    assert.equal(textoDelReparto({ monto: 310_000, dias: 7, diasDelMes: 31 }, pesos), '7 de 31 días de $310.000')
+    assert.equal(textoDelReparto(nomina, pesos), null)
+  })
+
+  test('los hijos del cálculo traen sus gastos', () => {
+    const r = semanaDelEjemplo()
+    r.gastosPorCategoria = [{ categoriaId: 'n', categoria: 'Nómina', monto: 50_000, gastos: [nomina] }]
+    r.cifras.gastos = 50_000
+    const gastos = calculoDe(CIFRAS.GASTOS, r).filas[0]
+    assert.deepEqual(gastos.hijos[0].gastos, [nomina])
   })
 })

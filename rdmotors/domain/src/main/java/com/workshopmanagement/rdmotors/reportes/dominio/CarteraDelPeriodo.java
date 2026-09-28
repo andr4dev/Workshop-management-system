@@ -13,12 +13,21 @@ import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
  * @param abonosTransferencia lo mismo, por transferencia
  * @param porCobrar           lo que deben hoy todos los clientes, sea de cuando sea
  * @param clientesQueDeben    cuántos deben hoy
+ * @param vendidoFiado        lo que quedó fiado de las ventas del período (spec 0014): informativo, no es plata que
+ *                            entró
+ * @param cobradoDelCuaderno  la parte de los abonos que pagó saldos del cuaderno (spec 0014, decisión 3): no es venta
  */
 public record CarteraDelPeriodo(Dinero abonosEfectivo, Dinero abonosTransferencia, Dinero porCobrar,
-                                int clientesQueDeben) {
+                                int clientesQueDeben, Dinero vendidoFiado, Dinero cobradoDelCuaderno) {
 
     public static final CarteraDelPeriodo VACIA =
-            new CarteraDelPeriodo(Dinero.CERO, Dinero.CERO, Dinero.CERO, 0);
+            new CarteraDelPeriodo(Dinero.CERO, Dinero.CERO, Dinero.CERO, 0, Dinero.CERO, Dinero.CERO);
+
+    /** Sin lo vendido fiado ni lo del cuaderno. */
+    public CarteraDelPeriodo(Dinero abonosEfectivo, Dinero abonosTransferencia, Dinero porCobrar,
+                             int clientesQueDeben) {
+        this(abonosEfectivo, abonosTransferencia, porCobrar, clientesQueDeben, Dinero.CERO, Dinero.CERO);
+    }
 
     /** Todo lo que entró por abonos en el período. */
     public Dinero cobrado() {

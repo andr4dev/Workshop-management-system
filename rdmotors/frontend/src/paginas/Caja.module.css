@@ -234,3 +234,8 @@
 @media (max-width: 640px) {
   .empuje { margin-left: 0; }
 }
+
+/* El gasto que se abrió desde Ver cálculo (spec 0014). */
+.resaltado td {
+  background: var(--warn-bg, rgba(245, 158, 11, 0.12));
+}
