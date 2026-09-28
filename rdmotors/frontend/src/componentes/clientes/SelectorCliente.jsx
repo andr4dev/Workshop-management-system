@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Boton from '../Boton'
 import { clientesApi } from '../../api/cliente'
 import {
-  camposQueFaltan, clienteNuevoDesde, datosDelCliente, identificacion, loQueFaltaEnPalabras, problemasDeDatos,
+  LARGOS, camposQueFaltan, clienteNuevoDesde, datosDelCliente, identificacion, loQueFaltaEnPalabras, problemasDeDatos,
   textoDeuda,
 } from '../../utils/clientes'
 import estilos from './SelectorCliente.module.css'
@@ -19,12 +19,12 @@ const textoDeError = (error) => (error?.estado === 0 ? 'No hay conexión con el 
  *   - Se busca por nombre, cédula o celular, sin tildes. Flechas y Enter escogen; Esc borra.
  *   - Si no existe, *Cliente nuevo* lo crea ahí mismo. Si la cédula ya era de alguien, se usa ese: la deuda de una
  *     persona no se parte en dos.
- *   - Escogido, se ve lo que debe. Para fiar, si le falta la cédula o el celular, se completan ahí mismo (el cajero
- *     puede completar; corregir lo escrito es del administrador).
+ *   - Escogido, se ve lo que debe. Para fiar, si le falta la cédula o el celular, una línea lo recuerda y deja
+ *     anotarlos ahí mismo (el cajero puede completar; corregir lo escrito es del administrador). No frena nada.
  *
  * @param cliente   el escogido, como lo devuelve el servidor, o `null`
  * @param onCambiar recibe el cliente escogido (o `null` para escoger otro)
- * @param paraFiar  exige la cédula y el celular
+ * @param paraFiar  recuerda lo que le falta al cliente, sin exigirlo
  */
 export default function SelectorCliente({ cliente, onCambiar, paraFiar = false, deshabilitado = false }) {
   const [texto, setTexto] = useState('')
@@ -205,7 +205,7 @@ function ClienteNuevo({ inicial, paraFiar, deshabilitado, onCreado, onCancelar }
       </label>
       <input id={`cliente-${nombre}`} className={`${estilos.campo} ${visibles[nombre] ? estilos.conError : ''}`}
         value={datos[nombre]} inputMode={inputMode} autoComplete="off" disabled={deshabilitado || guardando}
-        autoFocus={nombre === (inicial.nombre ? 'documento' : 'nombre')}
+        maxLength={LARGOS[nombre]} autoFocus={nombre === (inicial.nombre ? 'documento' : 'nombre')}
         aria-invalid={visibles[nombre] ? 'true' : undefined}
         onChange={(e) => { setDatos((d) => ({ ...d, [nombre]: e.target.value })); setError(null) }}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); guardar() } }} />
@@ -246,19 +246,31 @@ function ClienteNuevo({ inicial, paraFiar, deshabilitado, onCreado, onCancelar }
 }
 
 /**
- * Lo que le falta al cliente: la cédula, el celular o los dos. Se ofrece completarlo aquí mismo —es el momento en
- * que el cliente está enfrente— pero **no frena el cobro**: se puede dejar para después.
+ * Lo que le falta al cliente: la cédula, el celular o los dos. Una línea lo recuerda y *Anotar* abre los campos aquí
+ * mismo —es el momento en que el cliente está enfrente—, pero **no frena el cobro** ni se lleva el cursor: sin tocarla,
+ * Enter fía (2026-09-28: el recuadro abierto se sentía como algo que había que llenar).
  */
 function CompletarDatos({ cliente, deshabilitado, onGuardado, onUsarOtro }) {
   const faltan = camposQueFaltan(cliente)
-  const [oculto, setOculto] = useState(false)
+  const [abierto, setAbierto] = useState(false)
   const [datos, setDatos] = useState(() => datosDelCliente(cliente))
   const [intentado, setIntentado] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
   const problemas = problemasDeDatos(datos)
   const visibles = intentado ? problemas : {}
-  if (oculto) return null
+
+  if (!abierto) {
+    return (
+      <p className={estilos.recordatorio}>
+        A {cliente.nombre} le {faltan.length === 1 ? 'falta' : 'faltan'} {loQueFaltaEnPalabras(cliente)}; no hace falta
+        para fiar.{' '}
+        <Boton variante="fantasma" tamano="chico" disabled={deshabilitado} onClick={() => setAbierto(true)}>
+          Anotar
+        </Boton>
+      </p>
+    )
+  }
 
   async function guardar() {
     setIntentado(true)
@@ -277,8 +289,7 @@ function CompletarDatos({ cliente, deshabilitado, onGuardado, onUsarOtro }) {
   return (
     <div className={estilos.completar}>
       <p className={estilos.recordatorio}>
-        A {cliente.nombre} le {faltan.length === 1 ? 'falta' : 'faltan'} {loQueFaltaEnPalabras(cliente)}.
-        Puedes anotarlo ahora o seguir con la venta.
+        Lo que tengas; si no, déjalo vacío y sigue con la venta.
       </p>
       <div className={estilos.formulario}>
         {faltan.map((nombre) => (
@@ -286,7 +297,7 @@ function CompletarDatos({ cliente, deshabilitado, onGuardado, onUsarOtro }) {
             <label className={estilos.etiqueta} htmlFor={`completar-${nombre}`}>{ETIQUETAS[nombre]}</label>
             <input id={`completar-${nombre}`} className={`${estilos.campo} ${visibles[nombre] ? estilos.conError : ''}`}
               value={datos[nombre]} inputMode={nombre === 'celular' ? 'tel' : undefined} autoComplete="off"
-              autoFocus={nombre === faltan[0]} disabled={deshabilitado || guardando}
+              maxLength={LARGOS[nombre]} autoFocus={nombre === faltan[0]} disabled={deshabilitado || guardando}
               aria-invalid={visibles[nombre] ? 'true' : undefined}
               onChange={(e) => { setDatos((d) => ({ ...d, [nombre]: e.target.value })); setError(null) }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); guardar() } }} />
@@ -306,7 +317,7 @@ function CompletarDatos({ cliente, deshabilitado, onGuardado, onUsarOtro }) {
         </p>
       )}
       <div className={estilos.acciones}>
-        <Boton variante="fantasma" onClick={() => setOculto(true)} disabled={guardando}>Después</Boton>
+        <Boton variante="fantasma" onClick={() => setAbierto(false)} disabled={guardando}>Después</Boton>
         <Boton variante="primario" onClick={guardar} disabled={deshabilitado || guardando}>
           {guardando ? 'Guardando…' : error?.estado === 0 ? 'Reintentar' : 'Guardar datos'}
         </Boton>

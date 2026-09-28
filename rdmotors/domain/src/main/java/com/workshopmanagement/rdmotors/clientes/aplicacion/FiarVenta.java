@@ -36,7 +36,7 @@ public class FiarVenta {
         this.abonos = abonos;
     }
 
-    /** Bloqueado, y con lo que hace falta para fiarle: los datos completos y el fiado abierto. */
+    /** Bloqueado, y con el fiado abierto: es lo único que hace falta para fiarle (la cédula y el celular no). */
     public Cliente clienteParaFiar(UUID clienteId) {
         Cliente cliente = clientes.buscarParaModificar(clienteId)
                 .orElseThrow(() -> new ReglaDeNegocioException("Ese cliente no existe"));

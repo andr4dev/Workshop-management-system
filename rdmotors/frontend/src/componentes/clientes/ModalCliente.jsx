@@ -3,7 +3,7 @@ import Modal from '../Modal'
 import Boton from '../Boton'
 import Campo from '../Campo'
 import { clientesApi } from '../../api/cliente'
-import { datosDelCliente, problemasDeDatos } from '../../utils/clientes'
+import { LARGOS, datosDelCliente, problemasDeDatos } from '../../utils/clientes'
 import estilos from './ModalCliente.module.css'
 
 /**
@@ -58,7 +58,7 @@ export default function ModalCliente({ cliente, soloCompletar = false, onGuardad
 
   const campo = (nombre, etiqueta, { ayuda, ...props } = {}) => (
     <Campo etiqueta={etiqueta} value={datos[nombre]} onChange={cambiar(nombre)} onKeyDown={alTeclear}
-      error={visibles[nombre]} disabled={enviando || bloqueado(nombre)} autoComplete="off"
+      error={visibles[nombre]} disabled={enviando || bloqueado(nombre)} autoComplete="off" maxLength={LARGOS[nombre]}
       ayuda={bloqueado(nombre) ? 'Corregirlo es del administrador' : ayuda} {...props} />
   )
 

@@ -1030,7 +1030,7 @@ public final class Falsos {
 
         @Override
         public Optional<Cliente> buscarPorDocumento(String documento) {
-            String buscado = Cliente.normalizarDocumento(documento);
+            String buscado = Cliente.documentoQueIdentifica(documento);
             return datos.values().stream()
                     .filter(c -> buscado != null && buscado.equals(c.getDocumentoNormalizado()))
                     .findFirst();
@@ -1057,11 +1057,13 @@ public final class Falsos {
             return ids.stream().map(datos::get).filter(java.util.Objects::nonNull).toList();
         }
 
+        /** Como el índice único de la V27: solo la cédula que dice quién es no se repite. */
         @Override
         public Cliente guardar(Cliente cliente) {
+            String identifica = Cliente.documentoQueIdentifica(cliente.getDocumento());
             datos.values().stream()
-                    .filter(c -> !c.getId().equals(cliente.getId()) && c.getDocumentoNormalizado() != null
-                            && c.getDocumentoNormalizado().equals(cliente.getDocumentoNormalizado()))
+                    .filter(c -> !c.getId().equals(cliente.getId()) && identifica != null
+                            && identifica.equals(c.getDocumentoNormalizado()))
                     .findFirst()
                     .ifPresent(otro -> {
                         throw new ClienteRepetidoException(otro.getId(), otro.getNombre());

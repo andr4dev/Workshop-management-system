@@ -15,6 +15,7 @@ import com.workshopmanagement.rdmotors.compartido.dominio.puerto.Reloj;
  * al fiarle a alguien que no existe, sin salir de la venta.
  *
  * <p>Si la cédula ya es de alguien, no se crea otro: {@link ClienteRepetidoException} dice cuál, y la pantalla lo usa.
+ * Solo cuenta la cédula que dice quién es ({@link Cliente#documentoQueIdentifica}): con "no tiene", se crea.
  */
 @Transactional
 public class CrearCliente {
@@ -32,7 +33,7 @@ public class CrearCliente {
             throw new ReglaDeNegocioException("Falta quién crea el cliente");
         }
         Cliente nuevo = Cliente.nuevo(datos, actor.id(), reloj.ahora());
-        if (nuevo.getDocumento() != null) {
+        if (Cliente.documentoQueIdentifica(nuevo.getDocumento()) != null) {
             clientes.buscarPorDocumento(nuevo.getDocumento()).ifPresent(existente -> {
                 throw new ClienteRepetidoException(existente.getId(), existente.getNombre());
             });

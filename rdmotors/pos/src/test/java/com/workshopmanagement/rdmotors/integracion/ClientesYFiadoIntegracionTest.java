@@ -200,6 +200,29 @@ class ClientesYFiadoIntegracionTest {
     }
 
     @Test
+    @DisplayName("SIN FRENOS contra Postgres: \"no tiene\" en la cédula se repite sin juntar a nadie, y un celular con dos números cabe")
+    void loQueEscribanSeGuarda() {
+        Cliente juan = crearCliente.ejecutar(new DatosCliente("Juan", "no tiene", "3001234567 - 3109876543 ext12",
+                null, null), cajero);
+        Cliente maria = crearCliente.ejecutar(new DatosCliente("María", "NO TIENE", "12 34", null, null), cajero);
+
+        assertThat(maria.getId()).isNotEqualTo(juan.getId());
+        assertThat(clientes.buscarPorDocumento("no tiene")).as("no es la cédula de nadie").isEmpty();
+        assertThat(jdbc.queryForObject("select celular_normalizado from cliente where id = ?", String.class,
+                juan.getId())).isEqualTo("3001234567310987654312");
+        // Ni la base los junta: el índice único es solo para lo que parece cédula.
+        String insertar = """
+                insert into cliente (id, nombre, nombre_normalizado, documento, documento_normalizado, creado_en,
+                                     creado_por_id)
+                values (?, 'Otro', 'otro', '123', '123', now(), ?)
+                """;
+        jdbc.update(insertar, UUID.randomUUID(), cajero.id());
+        jdbc.update(insertar, UUID.randomUUID(), cajero.id());
+        assertThat(buscarClientes.porTexto("no tiene")).extracting(ClienteEncontrado::id)
+                .contains(juan.getId(), maria.getId());
+    }
+
+    @Test
     @DisplayName("cobrar fiado de punta a punta: la venta, su deuda, el comprobante, el cajón y el reporte")
     void cobrarFiado() {
         Cliente juan = cliente("Juan Pérez", cedulaNueva());

@@ -155,6 +155,11 @@ más vieja.
 
 > **Cambiada el 2026-09-21, después de usarla.** La primera versión los exigía; el dueño la revirtió al probar
 > el mostrador: *«cliente fiado, celular y cédula o NIT opcionales»*.
+>
+> **Y otra vez el 2026-09-28.** Opcionales ya eran, pero si se escribían tenían que parecer cédula (5 a 15 letras
+> o números) y celular (7 a 15 dígitos). El dueño lo probó y frenaba: *«ponlo todo opcional, que no genere
+> fricción»*. **Ahora se guardan como los escriban.** Lo único que se revisa es que no pasen de lo que cabe, y los
+> campos no dejan escribir más.
 
 **Decidido: solo el nombre es obligatorio**, también para fiar. La cédula o NIT, el celular, la dirección y la
 nota son opcionales y se pueden completar después.
@@ -165,8 +170,13 @@ nota son opcionales y se pueden completar después.
 - **Lo que se pierde, dicho claro:** sin la cédula, dos *"Juan"* pueden terminar en el mismo renglón de la
   cartera; sin el celular no hay a quién llamarle a cobrar. Por eso la pantalla **los pide igual**, ofrece
   anotarlos ahí mismo y deja el recordatorio en la ficha hasta que se completen.
-- La cédula, **si se escribe, no se repite**: aparece el cliente que ya existe en vez de crear otro.
+- La cédula **que parece un documento** —de 5 a 15 letras o números, con al menos un número— **no se repite**:
+  aparece el cliente que ya existe en vez de crear otro. Lo demás (*"no tiene"*, *"N/A"*, *"123"*) se guarda y se
+  busca, pero no dice quién es: si lo dijera, a la segunda persona con *"no tiene"* se le usaría el cliente de la
+  primera, y fiarle sumaría a la deuda de otro.
 - Dos clientes sin cédula sí pueden existir: se distinguen por el nombre y por lo que deben.
+- En el cobro, lo que le falta al cliente es **una línea** con *Anotar*, no un recuadro abierto; al escoger al
+  cliente, el cursor pasa a *Fiar* y Enter lo cierra.
 
 ### Decisión 3 · ¿Se puede fiar una parte?
 
@@ -203,8 +213,8 @@ siempre queda para la próxima compra?]
 ## 5. Requisitos funcionales
 
 ### Clientes
-- **RF-001** · Un cliente tiene **nombre** (obligatorio), cédula o NIT, celular, dirección y nota. Una cédula o
-  NIT no se repite.
+- **RF-001** · Un cliente tiene **nombre** (obligatorio), cédula o NIT, celular, dirección y nota, guardados como
+  los escriban (2026-09-28). Una cédula o NIT que parece un documento no se repite (decisión 2).
 - **RF-002** · Para fiar basta el **nombre** (decisión 2, cambiada el 2026-09-21). La cédula o NIT y el celular
   se piden en el cobro y quedan como recordatorio en la ficha, pero **no frenan la venta**. Lo único que impide
   fiarle es que el administrador le haya cerrado el fiado (RF-005).

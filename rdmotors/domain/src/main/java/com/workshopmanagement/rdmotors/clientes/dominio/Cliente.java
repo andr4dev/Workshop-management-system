@@ -18,12 +18,14 @@ import jakarta.persistence.*;
 import lombok.Getter;
 
 /**
- * Alguien que le compra a la tienda (spec 0008). Para el historial basta el nombre; <b>para fiarle hacen falta el
- * nombre, la cédula o NIT y el celular</b> (decisión 2): sin la cédula hay dos "Juan" y no se sabe quién debe, y sin
- * el celular no hay a quién cobrarle.
+ * Alguien que le compra a la tienda (spec 0008). <b>Solo el nombre es obligatorio</b>, también para fiarle (decisión
+ * 2): la cédula y el celular se guardan <b>como los escriban</b>, sin revisar que tengan forma de cédula o de celular
+ * (cambiado el 2026-09-28: el dueño lo probó al fiar y frenaba).
  *
- * <p><b>La cédula no se repite</b>, y se compara sin puntos, guiones ni espacios: "1.234.567-8" y "12345678" son la
- * misma. La hace única la base, con la forma normalizada.
+ * <p><b>La cédula que parece un documento no se repite</b> ({@link #documentoQueIdentifica}), y se compara sin puntos,
+ * guiones ni espacios: "1.234.567-8" y "12345678" son la misma. Otra cosa —"no tiene", "123"— se guarda y se busca,
+ * pero no dice quién es: si lo dijera, dos personas distintas quedarían como una sola, debiendo lo de las dos. La hace
+ * única la base, con la forma normalizada.
  *
  * <p><b>No se borra.</b> Al que no paga se le cierra el fiado (RF-005): sigue comprando de contado y abonando.
  */
@@ -39,10 +41,11 @@ public class Cliente {
     static final int LARGO_DIRECCION = 200;
     static final int LARGO_NOTA = 300;
 
-    /** Letras y números, de 5 a 15: una cédula, un NIT con su dígito, una cédula de extranjería o un pasaporte. */
-    private static final Pattern DOCUMENTO_VALIDO = Pattern.compile("[A-Z0-9]{5,15}");
-    /** De 7 a 15 dígitos: un celular o un fijo. */
-    private static final Pattern CELULAR_VALIDO = Pattern.compile("\\d{7,15}");
+    /**
+     * De 5 a 15 letras o números, con al menos un número: una cédula, un NIT con su dígito, una cédula de extranjería
+     * o un pasaporte. "NO TIENE" o "123" no. La misma regla que el índice único de la V27.
+     */
+    private static final Pattern DOCUMENTO_QUE_IDENTIFICA = Pattern.compile("(?=.*[0-9])[A-Z0-9]{5,15}");
 
     @Id
     @Column(name = "id", updatable = false, nullable = false)
@@ -71,7 +74,7 @@ public class Cliente {
     @Column(name = "celular", length = LARGO_CELULAR)
     private String celular;
 
-    @Column(name = "celular_normalizado", length = 20)
+    @Column(name = "celular_normalizado", length = LARGO_CELULAR)
     private String celularNormalizado;
 
     @Column(name = "direccion", length = LARGO_DIRECCION)
@@ -186,6 +189,10 @@ public class Cliente {
         poner(datos);
     }
 
+    /**
+     * Lo único que se revisa es que haya nombre y que nada pase de largo. La cédula y el celular no se revisan: si no
+     * traen ni una letra o número (la cédula) o ni un dígito (el celular), quedan vacíos, porque no hay nada que buscar.
+     */
     private void poner(DatosCliente datos) {
         String nombreLimpio = limpiarNombre(datos.nombre());
         if (nombreLimpio.isEmpty()) {
@@ -194,15 +201,9 @@ public class Cliente {
         exigirLargo(nombreLimpio, LARGO_NOMBRE, "El nombre");
         String documentoLimpio = limpio(datos.documento());
         String documentoNuevo = normalizarDocumento(documentoLimpio);
-        if (documentoLimpio != null && (documentoNuevo == null || !DOCUMENTO_VALIDO.matcher(documentoNuevo).matches())) {
-            throw new ReglaDeNegocioException("La cédula o NIT no parece válida: de 5 a 15 números o letras");
-        }
         exigirLargo(documentoLimpio, LARGO_DOCUMENTO, "La cédula o NIT");
         String celularLimpio = limpio(datos.celular());
         String celularNuevo = normalizarCelular(celularLimpio);
-        if (celularLimpio != null && (celularNuevo == null || !CELULAR_VALIDO.matcher(celularNuevo).matches())) {
-            throw new ReglaDeNegocioException("El celular tiene que tener de 7 a 15 dígitos");
-        }
         exigirLargo(celularLimpio, LARGO_CELULAR, "El celular");
         String direccionLimpia = limpio(datos.direccion());
         exigirLargo(direccionLimpia, LARGO_DIRECCION, "La dirección");
@@ -243,6 +244,15 @@ public class Cliente {
         }
         String limpio = documento.replaceAll("[^\\p{L}\\p{N}]", "").toUpperCase(Locale.ROOT);
         return limpio.isEmpty() ? null : limpio;
+    }
+
+    /**
+     * La cédula normalizada si dice quién es el cliente —la que no se puede repetir—; {@code null} si no:
+     * "1.234.567-8" → "12345678", pero "no tiene", "N/A" o "123" → {@code null}.
+     */
+    public static String documentoQueIdentifica(String documento) {
+        String normalizado = normalizarDocumento(documento);
+        return normalizado != null && DOCUMENTO_QUE_IDENTIFICA.matcher(normalizado).matches() ? normalizado : null;
     }
 
     /** Solo los dígitos: "300 123 4567" → "3001234567". {@code null} si no queda nada. */

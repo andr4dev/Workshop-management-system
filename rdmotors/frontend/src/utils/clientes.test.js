@@ -19,10 +19,11 @@ test('basta el nombre, también para fiar: la cédula y el celular se piden, no 
   assert.deepEqual(problemasDeDatos({ nombre: 'Juan', documento: '1.234.567', celular: '3001234567' }), {})
 })
 
-test('sin nombre no hay cliente; una cédula corta o un celular con letras se dicen antes de mandar', () => {
-  assert.equal(problemasDeDatos({ nombre: '  ' }).nombre, 'Escribe el nombre del cliente')
-  assert.match(problemasDeDatos({ nombre: 'Juan', documento: '12-3' }).documento, /5 a 15/)
-  assert.match(problemasDeDatos({ nombre: 'Juan', celular: '12 34' }).celular, /7 a 15/)
+test('sin nombre no hay cliente; la cédula y el celular pasan como los escriban (2026-09-28)', () => {
+  assert.deepEqual(problemasDeDatos({ nombre: '  ' }), { nombre: 'Escribe el nombre del cliente' })
+  // Antes cada uno de estos frenaba el fiado.
+  assert.deepEqual(problemasDeDatos({ nombre: 'Juan', documento: '12-3', celular: '12 34' }), {})
+  assert.deepEqual(problemasDeDatos({ nombre: 'Juan', documento: 'no tiene', celular: 'el de la hermana' }), {})
 })
 
 test('lo único que impide fiar es el fiado cerrado; que falten datos, no', () => {

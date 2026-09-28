@@ -758,6 +758,54 @@ class MigracionesIntegracionTest {
         }
     }
 
+    @Test
+    @DisplayName("V27 sobre una base con clientes: los que había siguen igual, una cédula de verdad sigue sin repetirse, y \"no tiene\" ya sí")
+    void v27ClienteSinValidacion() throws SQLException {
+        Flyway hastaV26 = flywayHasta("26");
+        hastaV26.clean();
+        hastaV26.migrate();
+        UUID ruben = UUID.randomUUID();
+        String nuevoCliente = """
+                insert into cliente (id, nombre, nombre_normalizado, documento, documento_normalizado, celular,
+                                     celular_normalizado, creado_en, creado_por_id)
+                values (?, ?, ?, ?, ?, ?, ?, now(), ?)
+                """;
+        try (Connection c = conexion()) {
+            ejecutar(c, """
+                    insert into usuario (id, usuario, usuario_normalizado, nombre, hash, rol, activo,
+                                         debe_cambiar_contrasena, version_sesion, intentos_fallidos, creado_en)
+                    values (?, 'ruben', 'ruben', 'Rubén', '{bcrypt}x', 'ADMINISTRADOR', true, false, 1, 0, now())
+                    """, ruben);
+            // Como los de producción el día de la V27: uno con cédula, uno sin.
+            ejecutar(c, nuevoCliente, UUID.randomUUID(), "julio", "julio", "108292992", "108292992",
+                    "32430546783", "32430546783", ruben);
+            ejecutar(c, nuevoCliente, UUID.randomUUID(), "Julio Motors", "julio motors", null, null,
+                    "+57 300 4535443", "573004535443", ruben);
+        }
+
+        flywayHasta(null).migrate();
+
+        try (Connection c = conexion()) {
+            assertThat(valor(c, "select count(*) from cliente")).isEqualTo(2L);
+            try (PreparedStatement ps = c.prepareStatement(nuevoCliente)) {
+                ps.setObject(1, UUID.randomUUID());
+                ps.setObject(2, "Otro Julio");
+                ps.setObject(3, "otro julio");
+                ps.setObject(4, "108.292.992");
+                ps.setObject(5, "108292992");
+                ps.setObject(6, null);
+                ps.setObject(7, null);
+                ps.setObject(8, ruben);
+                org.assertj.core.api.Assertions.assertThatThrownBy(ps::executeUpdate)
+                        .hasMessageContaining("ux_cliente_documento");
+            }
+            ejecutar(c, nuevoCliente, UUID.randomUUID(), "Juan", "juan", "no tiene", "NOTIENE", null, null, ruben);
+            ejecutar(c, nuevoCliente, UUID.randomUUID(), "María", "maria", "NO TIENE", "NOTIENE",
+                    "3001234567 - 3109876543 ext12", "3001234567310987654312", ruben);
+            assertThat(valor(c, "select count(*) from cliente where documento_normalizado = 'NOTIENE'")).isEqualTo(2L);
+        }
+    }
+
     private static Object valor(Connection c, String sql, Object... parametros) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             for (int i = 0; i < parametros.length; i++) {

@@ -59,6 +59,27 @@ class ClientesTest {
     }
 
     @Test
+    @DisplayName("\"NO TIENE\" O \"123\" EN LA CÉDULA NO JUNTAN A DOS PERSONAS: cada una es su propio cliente, con su deuda")
+    void loQueNoEsCedulaNoJunta() {
+        // Si "no tiene" dijera quién es, a María se le usaría el cliente de Juan y fiarle sumaría a la deuda de él.
+        Cliente juan = crear.ejecutar(new DatosCliente("Juan", "no tiene", null, null, null), cajero);
+        Cliente maria = crear.ejecutar(new DatosCliente("María", "NO TIENE", null, null, null), cajero);
+        Cliente pedro = crear.ejecutar(new DatosCliente("Pedro", "123", null, null, null), cajero);
+        Cliente rosa = crear.ejecutar(new DatosCliente("Rosa", "1-2-3", null, null, null), cajero);
+
+        assertThat(clientes.datos).hasSize(4);
+        assertThat(maria.getId()).isNotEqualTo(juan.getId());
+        assertThat(rosa.getId()).isNotEqualTo(pedro.getId());
+        assertThat(maria.getDocumento()).isEqualTo("NO TIENE");
+        // El administrador le puede poner a otro lo mismo: tampoco es de nadie.
+        actualizar.ejecutar(maria.getId(), new DatosCliente("María", "123", null, null, null), administrador);
+        assertThat(maria.getDocumento()).isEqualTo("123");
+        // Y se buscan igual.
+        assertThat(buscar.porTexto("123")).extracting(ClienteEncontrado::nombre)
+                .containsExactlyInAnyOrder("María", "Pedro", "Rosa");
+    }
+
+    @Test
     @DisplayName("se busca por nombre sin tildes, por la cédula sin puntos y por el celular; con lo que debe cada uno")
     void buscar() {
         Cliente juan = juan();

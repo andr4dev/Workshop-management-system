@@ -59,17 +59,53 @@ class ClienteTest {
     }
 
     @Test
-    @DisplayName("sin nombre no hay cliente; una cédula o un celular que no son números no se aceptan")
-    void datosQueNoSirven() {
+    @DisplayName("SIN FRENOS: la cédula y el celular se guardan como los escriban; solo se exige el nombre (2026-09-28)")
+    void loQueEscribanSeGuarda() {
         assertThatThrownBy(() -> Cliente.nuevo(new DatosCliente("   ", null, null, null, null), cajero, AHORA))
                 .hasMessage("Escribe el nombre del cliente");
-        assertThatThrownBy(() -> Cliente.nuevo(new DatosCliente("Juan", "12-3", null, null, null), cajero, AHORA))
-                .hasMessageContaining("cédula o NIT no parece válida");
-        assertThatThrownBy(() -> Cliente.nuevo(new DatosCliente("Juan", "12345678", "12 34", null, null), cajero, AHORA))
-                .hasMessageContaining("de 7 a 15 dígitos");
-        assertThatThrownBy(() -> Cliente.nuevo(new DatosCliente("Juan", "12345678", "tres cero cero", null, null),
-                cajero, AHORA))
-                .hasMessageContaining("de 7 a 15 dígitos");
+
+        // Antes cada uno de estos frenaba el fiado con "no parece válida" o "de 7 a 15 dígitos".
+        Cliente corto = Cliente.nuevo(new DatosCliente("Juan", "12-3", "12 34", null, null), cajero, AHORA);
+        assertThat(corto.getDocumento()).isEqualTo("12-3");
+        assertThat(corto.getDocumentoNormalizado()).isEqualTo("123");
+        assertThat(corto.getCelular()).isEqualTo("12 34");
+        assertThat(corto.getCelularNormalizado()).isEqualTo("1234");
+        assertThat(corto.datosQueFaltan()).isEmpty();
+
+        Cliente dosNumeros = Cliente.nuevo(
+                new DatosCliente("Juan", "C.C. 1.234.567 de Pasto", "3001234567 - 3109876543 ext12", null, null),
+                cajero, AHORA);
+        assertThat(dosNumeros.getDocumento()).isEqualTo("C.C. 1.234.567 de Pasto");
+        // 22 dígitos: antes de la V27 la base guardaba 20.
+        assertThat(dosNumeros.getCelularNormalizado()).isEqualTo("3001234567310987654312");
+
+        // Lo que no trae ni un número (el celular) ni una letra o número (la cédula) no se puede buscar: queda vacío.
+        Cliente nada = Cliente.nuevo(new DatosCliente("Juan", " - . ", "no tiene", null, null), cajero, AHORA);
+        assertThat(nada.getDocumento()).isNull();
+        assertThat(nada.getCelular()).isNull();
+        assertThat(nada.datosQueFaltan()).containsExactly("la cédula", "el celular");
+
+        // Lo único que se sigue revisando es el largo: es lo que cabe en la base.
+        assertThatThrownBy(() -> Cliente.nuevo(new DatosCliente("Juan", "1".repeat(31), null, null, null), cajero, AHORA))
+                .hasMessageContaining("máximo 30");
+        assertThatThrownBy(() -> Cliente.nuevo(new DatosCliente("Juan", null, "3".repeat(31), null, null), cajero, AHORA))
+                .hasMessageContaining("máximo 30");
+    }
+
+    @Test
+    @DisplayName("solo la cédula que parece un documento dice quién es el cliente: \"no tiene\" o \"123\" no")
+    void documentoQueIdentifica() {
+        assertThat(Cliente.documentoQueIdentifica("1.234.567-8")).isEqualTo("12345678");
+        assertThat(Cliente.documentoQueIdentifica("900.123.456-7")).isEqualTo("9001234567");
+        assertThat(Cliente.documentoQueIdentifica("pa 12345")).as("un pasaporte").isEqualTo("PA12345");
+        assertThat(Cliente.documentoQueIdentifica("12345")).as("el más corto que cuenta").isEqualTo("12345");
+        assertThat(Cliente.documentoQueIdentifica("1234")).isNull();
+        assertThat(Cliente.documentoQueIdentifica("123")).isNull();
+        assertThat(Cliente.documentoQueIdentifica("no tiene")).as("sin un solo número").isNull();
+        assertThat(Cliente.documentoQueIdentifica("N/A")).isNull();
+        assertThat(Cliente.documentoQueIdentifica("1234567890123456")).as("más de 15").isNull();
+        assertThat(Cliente.documentoQueIdentifica("NIÑO123")).as("letras que no son de la A a la Z").isNull();
+        assertThat(Cliente.documentoQueIdentifica(null)).isNull();
     }
 
     @Test

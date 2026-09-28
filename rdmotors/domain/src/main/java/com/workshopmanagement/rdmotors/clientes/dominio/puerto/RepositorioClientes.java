@@ -18,7 +18,10 @@ public interface RepositorioClientes {
      */
     Optional<Cliente> buscarParaModificar(UUID id);
 
-    /** Por la cédula o NIT como se escriba: se compara sin puntos, guiones ni espacios. */
+    /**
+     * Por la cédula o NIT como se escriba: se compara sin puntos, guiones ni espacios. Solo si dice quién es
+     * ({@link Cliente#documentoQueIdentifica}): "no tiene" no es de nadie, aunque varios lo tengan escrito.
+     */
     Optional<Cliente> buscarPorDocumento(String documento);
 
     /**

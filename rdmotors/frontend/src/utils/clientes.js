@@ -12,8 +12,8 @@ export const normalizarDocumento = (texto) => String(texto ?? '').replace(/[^\p{
 /** Solo los dígitos: "300 123 4567" → "3001234567". */
 export const normalizarCelular = (texto) => String(texto ?? '').replace(/\D/g, '')
 
-const DOCUMENTO_VALIDO = /^[A-Z0-9]{5,15}$/
-const CELULAR_VALIDO = /^\d{7,15}$/
+/** Lo que cabe en la base: los campos no dejan escribir más, así que nunca hay un error por largo. */
+export const LARGOS = { nombre: 120, documento: 30, celular: 30, direccion: 200, nota: 300 }
 
 /** Los datos de un cliente para el formulario: nunca `null`, siempre texto. */
 export function datosDelCliente(cliente) {
@@ -29,19 +29,13 @@ export function datosDelCliente(cliente) {
 /**
  * Qué está mal en lo escrito, por campo. Vacío si se puede guardar.
  *
- * <p><b>Solo el nombre es obligatorio</b>, también para fiar (decisión 2, cambiada el 2026-09-21): la cédula y el
- * celular se piden, pero no frenan la venta. Lo que sí se revisa es que, si se escriben, tengan forma de cédula y
- * de celular: un dato mal escrito es peor que uno vacío, porque parece que está.
+ * <p><b>Solo el nombre es obligatorio</b>, también para fiar (decisión 2). La cédula y el celular se guardan como los
+ * escriban, sin revisar que tengan forma de cédula o de celular: esa revisión frenaba el fiado en el mostrador y se
+ * quitó el 2026-09-28.
  */
 export function problemasDeDatos(datos) {
   const problemas = {}
   if (!String(datos.nombre ?? '').trim()) problemas.nombre = 'Escribe el nombre del cliente'
-  if (String(datos.documento ?? '').trim() && !DOCUMENTO_VALIDO.test(normalizarDocumento(datos.documento))) {
-    problemas.documento = 'La cédula o NIT: de 5 a 15 números o letras'
-  }
-  if (String(datos.celular ?? '').trim() && !CELULAR_VALIDO.test(normalizarCelular(datos.celular))) {
-    problemas.celular = 'El celular: de 7 a 15 dígitos'
-  }
   return problemas
 }
 

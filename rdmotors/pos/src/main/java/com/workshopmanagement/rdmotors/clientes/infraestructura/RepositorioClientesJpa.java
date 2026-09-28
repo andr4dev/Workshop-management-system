@@ -40,9 +40,10 @@ class RepositorioClientesJpa implements RepositorioClientes {
         return jpa.bloquearPorId(id);
     }
 
+    /** Solo la cédula que dice quién es: "no tiene" puede estar en varios clientes, y no es de ninguno. */
     @Override
     public Optional<Cliente> buscarPorDocumento(String documento) {
-        String normalizado = Cliente.normalizarDocumento(documento);
+        String normalizado = Cliente.documentoQueIdentifica(documento);
         return normalizado == null ? Optional.empty() : jpa.findByDocumentoNormalizado(normalizado);
     }
 

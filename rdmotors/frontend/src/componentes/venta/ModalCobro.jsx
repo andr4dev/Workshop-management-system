@@ -24,8 +24,9 @@ const FORMAS = [
  * Si la red se cae en el medio, no se sabe si se cobró: el modal lo dice y solo ofrece reintentar lo
  * mismo. El padre bloquea la venta hasta tener una respuesta.
  *
- * <b>Fiado</b> (spec 0008): a quién —con su cédula y su celular, o no se cierra—, cuánto paga ahora si paga algo, y
- * cuánto queda debiendo. El cliente se escoge o se crea aquí mismo, sin salir de la venta.
+ * <b>Fiado</b> (spec 0008): a quién —basta el nombre; la cédula y el celular no se exigen—, cuánto paga ahora si paga
+ * algo, y cuánto queda debiendo. El cliente se escoge o se crea aquí mismo, sin salir de la venta, y al escogerlo el
+ * cursor pasa a *Fiar*: Enter lo cierra.
  *
  * @param cobroAnterior  el cobro de un intento que quedó sin respuesta: se reintenta exactamente ese
  */
@@ -57,6 +58,12 @@ export default function ModalCobro({ total, cobroAnterior, onCobrar, onCerrar, e
       : { MIXTO: efectivoRef, TRANSFERENCIA: cobrarRef }[cobro.forma] ?? recibidoRef
     ;(destino.current ?? cobrarRef.current)?.focus()
   }, [cobro.forma, enviando, sinRespuesta])
+
+  // Escogido a quién se le fía, el buscador desaparece y el cursor se perdería: va a "Fiar", y Enter fía.
+  const clienteId = cobro.cliente?.id
+  useEffect(() => {
+    if (fia && clienteId) cobrarRef.current?.focus()
+  }, [fia, clienteId])
 
   const cambiar = (campos) => setCobro((c) => ({ ...c, ...campos }))
 

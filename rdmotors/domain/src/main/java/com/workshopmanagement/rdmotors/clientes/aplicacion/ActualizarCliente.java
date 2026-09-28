@@ -20,9 +20,9 @@ import com.workshopmanagement.rdmotors.compartido.dominio.puerto.RepositorioAudi
 /**
  * CASO DE USO — los datos de un cliente (spec 0008, RF-004 y decisión 5).
  *
- * <p>El cajero <b>completa</b> lo que falta —la cédula y el celular para poder fiarle—. Cambiar un dato que ya estaba
- * escrito es <b>corregirlo</b>, y eso es del administrador: la cédula de alguien que debe no la cambia cualquiera. La
- * corrección queda en la auditoría con el antes y el después.
+ * <p>El cajero <b>completa</b> lo que falta —la cédula y el celular, que no hacen falta para fiarle—. Cambiar un dato
+ * que ya estaba escrito es <b>corregirlo</b>, y eso es del administrador: la cédula de alguien que debe no la cambia
+ * cualquiera. La corrección queda en la auditoría con el antes y el después.
  */
 @Transactional
 public class ActualizarCliente {
@@ -54,7 +54,7 @@ public class ActualizarCliente {
             throw new NoPermitidoException(CORREGIR_ES_DEL_ADMINISTRADOR);
         }
         // Antes de cambiar nada: la consulta no debe ver este cliente a medio cambiar.
-        if (Cliente.normalizarDocumento(datos.documento()) != null) {
+        if (Cliente.documentoQueIdentifica(datos.documento()) != null) {
             clientes.buscarPorDocumento(datos.documento())
                     .filter(otro -> !otro.getId().equals(clienteId))
                     .ifPresent(otro -> {
