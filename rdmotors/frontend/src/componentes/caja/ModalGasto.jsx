@@ -7,8 +7,8 @@ import AvisoConfirmarMonto from './AvisoConfirmarMonto'
 import Segmento from './Segmento'
 import { categoriasGastoApi, cuentasApi, gastosApi } from '../../api/cliente'
 import {
-  categoriasParaElegir, comandoDelGasto, conCategoria, gastoNuevo, montoDesdeTexto, NATURALEZAS, problemasDelGasto,
-  sinProblemas,
+  categoriasParaElegir, comandoDelGasto, conCategoria, gastoNuevo, montoDesdeTexto, NATURALEZAS, opcionesDeReparto,
+  problemasDelGasto, sinProblemas,
 } from '../../utils/gastos'
 import { formatoCOP } from '../../utils/formato'
 import { llaveNueva } from '../../utils/venta'
@@ -54,6 +54,7 @@ export default function ModalGasto({ turnoAbierto, soloDelCajon = false, porFuer
   const categorias = categoriasParaElegir(carga.categorias)
   const elegida = categorias.find((c) => c.id === gasto.categoriaId)
   const monto = montoDesdeTexto(gasto.monto)
+  const reparto = opcionesDeReparto(gasto, hoy)
 
   function cambiar(cambios) {
     setGasto((g) => ({ ...g, ...cambios }))
@@ -148,13 +149,24 @@ export default function ModalGasto({ turnoAbierto, soloDelCajon = false, porFuer
           )}
         </div>
 
-        <label className={estilos.casilla}>
-          <input type="checkbox" checked={gasto.delMes}
-            onChange={(e) => cambiar({ delMes: e.target.checked, delMesTocado: true })} />
-          <span>
-            Es un gasto del mes <span className={estilos.nota}>(arriendo, nómina, servicios)</span>
-          </span>
-        </label>
+        {/* Antes una casilla, "Es un gasto del mes": el pago del día de la nómina quedó repartido en el mes sin
+            querer (2026-09-28). Ahora se escoge entre las dos, dichas con su fecha. */}
+        <fieldset className={estilos.reparto}>
+          <legend className={estilos.etiquetaReparto}>¿Cómo se ve en los reportes?</legend>
+          <label className={estilos.casilla}>
+            <input type="radio" name="reparto-gasto" checked={gasto.delMes}
+              onChange={() => cambiar({ delMes: true, delMesTocado: true })} />
+            <span>
+              {reparto.repartido}
+              {reparto.cuota && <span className={estilos.nota}> ({reparto.cuota})</span>}
+            </span>
+          </label>
+          <label className={estilos.casilla}>
+            <input type="radio" name="reparto-gasto" checked={!gasto.delMes}
+              onChange={() => cambiar({ delMes: false, delMesTocado: true })} />
+            <span>{reparto.enSuDia}</span>
+          </label>
+        </fieldset>
 
         <Campo
           etiqueta="¿En qué se gastó?"

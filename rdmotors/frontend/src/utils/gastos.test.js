@@ -2,7 +2,8 @@ import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   categoriasParaElegir, comandoDelGasto, comandoDelRetiro, conCategoria, consultaDeGastos, consultaDeTotalesDeGastos,
-  filtrosDeGastos, gastoNuevo, movimientosDelCajon, problemaDelRango, problemasDelGasto, problemasDelRetiro,
+  filtrosDeGastos, gastoNuevo, movimientosDelCajon, opcionesDeReparto, problemaDelRango, problemasDelGasto,
+  problemasDelRetiro,
   sePuedeAnular, sinProblemas, TAMANO_GASTOS, textoDelOrigen,
 } from './gastos.js'
 
@@ -144,4 +145,20 @@ describe('movimientosDelCajon', () => {
       ['DEVOLUCION', 'N.º 7', false],
     ])
   })
+})
+
+test('cómo se ve un gasto en los reportes se dice con su fecha: repartido en su mes, o todo en su día', () => {
+  const nomina = { ...gastoNuevo({ hayTurno: false, hoy: '2026-09-28' }), monto: '50000', fecha: '2026-09-28' }
+  const opciones = opcionesDeReparto(nomina, '2026-09-28')
+  assert.equal(opciones.repartido, 'Repartido día a día en septiembre')
+  assert.match(opciones.cuota, /^unos \$\s?1\.667 cada día$/)
+  assert.equal(opciones.enSuDia, 'Todo el 28 de septiembre')
+
+  // Por fuera del cajón manda la fecha escrita; del cajón, el día del turno.
+  assert.equal(opcionesDeReparto({ ...nomina, fecha: '2026-02-05' }, '2026-09-28').repartido, 'Repartido día a día en febrero')
+  assert.equal(opcionesDeReparto({ ...nomina, delCajon: true, fecha: '2026-02-05' }, '2026-09-28').enSuDia,
+    'Todo el 28 de septiembre')
+  // Sin monto no hay cuota; sin fecha, hoy.
+  assert.equal(opcionesDeReparto({ ...nomina, monto: '' }, '2026-09-28').cuota, null)
+  assert.equal(opcionesDeReparto({ ...nomina, fecha: '' }, '2026-10-01').enSuDia, 'Todo el 1 de octubre')
 })

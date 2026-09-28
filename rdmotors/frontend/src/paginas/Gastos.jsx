@@ -189,7 +189,7 @@ export default function Gastos() {
                     <td>
                       {g.categoria}
                       {g.naturaleza === 'COSTO' && <span className={estilos.costo}>Costo</span>}
-                      {g.delMes && <span className={estilos.delMes}>Del mes</span>}
+                      {g.delMes && <span className={estilos.delMes}>Repartido en el mes</span>}
                     </td>
                     <td>
                       {g.descripcion}

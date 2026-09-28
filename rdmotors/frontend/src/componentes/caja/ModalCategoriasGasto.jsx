@@ -116,7 +116,7 @@ export default function ModalCategoriasGasto({ onCambio, onCerrar }) {
         <label className={estilos.casilla}>
           <input type="checkbox" checked={nueva.mensual}
             onChange={(e) => setNueva((n) => ({ ...n, mensual: e.target.checked }))} />
-          Se paga cada mes (arriendo, nómina)
+          Repartida en el mes (arriendo, servicios)
         </label>
       </div>
       <p className={estilos.nota} style={{ marginBottom: 'var(--esp-3)' }}>
@@ -162,10 +162,10 @@ export default function ModalCategoriasGasto({ onCambio, onCerrar }) {
                   </span>
                   {c.activa && (
                     <span className={estilos.acciones}>
-                      <label className={estilos.casilla} title="Al registrar un gasto de esta categoría, sale marcado como del mes">
+                      <label className={estilos.casilla} title="Al registrar un gasto de esta categoría, sale escogido «Repartido día a día en su mes». En cada gasto se puede cambiar">
                         <input type="checkbox" checked={c.mensual} disabled={enviando || editando != null}
                           onChange={() => cambiarMensual(c)} />
-                        Cada mes
+                        Repartida
                       </label>
                       <Boton variante="fantasma" tamano="chico" disabled={editando != null}
                         onClick={() => { setEditando({ id: c.id, modo: 'RENOMBRAR', nombre: c.nombre, mensual: c.mensual }); setErrorFila(null) }}>

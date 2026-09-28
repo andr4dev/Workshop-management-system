@@ -1,7 +1,7 @@
 /**
  * Gastos y retiros (spec 0006, fases 1 y 2), sin JSX, para probarlos con `node --test`.
  */
-import { soloDigitos } from './formato.js'
+import { formatoCOP, soloDigitos } from './formato.js'
 
 export const TAMANO_GASTOS = 25
 
@@ -88,6 +88,30 @@ export function conCategoria(gasto, categoria) {
     ...gasto,
     categoriaId: categoria?.id ?? '',
     delMes: gasto.delMesTocado ? gasto.delMes : Boolean(categoria?.mensual),
+  }
+}
+
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre',
+  'noviembre', 'diciembre']
+
+/**
+ * Las dos formas en que un gasto se ve en los reportes, dichas con su fecha: **repartido día a día en su mes** (la
+ * marca "del mes") o **todo en su día**. Antes era una casilla, *"Es un gasto del mes"*, y el pago del día de la
+ * nómina se registró repartido sin querer (2026-09-28).
+ *
+ * La cuota es aproximada, para orientarse: el reporte reparte al peso, con días de un peso más o menos.
+ *
+ * @param hoy el día del gasto si sale del cajón: su fecha es la del turno
+ */
+export function opcionesDeReparto(gasto, hoy) {
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(gasto.fecha ?? '') && !gasto.delCajon ? gasto.fecha : hoy
+  const [anio, mes, dia] = fecha.split('-').map(Number)
+  const diasDelMes = new Date(anio, mes, 0).getDate()
+  const monto = montoDesdeTexto(gasto.monto)
+  return {
+    repartido: `Repartido día a día en ${MESES[mes - 1]}`,
+    cuota: monto > 0 ? `unos ${formatoCOP(Math.round(monto / diasDelMes))} cada día` : null,
+    enSuDia: `Todo el ${dia} de ${MESES[mes - 1]}`,
   }
 }
 
