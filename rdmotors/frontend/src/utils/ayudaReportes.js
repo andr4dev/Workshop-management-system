@@ -47,8 +47,8 @@ export const AYUDA = {
   },
   gastosDelMes: {
     titulo: 'Gastos del mes',
-    que: 'El arriendo, la nómina y los demás gastos marcados "del mes" al registrarlos.',
-    formula: 'Repartidos: cada día de su mes carga una parte igual (el arriendo de $800.000 en octubre carga $25.807 el día 1). Solo en el mes: cuentan enteros cuando el período cubre su mes, y no aparecen en un día ni en una semana.',
+    que: 'El arriendo, los servicios y los demás gastos registrados "del mes". Cada uno dice, al registrarlo, si se reparte o va en un día.',
+    formula: 'Repartir día a día: cada día de su mes carga una parte igual (el arriendo de $800.000 en octubre carga $25.807 el día 1). Registrarlo en un día: cuenta entero en el reporte que cubre su mes, y no aparece en el de un día ni en el de una semana.',
     noIncluye: 'Un gasto del mes cuenta en el mes de su fecha: el arriendo de septiembre pagado el 2 de octubre se registra con fecha de septiembre.',
   },
   diaPorDia: {

@@ -100,7 +100,7 @@ class RepositorioReportesJdbc implements RepositorioReportes {
     @Override
     public List<GastoDelPeriodo> gastos(Periodo periodo) {
         return jdbc.query("""
-                select g.id, g.fecha, g.categoria_id, c.nombre, c.naturaleza, g.del_mes, g.monto
+                select g.id, g.fecha, g.categoria_id, c.nombre, c.naturaleza, g.del_mes, g.repartir, g.monto
                 from gasto g
                 join categoria_gasto c on c.id = g.categoria_id
                 where g.anulado_en is null
@@ -115,6 +115,7 @@ class RepositorioReportesJdbc implements RepositorioReportes {
                         rs.getString("nombre"),
                         NaturalezaGasto.valueOf(rs.getString("naturaleza")),
                         rs.getBoolean("del_mes"),
+                        rs.getObject("repartir", Boolean.class),
                         Dinero.de(rs.getBigDecimal("monto"))),
                 periodo.desde(), periodo.hasta(),
                 YearMonth.from(periodo.desde()).atDay(1), YearMonth.from(periodo.hasta()).atEndOfMonth());

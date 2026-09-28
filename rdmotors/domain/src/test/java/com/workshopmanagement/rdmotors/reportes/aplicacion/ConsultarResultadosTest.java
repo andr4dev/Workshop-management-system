@@ -21,7 +21,6 @@ import com.workshopmanagement.rdmotors.compartido.dominio.ReglaDeNegocioExceptio
 import com.workshopmanagement.rdmotors.reportes.dominio.CarteraDelPeriodo;
 import com.workshopmanagement.rdmotors.reportes.dominio.DatosDeReporte;
 import com.workshopmanagement.rdmotors.reportes.dominio.Control;
-import com.workshopmanagement.rdmotors.reportes.dominio.ModoGastosDelMes;
 import com.workshopmanagement.rdmotors.reportes.dominio.Periodo;
 import com.workshopmanagement.rdmotors.reportes.dominio.ResultadosDelPeriodo;
 
@@ -46,8 +45,7 @@ class ConsultarResultadosTest {
     void semanaPasada() {
         sembrar(DatosDeReporte.semanaDelEjemplo());
 
-        ResultadosDelPeriodo r = consultar.ejecutar(DatosDeReporte.LUNES_14, DatosDeReporte.DOMINGO_20,
-                ModoGastosDelMes.REPARTIDOS, admin).resultados();
+        ResultadosDelPeriodo r = consultar.ejecutar(DatosDeReporte.LUNES_14, DatosDeReporte.DOMINGO_20, admin).resultados();
 
         List<Instant> semana = List.of(Instant.parse("2026-09-14T05:00:00Z"), Instant.parse("2026-09-21T05:00:00Z"));
         List<Instant> semanaAnterior = List.of(Instant.parse("2026-09-07T05:00:00Z"), Instant.parse("2026-09-14T05:00:00Z"));
@@ -58,18 +56,19 @@ class ConsultarResultadosTest {
     }
 
     @Test
-    @DisplayName("sin decir cómo van los gastos del mes, van repartidos; hoy es el día del reloj")
-    void porDefectoRepartidos() {
+    @DisplayName("cada gasto del mes dice cómo cuenta (spec 0014); hoy es el día del reloj")
+    void cadaGastoDiceComoCuenta() {
         DatosDeReporte datos = new DatosDeReporte();
         datos.gastoDelMes(LocalDate.of(2026, 9, 1), "Arriendo", 800_000);
+        datos.gastoDelMesEntero(LocalDate.of(2026, 9, 1), "Nómina", 1_200_000);
         sembrar(datos);
 
-        ResultadosDelPeriodo r = consultar.ejecutar(LocalDate.of(2026, 9, 1), reloj.hoy(), null, admin).resultados();
+        ResultadosDelPeriodo r = consultar.ejecutar(LocalDate.of(2026, 9, 1), reloj.hoy(), admin).resultados();
 
-        assertThat(r.modo()).isEqualTo(ModoGastosDelMes.REPARTIDOS);
-        assertThat(r.cifras().gastos()).isEqualTo(Dinero.de(20 * 26_667 + 26_666));
-        assertThat(consultar.ejecutar(LocalDate.of(2026, 9, 1), reloj.hoy(), ModoGastosDelMes.SOLO_EN_EL_MES, admin)
-                .resultados().cifras().gastos()).as("del 1 a hoy cubre el mes en curso").isEqualTo(Dinero.de(800_000));
+        assertThat(r.cifras().gastos()).as("del 1 a hoy cubre el mes en curso: las cuotas y la nómina entera")
+                .isEqualTo(Dinero.de(20 * 26_667 + 26_666 + 1_200_000));
+        assertThat(consultar.ejecutar(reloj.hoy(), reloj.hoy(), admin).resultados().cifras().gastos())
+                .as("el 21: solo su cuota, que es de las de un peso menos").isEqualTo(Dinero.de(26_666));
     }
 
     @Test
@@ -81,7 +80,7 @@ class ConsultarResultadosTest {
         datos.venta(LocalDate.of(2026, 8, 22), 0, 99_000, 0, DatosDeReporte.conCosto("FILTRO", 5, 99_000, 75_000));
         sembrar(datos);
 
-        ReporteDeResultados reporte = consultar.ejecutar(LocalDate.of(2026, 9, 1), reloj.hoy(), ModoGastosDelMes.REPARTIDOS, admin);
+        ReporteDeResultados reporte = consultar.ejecutar(LocalDate.of(2026, 9, 1), reloj.hoy(), admin);
 
         assertThat(reporte.periodoAnterior()).isEqualTo(new Periodo(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 21)));
         assertThat(reporte.anterior().ventasNetas()).as("el 22 de agosto ya no").isEqualTo(Dinero.de(40_000));
@@ -98,7 +97,7 @@ class ConsultarResultadosTest {
         reportes.turnos.add(turno("2026-09-16T23:00:00Z", 500));
         reportes.turnos.add(turno("2026-09-13T23:00:00Z", -9_999));   // domingo 13, 6 p. m.: la semana anterior
 
-        Control control = consultar.ejecutar(semana.desde(), semana.hasta(), null, admin).control();
+        Control control = consultar.ejecutar(semana.desde(), semana.hasta(), admin).control();
 
         assertThat(control.ventasAnuladas()).isEqualTo(2);
         assertThat(control.montoAnuladas()).isEqualTo(Dinero.de(45_000));
@@ -116,7 +115,7 @@ class ConsultarResultadosTest {
     @Test
     @DisplayName("un período hasta mañana no se consulta: dice por qué y no lee nada")
     void hastaManana() {
-        assertThatThrownBy(() -> consultar.ejecutar(reloj.hoy(), reloj.hoy().plusDays(1), ModoGastosDelMes.REPARTIDOS, admin))
+        assertThatThrownBy(() -> consultar.ejecutar(reloj.hoy(), reloj.hoy().plusDays(1), admin))
                 .isInstanceOf(ReglaDeNegocioException.class)
                 .hasMessage("El período no puede terminar después de hoy");
         assertThat(reportes.intervalosPedidos).isEmpty();
@@ -127,8 +126,7 @@ class ConsultarResultadosTest {
     void laCartera() {
         reportes.carteraSembrada = new CarteraDelPeriodo(Dinero.de(90_000), Dinero.de(60_000), Dinero.de(320_000), 4);
 
-        ReporteDeResultados reporte = consultar.ejecutar(DatosDeReporte.LUNES_14, DatosDeReporte.DOMINGO_20,
-                ModoGastosDelMes.REPARTIDOS, admin);
+        ReporteDeResultados reporte = consultar.ejecutar(DatosDeReporte.LUNES_14, DatosDeReporte.DOMINGO_20, admin);
 
         // Un abono es un cobro, no una venta: no entra en las cifras del período.
         assertThat(reporte.cartera().cobrado()).isEqualTo(Dinero.de(150_000));
@@ -140,8 +138,7 @@ class ConsultarResultadosTest {
     @Test
     @DisplayName("sin fiado, la cartera viene vacía y el reporte no la calla")
     void carteraVacia() {
-        ReporteDeResultados reporte = consultar.ejecutar(DatosDeReporte.LUNES_14, DatosDeReporte.DOMINGO_20,
-                ModoGastosDelMes.REPARTIDOS, admin);
+        ReporteDeResultados reporte = consultar.ejecutar(DatosDeReporte.LUNES_14, DatosDeReporte.DOMINGO_20, admin);
 
         assertThat(reporte.cartera()).isEqualTo(CarteraDelPeriodo.VACIA);
     }
@@ -149,7 +146,7 @@ class ConsultarResultadosTest {
     @Test
     @DisplayName("los reportes son del administrador: el cajero no los ve (spec 0004)")
     void elCajeroNo() {
-        assertThatThrownBy(() -> consultar.ejecutar(LocalDate.of(2026, 9, 1), reloj.hoy(), null,
+        assertThatThrownBy(() -> consultar.ejecutar(LocalDate.of(2026, 9, 1), reloj.hoy(),
                 ActoresDePrueba.cajero())).isInstanceOf(NoPermitidoException.class);
     }
 }

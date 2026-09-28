@@ -52,26 +52,25 @@ describe('las flechas (RF-001, H3)', () => {
 })
 
 describe('la dirección', () => {
-  test('sin nada, este mes y los gastos del mes repartidos', () => {
-    assert.deepEqual(periodoDesdeUrl(url(''), HOY),
-      { tipo: 'MES', desde: '2026-09-01', hasta: HOY, gastosDelMes: 'REPARTIDOS' })
+  test('sin nada, este mes', () => {
+    assert.deepEqual(periodoDesdeUrl(url(''), HOY), { tipo: 'MES', desde: '2026-09-01', hasta: HOY })
   })
 
-  test('ida y vuelta: una semana con cualquier fecha adentro, un rango con sus dos fechas, el modo', () => {
-    const semana = { ...periodoDelAtajo('SEMANA_PASADA', HOY), gastosDelMes: 'SOLO_EN_EL_MES' }
+  test('ida y vuelta: una semana con cualquier fecha adentro, un rango con sus dos fechas', () => {
+    const semana = periodoDelAtajo('SEMANA_PASADA', HOY)
     assert.deepEqual(periodoDesdeUrl(url(new URLSearchParams(urlDelPeriodo(semana)).toString()), HOY), semana)
     assert.deepEqual(periodoDesdeUrl(url('tipo=SEMANA&desde=2026-09-10'), HOY).desde, '2026-09-07')
 
-    const rango = { tipo: 'RANGO', desde: '2026-08-03', hasta: '2026-09-12', gastosDelMes: 'REPARTIDOS' }
+    const rango = { tipo: 'RANGO', desde: '2026-08-03', hasta: '2026-09-12' }
     assert.deepEqual(urlDelPeriodo(rango), { tipo: 'RANGO', desde: '2026-08-03', hasta: '2026-09-12' })
     assert.deepEqual(periodoDesdeUrl(url('tipo=RANGO&desde=2026-08-03&hasta=2026-09-12'), HOY), rango)
   })
 
-  test('lo que no se entiende (tipo raro, fecha inválida o futura, modo raro) cae en este mes y repartidos', () => {
+  test('lo que no se entiende (tipo raro, fecha inválida o futura) cae en este mes; el modo de antes se ignora', () => {
     for (const texto of ['tipo=AÑO&desde=2026-09-01', 'tipo=MES&desde=2026-02-31', 'tipo=DIA&desde=2026-09-18']) {
       assert.equal(periodoDesdeUrl(url(texto), HOY).desde, '2026-09-01', texto)
     }
-    assert.equal(periodoDesdeUrl(url('gastosDelMes=OTRO'), HOY).gastosDelMes, 'REPARTIDOS')
+    assert.equal(periodoDesdeUrl(url('gastosDelMes=SOLO_EN_EL_MES'), HOY).gastosDelMes, undefined)
   })
 })
 

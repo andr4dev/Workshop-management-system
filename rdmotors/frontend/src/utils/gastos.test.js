@@ -2,9 +2,9 @@ import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   categoriasParaElegir, comandoDelGasto, comandoDelRetiro, conCategoria, consultaDeGastos, consultaDeTotalesDeGastos,
-  filtrosDeGastos, gastoNuevo, movimientosDelCajon, opcionesDeReparto, problemaDelRango, problemasDelGasto,
+  filtrosDeGastos, gastoNuevo, movimientosDelCajon, notasDeReparto, problemaDelRango, problemasDelGasto,
   problemasDelRetiro,
-  sePuedeAnular, sinProblemas, TAMANO_GASTOS, textoDelOrigen,
+  sePuedeAnular, sinProblemas, TAMANO_GASTOS, textoDelMes, textoDelOrigen,
 } from './gastos.js'
 
 const HOY = '2026-09-16'
@@ -13,7 +13,7 @@ const LLAVE = '0f0f0f0f-0000-4000-8000-000000000001'
 describe('la lista de gastos', () => {
   test('los filtros salen de la URL, y una página que no sirve es la primera', () => {
     const f = filtrosDeGastos(new URLSearchParams('desde=2026-09-01&categoriaId=abc&p=-3'))
-    assert.deepEqual(f, { desde: '2026-09-01', hasta: '', categoriaId: 'abc', pagina: 0 })
+    assert.deepEqual(f, { desde: '2026-09-01', hasta: '', categoriaId: 'abc', delMes: '', pagina: 0 })
   })
 
   test('la lista y los totales piden los mismos filtros; solo la lista lleva página', () => {
@@ -85,13 +85,13 @@ describe('registrar un gasto', () => {
       formaPago: 'TRANSFERENCIA', cuentaId: 'x', fecha: HOY }
     assert.deepEqual(comandoDelGasto(delCajon, LLAVE), {
       llave: LLAVE, categoriaId: 'c', monto: 15_000, descripcion: 'Flete', delCajon: true,
-      formaPago: null, cuentaId: null, fecha: null, delMes: false, confirmado: false,
+      formaPago: null, cuentaId: null, fecha: null, delMes: false, repartir: null, confirmado: false,
     })
 
     const porFuera = { ...delCajon, delCajon: false, formaPago: 'EFECTIVO' }
     assert.deepEqual(comandoDelGasto(porFuera, LLAVE, true), {
       llave: LLAVE, categoriaId: 'c', monto: 15_000, descripcion: 'Flete', delCajon: false,
-      formaPago: 'EFECTIVO', cuentaId: null, fecha: HOY, delMes: false, confirmado: true,
+      formaPago: 'EFECTIVO', cuentaId: null, fecha: HOY, delMes: false, repartir: null, confirmado: true,
     })
   })
 
@@ -147,18 +147,51 @@ describe('movimientosDelCajon', () => {
   })
 })
 
-test('cómo se ve un gasto en los reportes se dice con su fecha: repartido en su mes, o todo en su día', () => {
-  const nomina = { ...gastoNuevo({ hayTurno: false, hoy: '2026-09-28' }), monto: '50000', fecha: '2026-09-28' }
-  const opciones = opcionesDeReparto(nomina, '2026-09-28')
-  assert.equal(opciones.repartido, 'Repartido día a día en septiembre')
-  assert.match(opciones.cuota, /^unos \$\s?1\.667 cada día$/)
-  assert.equal(opciones.enSuDia, 'Todo el 28 de septiembre')
+describe('del día o del mes, y si se reparte (spec 0014, decisión 5)', () => {
+  const HOY_28 = '2026-09-28'
+  const base = { ...gastoNuevo({ hayTurno: false, hoy: HOY_28 }), categoriaId: 'n', monto: '50000',
+    descripcion: 'Nómina', formaPago: 'EFECTIVO' }
 
-  // Por fuera del cajón manda la fecha escrita; del cajón, el día del turno.
-  assert.equal(opcionesDeReparto({ ...nomina, fecha: '2026-02-05' }, '2026-09-28').repartido, 'Repartido día a día en febrero')
-  assert.equal(opcionesDeReparto({ ...nomina, delCajon: true, fecha: '2026-02-05' }, '2026-09-28').enSuDia,
-    'Todo el 28 de septiembre')
-  // Sin monto no hay cuota; sin fecha, hoy.
-  assert.equal(opcionesDeReparto({ ...nomina, monto: '' }, '2026-09-28').cuota, null)
-  assert.equal(opcionesDeReparto({ ...nomina, fecha: '' }, '2026-10-01').enSuDia, 'Todo el 1 de octubre')
+  test('del mes sin escoger no se registra; del día no pregunta', () => {
+    assert.equal(problemasDelGasto(base, { hayTurno: false, hoy: HOY_28 }).reparto, null)
+    const delMes = { ...base, delMes: true }
+    assert.match(problemasDelGasto(delMes, { hayTurno: false, hoy: HOY_28 }).reparto, /reparte día a día/)
+    assert.equal(problemasDelGasto({ ...delMes, repartir: 'EN_UN_DIA' }, { hayTurno: false, hoy: HOY_28 }).reparto,
+      null)
+  })
+
+  test('la categoría da "del mes", pero nunca si se reparte', () => {
+    const arriendo = { id: 'a', nombre: 'Arriendo', mensual: true }
+    const conArriendo = conCategoria(gastoNuevo({ hayTurno: false, hoy: HOY_28 }), arriendo)
+    assert.equal(conArriendo.delMes, true)
+    assert.equal(conArriendo.repartir, '')
+  })
+
+  test('al servidor va sí o no solo si es del mes', () => {
+    assert.equal(comandoDelGasto(base, 'l').repartir, null)
+    assert.equal(comandoDelGasto({ ...base, repartir: 'REPARTIR' }, 'l').repartir, null, 'del día: no cuenta')
+    assert.equal(comandoDelGasto({ ...base, delMes: true, repartir: 'REPARTIR' }, 'l').repartir, true)
+    assert.equal(comandoDelGasto({ ...base, delMes: true, repartir: 'EN_UN_DIA' }, 'l').repartir, false)
+  })
+
+  test('lo que pasa en los reportes se dice con la fecha del gasto', () => {
+    const notas = notasDeReparto({ ...base, fecha: HOY_28 }, HOY_28)
+    assert.equal(notas.delDia, 'Cuenta entero el 28 de septiembre, en el reporte de ese día.')
+    assert.match(notas.repartir, /^Cada día de septiembre carga unos \$\s?1\.667\.$/)
+    assert.equal(notas.enUnDia, 'Entero, solo en el reporte de septiembre: en el de un día o una semana no sale.')
+    assert.equal(notasDeReparto({ ...base, monto: '' }, HOY_28).repartir, 'Cada día de septiembre carga una parte igual.')
+    // Del cajón manda el día del turno; sin fecha, hoy.
+    assert.match(notasDeReparto({ ...base, delCajon: true, fecha: '2026-02-05' }, HOY_28).delDia, /28 de septiembre/)
+    assert.match(notasDeReparto({ ...base, fecha: '' }, '2026-10-01').enUnDia, /octubre/)
+  })
+
+  test('la lista dice cómo cuenta cada gasto del mes, y filtra del día o del mes', () => {
+    assert.equal(textoDelMes({ delMes: false, repartir: null }), null)
+    assert.equal(textoDelMes({ delMes: true, repartir: true }), 'Del mes · repartido')
+    assert.equal(textoDelMes({ delMes: true, repartir: false }), 'Del mes · en un día')
+    assert.equal(filtrosDeGastos(new URLSearchParams('delMes=true')).delMes, 'true')
+    assert.equal(filtrosDeGastos(new URLSearchParams('delMes=cualquiera')).delMes, '')
+    assert.deepEqual(consultaDeTotalesDeGastos({ desde: '', hasta: '', categoriaId: '', delMes: 'false' }),
+      { delMes: 'false' })
+  })
 })

@@ -7,9 +7,9 @@
  * tenerla, porque se le cree.
  */
 
-/** La consulta al servidor. */
-export function consultaDeResultados({ desde, hasta, gastosDelMes }) {
-  return { desde, hasta, gastosDelMes: gastosDelMes ?? 'REPARTIDOS' }
+/** La consulta al servidor. Los gastos del mes cuentan como lo dice cada uno (spec 0014, decisión 5). */
+export function consultaDeResultados({ desde, hasta }) {
+  return { desde, hasta }
 }
 
 const parte = (etiqueta, monto, signo, extra = {}) => ({ tipo: 'PARTE', etiqueta, monto, signo, ...extra })
@@ -109,21 +109,20 @@ export function textoSinCosto(renglones) {
 }
 
 /**
- * El aviso de cómo se leyeron los gastos del mes (RF-015), o `null` si no hay gastos del mes en el período.
+ * El aviso de cómo entraron los gastos del mes (RF-015), o `null` si no hay gastos del mes en el período. Cada uno
+ * cuenta como se registró (spec 0014, decisión 5): el repartido, con la parte de estos días; el que va en un día,
+ * entero si el período cubre su mes, y si no, fuera.
  *
  * @param formato cómo se escribe un monto (el de la pantalla, para no traer aquí el formato de pesos)
  */
 export function avisoDeGastosDelMes(r, formato) {
   const { incluidos, fuera } = r.gastosDelMes
-  if (r.modoGastosDelMes === 'SOLO_EN_EL_MES') {
-    if (fuera > 0) return `No incluye ${formato(fuera)} de gastos del mes: se ven en el reporte del mes.`
-    if (incluidos > 0) return `Incluye ${formato(incluidos)} de gastos del mes enteros: el período cubre su mes.`
-    return null
+  const partes = []
+  if (incluidos > 0) partes.push(`Incluye ${formato(incluidos)} de gastos del mes.`)
+  if (fuera > 0) {
+    partes.push(`No incluye ${formato(fuera)} de gastos del mes que van en un día: se ven enteros en el reporte de su mes.`)
   }
-  if (incluidos > 0) {
-    return `El arriendo y los demás gastos del mes van repartidos día por día: este período carga ${formato(incluidos)}.`
-  }
-  return null
+  return partes.length ? partes.join(' ') : null
 }
 
 /** Si hay algo que mostrar. Con gastos y sin ventas SÍ lo hay: la ganancia negativa es el dato (§6). */

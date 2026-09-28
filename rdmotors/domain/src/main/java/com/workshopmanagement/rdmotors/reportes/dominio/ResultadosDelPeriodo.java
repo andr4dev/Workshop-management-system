@@ -37,12 +37,12 @@ import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
  * <p><b>Ingreso y costo miden lo mismo:</b> los dos salen de los mismos renglones de las mismas ventas. Un renglón sin
  * costo no suma $0: se cuenta aparte, y la utilidad queda sobrestimada (RF-007).
  *
- * @param filaGastosDelMes solo con {@link ModoGastosDelMes#SOLO_EN_EL_MES} y algún gasto del mes que cuente: los
- *                         gastos del mes enteros, que no son de ningún día; {@code null} si no
+ * @param filaGastosDelMes los gastos del mes que van enteros y cuentan en el período (spec 0014, decisión 5): no son
+ *                         de ningún día; {@code null} si no hay
  * @param repuestos cada repuesto vendido, de más a menos ventas netas; la pantalla elige el orden (RF-019)
  * @param categoriasDeRepuesto de más a menos ventas netas, con <i>Sin categoría</i> (RF-021)
  */
-public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, ModoGastosDelMes modo, Cifras cifras,
+public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifras cifras,
                                    List<PorCategoria> costosPorCategoria, List<PorCategoria> gastosPorCategoria,
                                    GastosDelMes gastosDelMes, SinCosto sinCosto, List<Fila> filas,
                                    Fila filaGastosDelMes, List<Vendidos> repuestos,
@@ -73,8 +73,7 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, ModoG
 
     /**
      * @param incluidos lo que cargaron los gastos del mes en el período: repartidos, o enteros
-     * @param fuera lo que quedó fuera en {@link ModoGastosDelMes#SOLO_EN_EL_MES}: gastos del mes de un mes que el
-     *              período toca pero no cubre
+     * @param fuera lo que quedó fuera: gastos del mes que van enteros, de un mes que el período toca pero no cubre
      */
     public record GastosDelMes(Dinero incluidos, Dinero fuera) {
     }
@@ -124,13 +123,13 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, ModoG
     private record Cargo(GastoDelPeriodo gasto, LocalDate dia, Dinero monto) {
     }
 
-    /** Los cargos de los gastos, y lo que quedó fuera en "solo en el mes". */
+    /** Los cargos de los gastos, y lo que quedó fuera de los que van enteros en su mes. */
     private record Cargos(List<Cargo> cargos, Dinero fuera) {
     }
 
     public static ResultadosDelPeriodo calcular(Periodo periodo, List<VentaCobrada> ventas,
                                                 List<RenglonVendido> renglones, List<GastoDelPeriodo> gastos,
-                                                ModoGastosDelMes modo, LocalDate hoy) {
+                                                LocalDate hoy) {
         for (VentaCobrada venta : ventas) {
             if (!periodo.contiene(venta.dia())) {
                 throw new IllegalArgumentException("La venta " + venta.id() + " es del " + venta.dia()
@@ -138,7 +137,7 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, ModoG
             }
         }
         List<Vendido> vendidos = conDescuentoRepartido(ventas, renglones);
-        Cargos deLosGastos = cargosDe(gastos, periodo, modo, hoy);
+        Cargos deLosGastos = cargosDe(gastos, periodo, hoy);
         List<Cargo> cargos = deLosGastos.cargos();
 
         Dinero ventasNetas = suma(ventas, VentaCobrada::total);
@@ -170,10 +169,10 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, ModoG
                 margen(utilidadOperativa, ventasNetas));
 
         Dinero incluidos = suma(cargos.stream().filter(c -> c.gasto().delMes()).toList(), Cargo::monto);
-        return new ResultadosDelPeriodo(periodo, periodo.agrupacion(), modo, cifras,
+        return new ResultadosDelPeriodo(periodo, periodo.agrupacion(), cifras,
                 porCategoria(cargos, NaturalezaGasto.COSTO), porCategoria(cargos, NaturalezaGasto.GASTO),
                 new GastosDelMes(incluidos, deLosGastos.fuera()), sinCostoDe(vendidos),
-                filasDe(periodo, ventas, vendidos, cargos), filaDeGastosDelMes(periodo, modo, cargos),
+                filasDe(periodo, ventas, vendidos, cargos), filaDeGastosDelMes(periodo, cargos),
                 agrupados(vendidos, r -> r.varianteId(), false), agrupados(vendidos, r -> r.categoriaId(), true));
     }
 
@@ -235,11 +234,11 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, ModoG
     }
 
     /**
-     * Lo que carga cada gasto (RF-008, RF-010, RF-010a). Uno que no es del mes, entero en su fecha. Uno del mes,
-     * repartido en los días del período, o entero si el período cubre su mes; si no lo cubre, queda fuera.
+     * Lo que carga cada gasto (RF-008, RF-010, RF-010a). Uno que no es del mes, entero en su fecha. Uno del mes, como
+     * lo dice él mismo (spec 0014, decisión 5): repartido en los días del período, o entero si el período cubre su
+     * mes; si no lo cubre, queda fuera.
      */
-    private static Cargos cargosDe(List<GastoDelPeriodo> gastos, Periodo periodo, ModoGastosDelMes modo,
-                                   LocalDate hoy) {
+    private static Cargos cargosDe(List<GastoDelPeriodo> gastos, Periodo periodo, LocalDate hoy) {
         List<Cargo> cargos = new ArrayList<>();
         Dinero fuera = Dinero.CERO;
         for (GastoDelPeriodo gasto : gastos) {
@@ -249,7 +248,7 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, ModoG
                 }
             } else if (!periodo.tocaElMes(gasto.mes())) {
                 continue;
-            } else if (modo == ModoGastosDelMes.REPARTIDOS) {
+            } else if (gasto.repartido()) {
                 for (LocalDate dia = gasto.mes().atDay(1); !dia.isAfter(gasto.mes().atEndOfMonth()); dia = dia.plusDays(1)) {
                     if (periodo.contiene(dia)) {
                         cargos.add(new Cargo(gasto, dia, RepartoDelMes.cuota(gasto.monto(), dia)));
@@ -290,9 +289,10 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, ModoG
         return acumulados.stream().map(Acumulado::fila).toList();
     }
 
-    private static Fila filaDeGastosDelMes(Periodo periodo, ModoGastosDelMes modo, List<Cargo> cargos) {
+    /** Los gastos del mes que van enteros, en su propia fila: no son de ningún día. {@code null} si no hay. */
+    private static Fila filaDeGastosDelMes(Periodo periodo, List<Cargo> cargos) {
         List<Cargo> enteros = cargos.stream().filter(c -> c.dia() == null).toList();
-        if (modo != ModoGastosDelMes.SOLO_EN_EL_MES || enteros.isEmpty()) {
+        if (enteros.isEmpty()) {
             return null;
         }
         Acumulado acumulado = new Acumulado(periodo.desde(), periodo.hasta());

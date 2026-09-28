@@ -86,12 +86,23 @@ public class DatosDeReporte {
 
     public GastoDelPeriodo gasto(LocalDate fecha, String categoria, NaturalezaGasto naturaleza, long monto) {
         return agregar(new GastoDelPeriodo(UUID.randomUUID(), fecha, id(categoria), categoria, naturaleza, false,
-                Dinero.de(monto)));
+                null, Dinero.de(monto)));
     }
 
+    /** Del mes, repartido día a día. */
     public GastoDelPeriodo gastoDelMes(LocalDate fecha, String categoria, long monto) {
-        return agregar(new GastoDelPeriodo(UUID.randomUUID(), fecha, id(categoria), categoria, NaturalezaGasto.GASTO,
-                true, Dinero.de(monto)));
+        return gastoDelMes(fecha, categoria, NaturalezaGasto.GASTO, monto, true);
+    }
+
+    /** Del mes, entero: solo en el reporte que cubre su mes (spec 0014, decisión 5). */
+    public GastoDelPeriodo gastoDelMesEntero(LocalDate fecha, String categoria, long monto) {
+        return gastoDelMes(fecha, categoria, NaturalezaGasto.GASTO, monto, false);
+    }
+
+    public GastoDelPeriodo gastoDelMes(LocalDate fecha, String categoria, NaturalezaGasto naturaleza, long monto,
+                                       boolean repartir) {
+        return agregar(new GastoDelPeriodo(UUID.randomUUID(), fecha, id(categoria), categoria, naturaleza, true,
+                repartir, Dinero.de(monto)));
     }
 
     public UUID id(String nombre) {
@@ -104,12 +115,12 @@ public class DatosDeReporte {
     }
 
     /** Calcula con las ventas del período y sus renglones, como las devolvería la base; los gastos van todos. */
-    public ResultadosDelPeriodo calcular(LocalDate desde, LocalDate hasta, ModoGastosDelMes modo, LocalDate hoy) {
+    public ResultadosDelPeriodo calcular(LocalDate desde, LocalDate hasta, LocalDate hoy) {
         Periodo periodo = new Periodo(desde, hasta);
         List<VentaCobrada> delPeriodo = ventas.stream().filter(v -> periodo.contiene(v.dia())).toList();
         Set<UUID> ids = delPeriodo.stream().map(VentaCobrada::id).collect(Collectors.toSet());
         return ResultadosDelPeriodo.calcular(periodo, delPeriodo,
-                renglones.stream().filter(r -> ids.contains(r.ventaId())).toList(), gastos, modo, hoy);
+                renglones.stream().filter(r -> ids.contains(r.ventaId())).toList(), gastos, hoy);
     }
 
     /**

@@ -26,9 +26,9 @@ import lombok.Getter;
  *       arqueo, pero es gasto del negocio: sin él, la utilidad neta sale inflada (decisión 5).</li>
  * </ul>
  *
- * <p><b>Del mes</b> (spec 0007, RF-008a): el arriendo, la nómina. No cambia la caja; cambia cómo lo lee el
- * reporte de resultados, que lo reparte entre los días de su mes o lo muestra solo en el mes. El mes es el de
- * su fecha.
+ * <p><b>Del mes</b> (spec 0007, RF-008a): el arriendo, los servicios. No cambia la caja; cambia cómo lo lee el
+ * reporte de resultados. <b>Cada gasto del mes dice si se reparte</b> (spec 0014, decisión 5): repartido, cada día
+ * de su mes carga una parte; si no, va entero, solo en el reporte que cubre su mes. El mes es el de su fecha.
  *
  * <p><b>No se edita.</b> Si quedó mal, se anula con motivo y se registra de nuevo: el rastro queda solo.
  */
@@ -65,6 +65,13 @@ public class Gasto {
 
     @Column(name = "del_mes", nullable = false, updatable = false)
     private boolean delMes;
+
+    /**
+     * Solo en los del mes, y siempre en ellos: {@code true} se reparte día a día; {@code false} va entero en el
+     * reporte de su mes. {@code null} en uno del día.
+     */
+    @Column(name = "repartir", updatable = false)
+    private Boolean repartir;
 
     /** Solo en los del cajón: el turno de cuyo arqueo sale. */
     @Column(name = "turno_id", updatable = false)
@@ -111,13 +118,14 @@ public class Gasto {
      * turno bloqueado: aquí no se puede saber.
      */
     public static Gasto delCajon(CategoriaGasto categoria, Dinero monto, String descripcion, boolean delMes,
-                                 UUID turnoId, LocalDate hoy, UUID usuarioId, UUID llave, Instant cuando) {
+                                 Boolean repartir, UUID turnoId, LocalDate hoy, UUID usuarioId, UUID llave,
+                                 Instant cuando) {
         if (turnoId == null) {
             throw new SinTurnoAbiertoException(
                     "No hay un turno abierto. Ábrelo en Vender, o registra el gasto como pagado por fuera del cajón.");
         }
         Gasto gasto = nuevo(categoria, monto, descripcion, hoy, usuarioId, llave, cuando);
-        gasto.delMes = delMes;
+        gasto.ponerDelMes(delMes, repartir);
         gasto.delCajon = true;
         gasto.turnoId = turnoId;
         gasto.formaPago = FormaPago.EFECTIVO;
@@ -131,8 +139,8 @@ public class Gasto {
      * @param fecha el día en que se pagó; no puede ser después de {@code hoy}
      */
     public static Gasto porFuera(CategoriaGasto categoria, Dinero monto, String descripcion, boolean delMes,
-                                 FormaPago formaPago, CuentaPago cuenta, LocalDate fecha, LocalDate hoy,
-                                 UUID usuarioId, UUID llave, Instant cuando) {
+                                 Boolean repartir, FormaPago formaPago, CuentaPago cuenta, LocalDate fecha,
+                                 LocalDate hoy, UUID usuarioId, UUID llave, Instant cuando) {
         if (formaPago == null) {
             throw new ReglaDeNegocioException("Di cómo se pagó: en efectivo o por transferencia");
         }
@@ -152,11 +160,24 @@ public class Gasto {
             throw new ReglaDeNegocioException("La fecha del gasto no puede ser después de hoy");
         }
         Gasto gasto = nuevo(categoria, monto, descripcion, fecha, usuarioId, llave, cuando);
-        gasto.delMes = delMes;
+        gasto.ponerDelMes(delMes, repartir);
         gasto.delCajon = false;
         gasto.formaPago = formaPago;
         gasto.cuenta = cuenta;
         return gasto;
+    }
+
+    /**
+     * Uno del mes tiene que decir si se reparte: no hay respuesta de entrada (spec 0014, decisión 5). Uno del día no
+     * se reparte: lo que llegue en {@code repartir} no cuenta.
+     */
+    private void ponerDelMes(boolean delMes, Boolean repartir) {
+        if (delMes && repartir == null) {
+            throw new ReglaDeNegocioException(
+                    "Escoge si el gasto del mes se reparte día a día o se registra en un día");
+        }
+        this.delMes = delMes;
+        this.repartir = delMes ? repartir : null;
     }
 
     private static Gasto nuevo(CategoriaGasto categoria, Dinero monto, String descripcion, LocalDate fecha,
@@ -226,6 +247,7 @@ public class Gasto {
         foto.put("descripcion", descripcion);
         foto.put("delCajon", delCajon);
         foto.put("delMes", delMes);
+        foto.put("repartir", repartir);
         foto.put("turnoId", turnoId);
         foto.put("formaPago", formaPago.name());
         foto.put("cuenta", cuenta == null ? null : cuenta.getNombre());

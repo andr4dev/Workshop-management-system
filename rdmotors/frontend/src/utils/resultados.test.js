@@ -20,7 +20,7 @@ function semanaDelEjemplo() {
     { ...fila('2026-09-15', 520_000, 330_000, 20_000, 40_000), ventas: 20 },
   ]
   return {
-    desde: '2026-09-14', hasta: '2026-09-20', dias: 7, agrupacion: 'DIA', modoGastosDelMes: 'REPARTIDOS',
+    desde: '2026-09-14', hasta: '2026-09-20', dias: 7, agrupacion: 'DIA',
     cifras: {
       ventas: 48, unidades: 132, renglones: 1_250_000, descuentos: 30_000, ventasConDescuento: 6,
       ventasNetas: 1_220_000, ticketPromedio: 25_417, efectivo: 820_000, transferencia: 400_000,
@@ -121,19 +121,19 @@ describe('los textos', () => {
     assert.equal(textoSinCosto(3), '3 renglones sin costo: la utilidad está sobrestimada')
   })
 
-  test('RF-015: el aviso dice cómo se leyeron los gastos del mes', () => {
+  test('RF-015 y spec 0014: el aviso dice cuánto entró de gastos del mes y cuánto quedó para el reporte de su mes', () => {
     const r = semanaDelEjemplo()
     assert.equal(avisoDeGastosDelMes(r, pesos), null)
 
     r.gastosDelMes = { incluidos: 186_669, fuera: 0 }
-    assert.match(avisoDeGastosDelMes(r, pesos), /repartidos día por día: este período carga \$186\.669/)
+    assert.equal(avisoDeGastosDelMes(r, pesos), 'Incluye $186.669 de gastos del mes.')
 
-    r.modoGastosDelMes = 'SOLO_EN_EL_MES'
     r.gastosDelMes = { incluidos: 0, fuera: 800_000 }
-    assert.equal(avisoDeGastosDelMes(r, pesos), 'No incluye $800.000 de gastos del mes: se ven en el reporte del mes.')
+    assert.equal(avisoDeGastosDelMes(r, pesos),
+      'No incluye $800.000 de gastos del mes que van en un día: se ven enteros en el reporte de su mes.')
 
-    r.gastosDelMes = { incluidos: 800_000, fuera: 0 }
-    assert.match(avisoDeGastosDelMes(r, pesos), /^Incluye \$800\.000 de gastos del mes enteros/)
+    r.gastosDelMes = { incluidos: 70_000, fuera: 800_000 }
+    assert.match(avisoDeGastosDelMes(r, pesos), /^Incluye \$70\.000 de gastos del mes\. No incluye \$800\.000/)
   })
 
   test('§6: con gastos y sin ventas hay movimientos; sin nada, no', () => {

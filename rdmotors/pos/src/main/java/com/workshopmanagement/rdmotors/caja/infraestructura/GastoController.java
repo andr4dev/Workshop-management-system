@@ -67,11 +67,12 @@ class GastoController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
             @RequestParam(required = false) UUID categoriaId,
+            @RequestParam(required = false) Boolean delMes,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = "25") int tamano,
             @ActorActual Actor actor) {
-        Pagina<DetalleGasto> p = consultarGastos.listar(new FiltroGastos(desde, hasta, categoriaId), pagina, tamano,
-                actor);
+        Pagina<DetalleGasto> p = consultarGastos.listar(new FiltroGastos(desde, hasta, categoriaId, delMes), pagina,
+                tamano, actor);
         return new RespuestaPagina(p.elementos().stream().map(RespuestaGasto::de).toList(), p.total(), p.numero(),
                 p.tamano(), p.totalPaginas());
     }
@@ -82,8 +83,9 @@ class GastoController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
             @RequestParam(required = false) UUID categoriaId,
+            @RequestParam(required = false) Boolean delMes,
             @ActorActual Actor actor) {
-        TotalesGastos t = consultarGastos.totales(new FiltroGastos(desde, hasta, categoriaId), actor);
+        TotalesGastos t = consultarGastos.totales(new FiltroGastos(desde, hasta, categoriaId, delMes), actor);
         return new RespuestaTotales(pesos(t.total()), t.gastos(), pesos(t.delCajon()), pesos(t.porFuera()));
     }
 
@@ -108,11 +110,12 @@ class GastoController {
      * exige el dominio, con el mensaje que ve el cajero.
      */
     record PeticionGasto(@NotNull UUID llave, UUID categoriaId, Long monto, String descripcion, boolean delCajon,
-                         FormaPago formaPago, UUID cuentaId, LocalDate fecha, boolean delMes, boolean confirmado) {
+                         FormaPago formaPago, UUID cuentaId, LocalDate fecha, boolean delMes, Boolean repartir,
+                         boolean confirmado) {
 
         ComandoRegistrarGasto aComando(Actor actor) {
             return new ComandoRegistrarGasto(llave, categoriaId, monto == null ? null : Dinero.de(monto), descripcion,
-                    delCajon, formaPago, cuentaId, fecha, delMes, confirmado, actor);
+                    delCajon, formaPago, cuentaId, fecha, delMes, repartir, confirmado, actor);
         }
     }
 
@@ -124,12 +127,14 @@ class GastoController {
     /** @param registradoPor y {@code anuladoPor}: id y nombre de quién (spec 0004, RF-022) */
     record RespuestaGasto(UUID id, LocalDate fecha, Instant registradoEn, Persona registradoPor, UUID categoriaId,
                           String categoria, NaturalezaGasto naturaleza, long monto, String descripcion,
-                          boolean delCajon, boolean delMes, UUID turnoId, FormaPago formaPago, UUID cuentaId, String cuenta,
+                          boolean delCajon, boolean delMes, Boolean repartir, UUID turnoId, FormaPago formaPago,
+                          UUID cuentaId, String cuenta,
                           Instant anuladoEn, Persona anuladoPor, String motivoAnulacion) {
 
         static RespuestaGasto de(DetalleGasto g) {
             return new RespuestaGasto(g.id(), g.fecha(), g.registradoEn(), g.registradoPor(), g.categoriaId(),
-                    g.categoria(), g.naturaleza(), pesos(g.monto()), g.descripcion(), g.delCajon(), g.delMes(), g.turnoId(),
+                    g.categoria(), g.naturaleza(), pesos(g.monto()), g.descripcion(), g.delCajon(), g.delMes(), g.repartir(),
+                    g.turnoId(),
                     g.formaPago(), g.cuentaId(), g.cuenta(), g.anuladoEn(), g.anuladoPor(), g.motivoAnulacion());
         }
     }

@@ -20,7 +20,6 @@ import com.workshopmanagement.rdmotors.reportes.aplicacion.ReporteDeResultados;
 import com.workshopmanagement.rdmotors.reportes.dominio.Agrupacion;
 import com.workshopmanagement.rdmotors.reportes.dominio.CarteraDelPeriodo;
 import com.workshopmanagement.rdmotors.reportes.dominio.Control;
-import com.workshopmanagement.rdmotors.reportes.dominio.ModoGastosDelMes;
 import com.workshopmanagement.rdmotors.reportes.dominio.ResultadosDelPeriodo;
 
 import lombok.RequiredArgsConstructor;
@@ -41,18 +40,20 @@ class ReporteController {
 
     private final ConsultarResultados consultarResultados;
 
-    /** Las fechas son días de Colombia, los dos incluidos. Los montos, pesos enteros. */
+    /**
+     * Las fechas son días de Colombia, los dos incluidos. Los montos, pesos enteros. Los gastos del mes cuentan como
+     * lo dice cada uno (spec 0014): una pantalla vieja que mande {@code gastosDelMes} no rompe, se ignora.
+     */
     @GetMapping("/resultados")
     RespuestaResultados resultados(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
-            @RequestParam(defaultValue = "REPARTIDOS") ModoGastosDelMes gastosDelMes,
             @ActorActual Actor actor) {
-        return RespuestaResultados.de(consultarResultados.ejecutar(desde, hasta, gastosDelMes, actor));
+        return RespuestaResultados.de(consultarResultados.ejecutar(desde, hasta, actor));
     }
 
     record RespuestaResultados(LocalDate desde, LocalDate hasta, int dias, Agrupacion agrupacion,
-                               ModoGastosDelMes modoGastosDelMes, RespuestaCifras cifras,
+                               RespuestaCifras cifras,
                                List<RespuestaCategoria> costosPorCategoria, List<RespuestaCategoria> gastosPorCategoria,
                                RespuestaGastosDelMes gastosDelMes, RespuestaSinCosto sinCosto,
                                List<RespuestaFila> filas, RespuestaFila filaGastosDelMes,
@@ -61,7 +62,7 @@ class ReporteController {
         static RespuestaResultados de(ReporteDeResultados reporte) {
             ResultadosDelPeriodo r = reporte.resultados();
             return new RespuestaResultados(r.periodo().desde(), r.periodo().hasta(), r.periodo().dias(),
-                    r.agrupacion(), r.modo(), RespuestaCifras.de(r.cifras()),
+                    r.agrupacion(), RespuestaCifras.de(r.cifras()),
                     r.costosPorCategoria().stream().map(RespuestaCategoria::de).toList(),
                     r.gastosPorCategoria().stream().map(RespuestaCategoria::de).toList(),
                     new RespuestaGastosDelMes(pesos(r.gastosDelMes().incluidos()), pesos(r.gastosDelMes().fuera())),

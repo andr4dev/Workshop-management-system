@@ -285,6 +285,17 @@ class CajaIntegracionTest {
                 .isEqualTo(totales.total());
         assertThat(auditoria.historialDe(Gasto.TIPO_AUDITORIA, anulado.getId()))
                 .singleElement().satisfies(e -> assertThat(e.accion()).isEqualTo(AccionAuditada.ANULAR_GASTO));
+
+        // Del día o del mes (spec 0014, RF-015), como el filtro del car‑wash.
+        Gasto delMes = registrarGasto.ejecutar(ComandoRegistrarGasto.porFuera(UUID.randomUUID(), categoria("Arriendo"),
+                Dinero.de(800_000), "Arriendo entero", FormaPago.EFECTIVO, null, dia, personas.administrador())
+                .comoDelMes(false));
+        assertThat(consultarGastos.detalle(delMes.getId(), personas.administrador()))
+                .hasValueSatisfying(g -> assertThat(g.repartir()).isFalse());
+        assertThat(consultarGastos.listar(new FiltroGastos(dia, dia, null, true), 0, 25, personas.administrador())
+                .elementos()).extracting(DetalleGasto::id).contains(delMes.getId()).doesNotContain(arriendo.getId());
+        assertThat(consultarGastos.listar(new FiltroGastos(dia, dia, null, false), 0, 25, personas.administrador())
+                .elementos()).extracting(DetalleGasto::id).contains(arriendo.getId()).doesNotContain(delMes.getId());
     }
 
     @Test

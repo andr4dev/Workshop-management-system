@@ -233,7 +233,7 @@ export const gastosApi = {
 export const reportesApi = {
   /**
    * Los resultados de un período: cifras, desgloses y día por día, de un solo cálculo en el servidor.
-   * `consulta`: `desde`, `hasta` (días de Colombia) y `gastosDelMes` (ver `consultaDeResultados`). 422 con el
+   * `consulta`: `desde` y `hasta` (días de Colombia; ver `consultaDeResultados`). 422 con el
    * porqué si el período está al revés, pasa de 366 días o termina después de hoy.
    */
   resultados: (consulta) => api.get(`/api/reportes/resultados?${new URLSearchParams(consulta)}`),

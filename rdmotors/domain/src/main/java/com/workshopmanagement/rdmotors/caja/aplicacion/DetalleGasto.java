@@ -14,6 +14,7 @@ import com.workshopmanagement.rdmotors.compartido.dominio.Persona;
 /**
  * Un gasto como se ve en la lista y en el turno (spec 0006, RF-007a).
  *
+ * @param repartir solo en los del mes: día a día, o entero en el reporte de su mes (spec 0014, decisión 5)
  * @param turnoId solo en los del cajón
  * @param cuenta  nombre de la cuenta, solo en transferencias
  */
@@ -29,6 +30,7 @@ public record DetalleGasto(
         String descripcion,
         boolean delCajon,
         boolean delMes,
+        Boolean repartir,
         UUID turnoId,
         FormaPago formaPago,
         UUID cuentaId,
@@ -42,7 +44,8 @@ public record DetalleGasto(
         return new DetalleGasto(g.getId(), g.getFecha(), g.getRegistradoEn(),
                 Persona.de(g.getRegistradoPorId(), nombres),
                 g.getCategoria().getId(), g.getCategoria().getNombre(), g.getCategoria().getNaturaleza(),
-                g.getMonto(), g.getDescripcion(), g.isDelCajon(), g.isDelMes(), g.getTurnoId(), g.getFormaPago(),
+                g.getMonto(), g.getDescripcion(), g.isDelCajon(), g.isDelMes(), g.getRepartir(),
+                g.getTurnoId(), g.getFormaPago(),
                 g.getCuenta() == null ? null : g.getCuenta().getId(),
                 g.getCuenta() == null ? null : g.getCuenta().getNombre(),
                 g.getAnuladoEn(), Persona.de(g.getAnuladoPorId(), nombres), g.getMotivoAnulacion());

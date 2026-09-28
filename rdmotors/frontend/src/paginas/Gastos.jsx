@@ -10,7 +10,7 @@ import { categoriasGastoApi, gastosApi, turnosApi } from '../api/cliente'
 import { fechaDia, formatoCOP } from '../utils/formato'
 import {
   consultaDeGastos, consultaDeTotalesDeGastos, filtrosDeGastos, hayFiltrosDeGastos, problemaDelRango, sePuedeAnular,
-  textoDelOrigen,
+  textoDelOrigen, textoDelMes,
 } from '../utils/gastos'
 import { fechaLocal, rangoDePagina } from '../utils/inventario'
 import comun from './Listado.module.css'
@@ -151,6 +151,15 @@ export default function Gastos() {
             ))}
           </select>
         </div>
+        <div className={comun.filtro}>
+          <label className={comun.etiquetaFiltro} htmlFor="gastos-del-mes">Del día o del mes</label>
+          <select id="gastos-del-mes" className={comun.control} value={filtros.delMes}
+            onChange={(e) => cambiar({ delMes: e.target.value })}>
+            <option value="">Todos</option>
+            <option value="false">Del día</option>
+            <option value="true">Del mes</option>
+          </select>
+        </div>
         {hayFiltrosDeGastos(filtros) && (
           <Boton variante="fantasma" tamano="chico" onClick={() => setParams({}, { replace: true })}>Quitar filtros</Boton>
         )}
@@ -189,7 +198,7 @@ export default function Gastos() {
                     <td>
                       {g.categoria}
                       {g.naturaleza === 'COSTO' && <span className={estilos.costo}>Costo</span>}
-                      {g.delMes && <span className={estilos.delMes}>Repartido en el mes</span>}
+                      {g.delMes && <span className={estilos.delMes}>{textoDelMes(g)}</span>}
                     </td>
                     <td>
                       {g.descripcion}

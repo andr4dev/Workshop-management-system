@@ -36,9 +36,10 @@ export default function GastosYControl({ r, cargando }) {
                 ))}
               </ul>
             )}
-          {r.gastosDelMes.incluidos > 0 && r.modoGastosDelMes === 'REPARTIDOS' && (
+          {r.gastosDelMes.incluidos > 0 && (
             <p className={estilos.nota}>
-              Los gastos del mes van con la parte que le toca al período; en Gastos se ven enteros, en su fecha.
+              Los gastos del mes repartidos van con la parte que le toca al período; en Gastos se ven enteros, en su
+              fecha.
             </p>
           )}
         </div>

@@ -806,6 +806,58 @@ class MigracionesIntegracionTest {
         }
     }
 
+    @Test
+    @DisplayName("V28 sobre una base con gastos: los del mes quedan repartidos, como se veían; los del día sin respuesta; y uno del mes sin escoger no entra")
+    void v28GastoRepartir() throws SQLException {
+        Flyway hastaV27 = flywayHasta("27");
+        hastaV27.clean();
+        hastaV27.migrate();
+        UUID ruben = UUID.randomUUID();
+        UUID arriendo = UUID.randomUUID();
+        UUID flete = UUID.randomUUID();
+        String nuevoGasto = """
+                insert into gasto (id, categoria_id, monto, descripcion, del_cajon, del_mes, forma_pago, fecha,
+                                   registrado_por_id, registrado_en, llave_idempotencia)
+                select ?, id, ?, ?, false, ?, 'EFECTIVO', date '2026-09-01', ?, now(), gen_random_uuid()
+                from categoria_gasto where nombre = ?
+                """;
+        try (Connection c = conexion()) {
+            ejecutar(c, """
+                    insert into usuario (id, usuario, usuario_normalizado, nombre, hash, rol, activo,
+                                         debe_cambiar_contrasena, version_sesion, intentos_fallidos, creado_en)
+                    values (?, 'ruben', 'ruben', 'Rubén', '{bcrypt}x', 'ADMINISTRADOR', true, false, 1, 0, now())
+                    """, ruben);
+            ejecutar(c, nuevoGasto, arriendo, 800_000, "Arriendo de septiembre", true, ruben, "Arriendo");
+            ejecutar(c, nuevoGasto, flete, 15_000, "Flete", false, ruben, "Transporte y fletes");
+        }
+
+        flywayHasta(null).migrate();
+
+        try (Connection c = conexion()) {
+            assertThat(valor(c, "select repartir from gasto where id = ?", arriendo)).isEqualTo(true);
+            assertThat(valor(c, "select repartir is null from gasto where id = ?", flete)).isEqualTo(true);
+            // Del mes sin decir si se reparte: la base tampoco lo deja.
+            try (PreparedStatement ps = c.prepareStatement(nuevoGasto)) {
+                ps.setObject(1, UUID.randomUUID());
+                ps.setObject(2, 310_000);
+                ps.setObject(3, "Servicios");
+                ps.setObject(4, true);
+                ps.setObject(5, ruben);
+                ps.setObject(6, "Servicios públicos");
+                org.assertj.core.api.Assertions.assertThatThrownBy(ps::executeUpdate)
+                        .hasMessageContaining("ck_gasto_repartir");
+            }
+            // Uno del día que diga que se reparte, tampoco: para él la pregunta no existe.
+            try (PreparedStatement ps = c.prepareStatement("update gasto set repartir = false where id = ?")) {
+                ps.setObject(1, flete);
+                org.assertj.core.api.Assertions.assertThatThrownBy(ps::executeUpdate)
+                        .hasMessageContaining("ck_gasto_repartir");
+            }
+            ejecutar(c, "update gasto set repartir = false where id = ?", arriendo);
+            assertThat(valor(c, "select count(*) from gasto where del_mes and not repartir")).isEqualTo(1L);
+        }
+    }
+
     private static Object valor(Connection c, String sql, Object... parametros) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             for (int i = 0; i < parametros.length; i++) {

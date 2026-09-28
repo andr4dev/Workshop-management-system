@@ -84,12 +84,12 @@ public class RegistrarGasto {
                     : cuentas.buscar(comando.cuentaId())
                             .orElseThrow(() -> new ReglaDeNegocioException("La cuenta no existe"));
             return gastos.guardar(Gasto.porFuera(categoria, comando.monto(), comando.descripcion(), comando.delMes(),
-                    comando.formaPago(), cuenta, comando.fecha(), reloj.hoy(), comando.actor().id(), comando.llave(),
+                    comando.repartir(), comando.formaPago(), cuenta, comando.fecha(), reloj.hoy(), comando.actor().id(), comando.llave(),
                     ahora));
         }
 
         Gasto gasto = Gasto.delCajon(categoria, comando.monto(), comando.descripcion(), comando.delMes(),
-                turno.getId(), reloj.hoy(), comando.actor().id(), comando.llave(), ahora);
+                comando.repartir(), turno.getId(), reloj.hoy(), comando.actor().id(), comando.llave(), ahora);
         arqueo.exigirConfirmacionSiSupera(turno, gasto.getMonto(), comando.confirmado());
         return gastos.guardar(gasto);
     }

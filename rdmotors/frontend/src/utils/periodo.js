@@ -18,7 +18,6 @@ export const MAXIMO_DE_DIAS = 366
 
 export const TIPOS = ['DIA', 'SEMANA', 'MES', 'RANGO']
 
-export const MODOS_GASTOS_DEL_MES = ['REPARTIDOS', 'SOLO_EN_EL_MES']
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre',
   'noviembre', 'diciembre']
@@ -114,14 +113,13 @@ export const periodoPorDefecto = (hoy) => periodoDelAtajo('ESTE_MES', hoy)
 
 /**
  * Lo que dice la dirección: `?tipo=SEMANA&desde=2026-09-14` (el tipo y cualquier fecha adentro), o
- * `?tipo=RANGO&desde=…&hasta=…`, y `gastosDelMes`. Lo que no se entiende, se ignora.
+ * `?tipo=RANGO&desde=…&hasta=…`. Lo que no se entiende, se ignora (también el `gastosDelMes` de antes: desde el
+ * spec 0014 lo dice cada gasto).
  */
 export function periodoDesdeUrl(params, hoy) {
   const tipo = params.get('tipo')
   const desde = params.get('desde') ?? ''
   const hasta = params.get('hasta') ?? ''
-  const modo = params.get('gastosDelMes')
-  const gastosDelMes = MODOS_GASTOS_DEL_MES.includes(modo) ? modo : 'REPARTIDOS'
 
   let periodo
   if (tipo === 'RANGO') {
@@ -131,14 +129,13 @@ export function periodoDesdeUrl(params, hoy) {
   } else {
     periodo = periodoPorDefecto(hoy)
   }
-  return { ...periodo, gastosDelMes }
+  return periodo
 }
 
 /** Lo que va a la dirección. El rango lleva sus dos fechas aunque estén a medio escribir. */
-export function urlDelPeriodo({ tipo, desde, hasta, gastosDelMes }) {
+export function urlDelPeriodo({ tipo, desde, hasta }) {
   const url = { tipo, desde }
   if (tipo === 'RANGO') url.hasta = hasta
-  if (gastosDelMes && gastosDelMes !== 'REPARTIDOS') url.gastosDelMes = gastosDelMes
   return url
 }
 

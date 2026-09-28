@@ -17,6 +17,8 @@ import com.workshopmanagement.rdmotors.compartido.dominio.ReglaDeNegocioExceptio
  * @param cuentaId    solo en transferencias
  * @param fecha       solo si no salió del cajón; uno del cajón es de hoy
  * @param delMes      un gasto de todo el mes, como el arriendo (spec 0007, RF-008a)
+ * @param repartir    solo si es del mes, y ahí es obligatorio: se reparte día a día, o va entero en el reporte de su
+ *                    mes (spec 0014, decisión 5)
  * @param confirmado  el cajero ya confirmó que sí es más de lo que debería haber (decisión 3)
  */
 public record ComandoRegistrarGasto(
@@ -29,6 +31,7 @@ public record ComandoRegistrarGasto(
         UUID cuentaId,
         LocalDate fecha,
         boolean delMes,
+        Boolean repartir,
         boolean confirmado,
         Actor actor) {
 
@@ -39,26 +42,30 @@ public record ComandoRegistrarGasto(
 
     public static ComandoRegistrarGasto delCajon(UUID llave, UUID categoriaId, Dinero monto, String descripcion,
                                                  Actor actor) {
-        return new ComandoRegistrarGasto(llave, categoriaId, monto, descripcion, true, null, null, null, false, false,
-                actor);
+        return new ComandoRegistrarGasto(llave, categoriaId, monto, descripcion, true, null, null, null, false, null,
+                false, actor);
     }
 
     public static ComandoRegistrarGasto porFuera(UUID llave, UUID categoriaId, Dinero monto, String descripcion,
                                                  FormaPago formaPago, UUID cuentaId, LocalDate fecha,
                                                  Actor actor) {
         return new ComandoRegistrarGasto(llave, categoriaId, monto, descripcion, false, formaPago, cuentaId, fecha,
-                false, false, actor);
+                false, null, false, actor);
     }
 
     /** El mismo gasto, después de que el cajero confirmó que sí es más de lo que debería haber. */
     public ComandoRegistrarGasto conConfirmacion() {
         return new ComandoRegistrarGasto(llave, categoriaId, monto, descripcion, delCajon, formaPago, cuentaId,
-                fecha, delMes, true, actor);
+                fecha, delMes, repartir, true, actor);
     }
 
-    /** El mismo gasto, marcado como de todo el mes. */
-    public ComandoRegistrarGasto comoDelMes() {
+    /**
+     * El mismo gasto, marcado como de todo el mes.
+     *
+     * @param repartir día a día, o entero en el reporte de su mes: no hay uno de entrada
+     */
+    public ComandoRegistrarGasto comoDelMes(boolean repartir) {
         return new ComandoRegistrarGasto(llave, categoriaId, monto, descripcion, delCajon, formaPago, cuentaId,
-                fecha, true, confirmado, actor);
+                fecha, true, repartir, confirmado, actor);
     }
 }

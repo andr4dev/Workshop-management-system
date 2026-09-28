@@ -132,6 +132,10 @@ class RepositorioGastosJpa implements RepositorioGastos {
                 clausulas.add("g.categoria.id = :categoriaId");
                 parametros.put("categoriaId", filtro.categoriaId());
             }
+            if (filtro.delMes() != null) {
+                clausulas.add("g.delMes = :delMes");
+                parametros.put("delMes", filtro.delMes());
+            }
             return new Condiciones(clausulas, parametros);
         }
 

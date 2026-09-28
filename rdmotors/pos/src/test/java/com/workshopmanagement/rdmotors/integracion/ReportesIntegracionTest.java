@@ -52,7 +52,6 @@ import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioVari
 import com.workshopmanagement.rdmotors.reportes.aplicacion.ConsultarResultados;
 import com.workshopmanagement.rdmotors.reportes.aplicacion.ReporteDeResultados;
 import com.workshopmanagement.rdmotors.reportes.dominio.Agrupacion;
-import com.workshopmanagement.rdmotors.reportes.dominio.ModoGastosDelMes;
 import com.workshopmanagement.rdmotors.reportes.dominio.Periodo;
 import com.workshopmanagement.rdmotors.reportes.dominio.ResultadosDelPeriodo;
 import com.workshopmanagement.rdmotors.reportes.dominio.ResultadosDelPeriodo.Cifras;
@@ -169,7 +168,7 @@ class ReportesIntegracionTest {
     }
 
     private ResultadosDelPeriodo resultados(LocalDate desde, LocalDate hasta) {
-        return consultarResultados.ejecutar(desde, hasta, ModoGastosDelMes.REPARTIDOS, personas.administrador()).resultados();
+        return consultarResultados.ejecutar(desde, hasta, personas.administrador()).resultados();
     }
 
     private static void lasFilasSuman(ResultadosDelPeriodo r) {
@@ -277,28 +276,24 @@ class ReportesIntegracionTest {
     }
 
     @Test
-    @DisplayName("RF-010a: el arriendo del mes repartido carga su cuota un día; solo en el mes, queda fuera del día y entra entero en el mes")
+    @DisplayName("RF-010a y spec 0014: el arriendo repartido carga su cuota un día; la nómina entera no sale en el día y entra entera en el mes")
     void gastoDelMes() {
         YearMonth mes = YearMonth.from(reloj.hoy()).minusMonths(8);
         LocalDate primero = mes.atDay(1);
         long cuotaDelDia2 = RepartoEsperado.cuota(800_000, mes);
-        registrarGasto.ejecutar(porFuera("Arriendo", NaturalezaGasto.GASTO, 800_000, primero).comoDelMes());
+        registrarGasto.ejecutar(porFuera("Arriendo", NaturalezaGasto.GASTO, 800_000, primero).comoDelMes(true));
+        registrarGasto.ejecutar(porFuera("Nómina", NaturalezaGasto.GASTO, 1_500_000, primero).comoDelMes(false));
 
-        ResultadosDelPeriodo repartido = resultados(primero.plusDays(1), primero.plusDays(1));
-        assertThat(repartido.cifras().gastos()).as("aunque su fecha sea el día anterior").isEqualTo(Dinero.de(cuotaDelDia2));
+        ResultadosDelPeriodo delDia2 = resultados(primero.plusDays(1), primero.plusDays(1));
+        assertThat(delDia2.cifras().gastos()).as("solo la cuota del arriendo, aunque su fecha sea el día anterior")
+                .isEqualTo(Dinero.de(cuotaDelDia2));
+        assertThat(delDia2.gastosDelMes().fuera()).as("la nómina va entera en el mes").isEqualTo(Dinero.de(1_500_000));
 
-        ResultadosDelPeriodo delDia = consultarResultados.ejecutar(primero, primero, ModoGastosDelMes.SOLO_EN_EL_MES, personas.administrador())
-                .resultados();
-        assertThat(delDia.cifras().gastos()).isEqualTo(Dinero.CERO);
-        assertThat(delDia.gastosDelMes().fuera()).isEqualTo(Dinero.de(800_000));
-
-        ResultadosDelPeriodo delMes = consultarResultados.ejecutar(primero, mes.atEndOfMonth(),
-                ModoGastosDelMes.SOLO_EN_EL_MES, personas.administrador()).resultados();
-        assertThat(delMes.cifras().gastos()).isEqualTo(Dinero.de(800_000));
-        assertThat(delMes.filaGastosDelMes().gastos()).isEqualTo(Dinero.de(800_000));
+        ResultadosDelPeriodo delMes = resultados(primero, mes.atEndOfMonth());
+        assertThat(delMes.cifras().gastos()).isEqualTo(Dinero.de(2_300_000));
+        assertThat(delMes.filaGastosDelMes().gastos()).as("solo la entera va en su fila").isEqualTo(Dinero.de(1_500_000));
+        assertThat(delMes.gastosDelMes().fuera()).isEqualTo(Dinero.CERO);
         lasFilasSuman(delMes);
-
-        assertThat(resultados(primero, mes.atEndOfMonth()).cifras().gastos()).isEqualTo(Dinero.de(800_000));
     }
 
     @Test
@@ -351,7 +346,7 @@ class ReportesIntegracionTest {
                 dia.atTime(8, 0).atZone(Periodo.ZONA).toOffsetDateTime(),
                 dia.atTime(19, 0).atZone(Periodo.ZONA).toOffsetDateTime(), turno.getId());
 
-        ReporteDeResultados reporte = consultarResultados.ejecutar(dia, dia, ModoGastosDelMes.REPARTIDOS, personas.administrador());
+        ReporteDeResultados reporte = consultarResultados.ejecutar(dia, dia, personas.administrador());
 
         assertThat(reporte.resultados().cifras().ventas()).as("la anulada no cuenta").isZero();
         assertThat(reporte.control().ventasAnuladas()).isEqualTo(1);
@@ -424,10 +419,10 @@ class ReportesIntegracionTest {
         jdbc.execute("analyze venta; analyze linea_venta; analyze movimiento_kardex; analyze pago_venta");
 
         long t0 = System.nanoTime();
-        consultarResultados.ejecutar(desde, hasta, ModoGastosDelMes.REPARTIDOS, personas.administrador());
+        consultarResultados.ejecutar(desde, hasta, personas.administrador());
         long primera = (System.nanoTime() - t0) / 1_000_000;
         t0 = System.nanoTime();
-        ResultadosDelPeriodo r = consultarResultados.ejecutar(desde, hasta, ModoGastosDelMes.REPARTIDOS, personas.administrador()).resultados();
+        ResultadosDelPeriodo r = consultarResultados.ejecutar(desde, hasta, personas.administrador()).resultados();
         long segunda = (System.nanoTime() - t0) / 1_000_000;
         System.out.printf("REPORTE DE UN AÑO (20.000 ventas, 50.000 renglones): primera %d ms, segunda %d ms%n",
                 primera, segunda);

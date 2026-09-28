@@ -1,5 +1,3 @@
-import AyudaDe from './AyudaDe'
-import Segmento from '../caja/Segmento'
 import { ATAJOS, anterior, atajoDe, periodoDelAtajo, siguiente, tituloDelPeriodo } from '../../utils/periodo'
 import comun from '../../paginas/Listado.module.css'
 import estilos from './Resultados.module.css'
@@ -8,7 +6,8 @@ const NOMBRE = { DIA: 'Día', SEMANA: 'Semana', MES: 'Mes' }
 
 /**
  * El período del reporte (spec 0007, RF-001): los atajos, las flechas al anterior y al siguiente (no más allá de
- * hoy), el rango entre dos fechas, y cómo se leen los gastos del mes (RF-010a).
+ * hoy) y el rango entre dos fechas. Cómo cuentan los gastos del mes ya no se escoge aquí: lo dice cada gasto
+ * (spec 0014, decisión 5).
  *
  * @param onCambio recibe el período nuevo; `{ reemplazar: true }` mientras se escribe una fecha del rango, para no
  *                 llenar el historial del navegador con cada tecla
@@ -19,7 +18,7 @@ export default function SelectorPeriodo({ periodo, hoy, problema, onCambio }) {
   const esRango = periodo.tipo === 'RANGO'
   const antes = anterior(periodo, hoy)
   const despues = siguiente(periodo, hoy)
-  const elegir = (nuevo, opciones) => onCambio({ ...nuevo, gastosDelMes: periodo.gastosDelMes }, opciones)
+  const elegir = (nuevo, opciones) => onCambio(nuevo, opciones)
 
   const claseAtajo = (marcado) => (marcado ? estilos.atajoActivo : estilos.atajo)
 
@@ -64,16 +63,6 @@ export default function SelectorPeriodo({ periodo, hoy, problema, onCambio }) {
               aria-label={`${NOMBRE[periodo.tipo]} siguiente`} title={`${NOMBRE[periodo.tipo]} siguiente`}>›</button>
           </div>
         )}
-
-        <div className={estilos.modo}>
-          <span>Gastos del mes <AyudaDe clave="gastosDelMes" /></span>
-          <Segmento
-            etiqueta="Cómo se leen los gastos del mes"
-            valor={periodo.gastosDelMes}
-            opciones={[['REPARTIDOS', 'Repartidos día por día'], ['SOLO_EN_EL_MES', 'Solo en el mes']]}
-            onCambio={(gastosDelMes) => onCambio({ ...periodo, gastosDelMes })}
-          />
-        </div>
       </div>
 
       {problema && <p className={comun.errorFiltro} role="alert"><span aria-hidden>⚠</span> {problema}</p>}

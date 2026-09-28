@@ -837,7 +837,8 @@ public final class Falsos {
             return datos.values().stream()
                     .filter(g -> f.desde() == null || !g.getFecha().isBefore(f.desde()))
                     .filter(g -> f.hasta() == null || !g.getFecha().isAfter(f.hasta()))
-                    .filter(g -> f.categoriaId() == null || g.getCategoria().getId().equals(f.categoriaId()));
+                    .filter(g -> f.categoriaId() == null || g.getCategoria().getId().equals(f.categoriaId()))
+                    .filter(g -> f.delMes() == null || g.isDelMes() == f.delMes());
         }
 
         @Override

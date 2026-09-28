@@ -15,7 +15,7 @@ export function montoDesdeTexto(texto) {
 
 // ── La lista ─────────────────────────────────────────────────────────────────
 
-const CLAVES = ['desde', 'hasta', 'categoriaId']
+const CLAVES = ['desde', 'hasta', 'categoriaId', 'delMes']
 
 /** Los filtros, leídos de la URL: al volver a la lista, está donde se dejó. */
 export function filtrosDeGastos(params) {
@@ -24,6 +24,8 @@ export function filtrosDeGastos(params) {
     desde: params.get('desde') ?? '',
     hasta: params.get('hasta') ?? '',
     categoriaId: params.get('categoriaId') ?? '',
+    // '' todos, 'false' del día, 'true' del mes (spec 0014, RF-015), como el filtro del car‑wash.
+    delMes: ['true', 'false'].includes(params.get('delMes')) ? params.get('delMes') : '',
     pagina: Number.isInteger(pagina) && pagina > 0 ? pagina : 0,
   }
 }
@@ -55,6 +57,15 @@ export function textoDelOrigen(gasto) {
 }
 
 /**
+ * Cómo cuenta un gasto en los reportes, para la lista: "Del mes · repartido" o "Del mes · en un día". `null` en uno
+ * del día (spec 0014, decisión 5).
+ */
+export function textoDelMes(gasto) {
+  if (!gasto.delMes) return null
+  return gasto.repartir === false ? 'Del mes · en un día' : 'Del mes · repartido'
+}
+
+/**
  * ¿Se puede anular desde la pantalla? Uno por fuera, siempre. Uno del cajón, solo mientras su turno siga
  * abierto: el arqueo de un turno cerrado ya se firmó (RF-006). El backend lo exige igual; esto evita ofrecer
  * un botón que va a responder que no.
@@ -75,13 +86,13 @@ export function categoriasParaElegir(categorias) {
 export function gastoNuevo({ hayTurno, hoy }) {
   return {
     categoriaId: '', monto: '', descripcion: '', delCajon: hayTurno, formaPago: '', cuentaId: '', fecha: hoy,
-    delMes: false, delMesTocado: false,
+    delMes: false, delMesTocado: false, repartir: '',
   }
 }
 
 /**
- * Al elegir la categoría, un gasto nuevo toma de ella si es del mes (spec 0007, RF-008a): *Arriendo* sale marcado.
- * Si el cajero ya tocó la casilla, se respeta lo que eligió.
+ * Al elegir la categoría, un gasto nuevo toma de ella si es del mes (spec 0007, RF-008a): *Arriendo* sale del mes.
+ * Si ya se escogió, se respeta. **Si se reparte no lo da nunca**: lo escoge el usuario (spec 0014, decisión 5).
  */
 export function conCategoria(gasto, categoria) {
   return {
@@ -95,23 +106,29 @@ const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', '
   'noviembre', 'diciembre']
 
 /**
- * Las dos formas en que un gasto se ve en los reportes, dichas con su fecha: **repartido día a día en su mes** (la
- * marca "del mes") o **todo en su día**. Antes era una casilla, *"Es un gasto del mes"*, y el pago del día de la
- * nómina se registró repartido sin querer (2026-09-28).
+ * Qué pasa en los reportes con cada respuesta, dicho con la fecha del gasto (spec 0014, decisión 5):
+ *
+ *   - **del día**: entero en su fecha;
+ *   - **del mes, repartido**: cada día de su mes carga una parte;
+ *   - **del mes, en un día**: entero, solo en el reporte que cubre su mes; en el de un día no sale.
  *
  * La cuota es aproximada, para orientarse: el reporte reparte al peso, con días de un peso más o menos.
  *
  * @param hoy el día del gasto si sale del cajón: su fecha es la del turno
  */
-export function opcionesDeReparto(gasto, hoy) {
+export function notasDeReparto(gasto, hoy) {
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(gasto.fecha ?? '') && !gasto.delCajon ? gasto.fecha : hoy
   const [anio, mes, dia] = fecha.split('-').map(Number)
+  const nombreMes = MESES[mes - 1]
   const diasDelMes = new Date(anio, mes, 0).getDate()
   const monto = montoDesdeTexto(gasto.monto)
   return {
-    repartido: `Repartido día a día en ${MESES[mes - 1]}`,
-    cuota: monto > 0 ? `unos ${formatoCOP(Math.round(monto / diasDelMes))} cada día` : null,
-    enSuDia: `Todo el ${dia} de ${MESES[mes - 1]}`,
+    delDia: `Cuenta entero el ${dia} de ${nombreMes}, en el reporte de ese día.`,
+    repartir: monto > 0
+      ? `Cada día de ${nombreMes} carga unos ${formatoCOP(Math.round(monto / diasDelMes))}.`
+      : `Cada día de ${nombreMes} carga una parte igual.`,
+    enUnDia: `Entero, solo en el reporte de ${nombreMes}: en el de un día o una semana no sale.`,
+    sinEscoger: 'Escoge cómo se ve en los reportes.',
   }
 }
 
@@ -130,6 +147,7 @@ export function problemasDelGasto(gasto, { hayTurno, hoy }) {
     origen: gasto.delCajon && !hayTurno
       ? 'No hay un turno abierto: regístralo como pagado por fuera del cajón, o abre el turno en Vender'
       : null,
+    reparto: gasto.delMes && !gasto.repartir ? 'Escoge si se reparte día a día o se registra en un día' : null,
     formaPago: porFuera && !gasto.formaPago ? 'Elige cómo se pagó' : null,
     cuenta: porFuera && gasto.formaPago === 'TRANSFERENCIA' && !gasto.cuentaId ? 'Elige desde qué cuenta salió' : null,
     fecha: !porFuera ? null
@@ -153,6 +171,8 @@ export function comandoDelGasto(gasto, llave, confirmado = false) {
     cuentaId: porFuera && gasto.formaPago === 'TRANSFERENCIA' ? gasto.cuentaId : null,
     fecha: porFuera ? gasto.fecha : null,
     delMes: Boolean(gasto.delMes),
+    // Solo en uno del mes: 'REPARTIR' o 'EN_UN_DIA' en pantalla, sí o no en el servidor.
+    repartir: gasto.delMes ? gasto.repartir === 'REPARTIR' : null,
     confirmado,
   }
 }

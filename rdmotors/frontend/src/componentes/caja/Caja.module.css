@@ -292,29 +292,6 @@
   cursor: pointer;
 }
 .casilla input { width: 18px; height: 18px; accent-color: var(--graphite); }
-
-/* Repartido en el mes o todo en su día: las dos opciones, una debajo de la otra. */
-.reparto {
-  display: flex;
-  flex-direction: column;
-  gap: var(--esp-2);
-  margin: 0;
-  padding: 0;
-  border: none;
-  min-width: 0;
-}
-
-.etiquetaReparto {
-  padding: 0;
-  margin-bottom: var(--esp-1);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-
-.reparto .casilla { font-weight: 500; }
 .nueva .casilla { grid-column: 1 / -1; }
 
 /* Una acción secundaria dentro de un texto: parece enlace, pero es un botón (no navega). */

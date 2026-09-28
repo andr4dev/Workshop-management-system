@@ -159,20 +159,39 @@ class RegistrarGastoTest {
     }
 
     @Test
-    @DisplayName("SPEC 0007: un gasto se registra del mes, del cajón o por fuera; si no se dice, es de su día")
+    @DisplayName("SPEC 0007 y 0014: un gasto se registra del mes, del cajón o por fuera, y dice si se reparte; si no se dice, es de su día")
     void delMes() {
         tienda.abrir(1_000_000);
 
-        Gasto delCajon = tienda.registrarGasto.ejecutar(delCajon(800_000, "Arriendo en efectivo").comoDelMes());
+        Gasto delCajon = tienda.registrarGasto.ejecutar(delCajon(800_000, "Arriendo en efectivo").comoDelMes(true));
         Gasto porFuera = tienda.registrarGasto.ejecutar(ComandoRegistrarGasto.porFuera(UUID.randomUUID(),
                 tienda.arriendo.getId(), Dinero.de(800_000), "Arriendo por Nequi", FormaPago.TRANSFERENCIA,
-                tienda.nequi.getId(), tienda.reloj.hoy(), tienda.administrador).comoDelMes());
+                tienda.nequi.getId(), tienda.reloj.hoy(), tienda.administrador).comoDelMes(false));
         Gasto delDia = tienda.registrarGasto.ejecutar(delCajon(15_000, "Flete"));
 
         assertThat(delCajon.isDelMes()).isTrue();
+        assertThat(delCajon.getRepartir()).isTrue();
         assertThat(porFuera.isDelMes()).isTrue();
+        assertThat(porFuera.getRepartir()).as("entero en el reporte de su mes").isFalse();
         assertThat(delDia.isDelMes()).isFalse();
-        assertThat(delCajon.fotografia()).containsEntry("delMes", true);
+        assertThat(delDia.getRepartir()).as("uno del día no se reparte").isNull();
+        assertThat(delCajon.fotografia()).containsEntry("delMes", true).containsEntry("repartir", true);
+    }
+
+    @Test
+    @DisplayName("SPEC 0014: un gasto del mes sin decir si se reparte no se registra; en uno del día, lo que diga no cuenta")
+    void delMesSinEscoger() {
+        tienda.abrir(1_000_000);
+        ComandoRegistrarGasto base = delCajon(800_000, "Arriendo");
+        ComandoRegistrarGasto sinEscoger = new ComandoRegistrarGasto(base.llave(), base.categoriaId(), base.monto(),
+                base.descripcion(), true, null, null, null, true, null, false, base.actor());
+
+        assertThatThrownBy(() -> tienda.registrarGasto.ejecutar(sinEscoger))
+                .hasMessage("Escoge si el gasto del mes se reparte día a día o se registra en un día");
+
+        ComandoRegistrarGasto delDiaConRepartir = new ComandoRegistrarGasto(UUID.randomUUID(), base.categoriaId(),
+                base.monto(), "Flete", true, null, null, null, false, true, false, base.actor());
+        assertThat(tienda.registrarGasto.ejecutar(delDiaConRepartir).getRepartir()).isNull();
     }
 
     @Test
