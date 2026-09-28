@@ -125,16 +125,17 @@ function Reporte({ r, tipo, cargando, onPanel }) {
           cuadra={cuadra(CIFRAS.VENTAS_NETAS) && pagosCuadran(c)} variacion={comparar('ventasNetas')}
           onVerCalculo={() => onPanel(CIFRAS.VENTAS_NETAS)} />
         <CifraGrande ayuda="utilidadBruta" etiqueta="Utilidad bruta" valor={c.utilidadBruta} margen={c.margenBruto}
-          asterisco={hayRenglonesSinCosto} nota="Lo que dejó la mercancía"
+          asterisco={hayRenglonesSinCosto}
+          nota={c.costosAdicionales
+            ? `Lo que dejó la mercancía, con ${formatoCOP(c.costosAdicionales)} de costos adicionales`
+            : 'Lo que dejó la mercancía'}
           cuadra={cuadra(CIFRAS.UTILIDAD_BRUTA)} variacion={comparar('utilidadBruta')}
           onVerCalculo={() => onPanel(CIFRAS.UTILIDAD_BRUTA)} />
-        <CifraGrande ayuda="gastos" etiqueta="Gastos del local" valor={c.gastos}
-          nota={c.costosAdicionales
-            ? `Más ${formatoCOP(c.costosAdicionales)} de costos adicionales, que restan en la utilidad bruta`
-            : 'Del cajón y por fuera'}
-          cuadra={cuadra(CIFRAS.GASTOS)} variacion={comparar('gastos', false)} onVerCalculo={() => onPanel(CIFRAS.GASTOS)} />
+        {/* Sin la cifra grande de "Gastos del local" (2026-09-28, pedido del dueño): los gastos se ven aquí, en Ver
+            cálculo de la utilidad operativa y en la tarjeta de gastos de abajo. */}
         <CifraGrande destacada ayuda="utilidadOperativa" etiqueta="Utilidad operativa" valor={c.utilidadOperativa}
-          margen={c.margenOperativo} asterisco={hayRenglonesSinCosto} nota="La ganancia del período"
+          margen={c.margenOperativo} asterisco={hayRenglonesSinCosto}
+          nota={`La ganancia, después de ${formatoCOP(c.gastos)} de gastos del local`}
           cuadra={cuadra(CIFRAS.UTILIDAD_OPERATIVA)} variacion={comparar('utilidadOperativa')}
           onVerCalculo={() => onPanel(CIFRAS.UTILIDAD_OPERATIVA)} />
       </section>
