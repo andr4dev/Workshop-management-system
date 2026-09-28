@@ -46,7 +46,7 @@ export function htmlDeLaCartera(lista, filtro, tienda, hoy) {
   .pie { margin-top: 14px; color: #666; font-size: 10.5px; }
 </style></head>
 <body>
-  <h1>${esc(tienda.nombreComercial ?? 'RD MOTORS')} · Cartera</h1>
+  <h1>${esc(tienda.nombreComercial ?? 'RD MOTOS')} · Cartera</h1>
   <p class="sub">${esc(tituloDelFiltro(filtro))} · ${lista.deben} ${lista.deben === 1 ? 'cliente debe' : 'clientes deben'}</p>
   <table>
     <thead><tr><th>Cliente</th><th>Cédula y celular</th><th>Desde cuándo</th><th class="cifra">Debe</th></tr></thead>

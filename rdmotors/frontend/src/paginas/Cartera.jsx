@@ -82,7 +82,7 @@ export default function Cartera() {
   /** La lista que se está viendo, en hoja carta: el diálogo de impresión deja guardarla como PDF (H12). */
   async function exportar() {
     if (!datos) return
-    const tienda = await tiendaApi.obtener().catch(() => ({ nombreComercial: 'RD MOTORS' }))
+    const tienda = await tiendaApi.obtener().catch(() => ({ nombreComercial: 'RD MOTOS' }))
     imprimirHtml(htmlDeLaCartera(datos, { vista, modoFecha, desde: periodo?.desde, hasta: periodo?.hasta }, tienda, hoy))
   }
 

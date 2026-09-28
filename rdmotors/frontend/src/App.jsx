@@ -104,11 +104,11 @@ function Sistema() {
   return (
     <div className={estilos.app}>
       <header className={estilos.barra}>
-        {/* La marca vive AQUÍ: en la cabecera. Es el único sitio donde el rojo de RD Motors
+        {/* La marca vive AQUÍ: en la cabecera. Es el único sitio donde el rojo de RD Motos
             aparece en grande, para que no compita con el rojo de error del contenido. */}
         <div className={estilos.marca}>
           <span className={estilos.logoR}>RD</span>
-          <span className={estilos.logoMotors}>MOTORS</span>
+          <span className={estilos.logoMotors}>MOTOS</span>
           <span className={estilos.tagline}>Almacén de repuesto</span>
         </div>
 

@@ -25,7 +25,7 @@ public class ConfiguracionDeCorreo {
     /** La dirección que sale como remitente. Vacía: todavía no se configuró. */
     private String remitente = "";
 
-    private String remitenteNombre = "RD MOTORS";
+    private String remitenteNombre = "RD MOTOS";
 
     private Brevo brevo = new Brevo();
 

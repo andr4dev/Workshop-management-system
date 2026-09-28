@@ -41,7 +41,7 @@ class RestablecerAlArrancar implements ApplicationRunner {
             System.out.println("""
 
                     ════════════════════════════════════════════════════════════
-                      RD MOTORS · contraseña restablecida
+                      RD MOTOS · contraseña restablecida
                       Usuario:             %s
                       Contraseña temporal: %s
                       Entra con ella: el sistema te pide cambiarla de una vez.

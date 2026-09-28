@@ -11,7 +11,7 @@ export function PantallaDeEntrada({ titulo, texto, children }) {
   return (
     <main className={estilos.fondo}>
       <section className={estilos.tarjeta} aria-labelledby="titulo-entrada">
-        <div className={estilos.marca} aria-hidden><span>RD</span><span>MOTORS</span></div>
+        <div className={estilos.marca} aria-hidden><span>RD</span><span>MOTOS</span></div>
         <h1 className={estilos.titulo} id="titulo-entrada">{titulo}</h1>
         {texto && <p className={estilos.texto}>{texto}</p>}
         {children}

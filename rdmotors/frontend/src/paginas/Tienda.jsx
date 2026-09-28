@@ -11,7 +11,7 @@ import estilos from './Tienda.module.css'
 
 /** Los largos máximos son los de la base (V10); el servidor los vuelve a exigir. */
 const CAMPOS = [
-  { nombre: 'nombreComercial', etiqueta: 'Nombre comercial', maximo: 80, requerido: true, ejemplo: 'RD MOTORS' },
+  { nombre: 'nombreComercial', etiqueta: 'Nombre comercial', maximo: 80, requerido: true, ejemplo: 'RD MOTOS' },
   { nombre: 'nit', etiqueta: 'NIT', maximo: 30, ejemplo: '900.123.456-7' },
   { nombre: 'direccion', etiqueta: 'Dirección', maximo: 120, ejemplo: 'Calle 10 # 5-20, Sincelejo' },
   { nombre: 'telefono', etiqueta: 'Teléfono', maximo: 40, ejemplo: '300 123 4567' },
