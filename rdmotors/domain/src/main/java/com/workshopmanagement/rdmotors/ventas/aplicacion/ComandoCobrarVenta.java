@@ -8,6 +8,7 @@ import com.workshopmanagement.rdmotors.compartido.dominio.Actor;
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
 import com.workshopmanagement.rdmotors.compartido.dominio.FormaPago;
 import com.workshopmanagement.rdmotors.compartido.dominio.ReglaDeNegocioException;
+import com.workshopmanagement.rdmotors.ventas.dominio.CambioDeAceite;
 import com.workshopmanagement.rdmotors.ventas.dominio.Descuento;
 import com.workshopmanagement.rdmotors.ventas.dominio.ModoDescuento;
 import com.workshopmanagement.rdmotors.ventas.dominio.PagoVenta;
@@ -63,8 +64,16 @@ public record ComandoCobrarVenta(
     /**
      * @param precioVisto el precio que mostraba la pantalla al armar la venta. Si el vigente es otro,
      *                    no se cobra (spec 0003, decisión 4 del plan)
+     * @param cambio      solo en un repuesto que paga comisión por cambio de aceite: lo que escogió el cajero
+     *                    (spec 0015); el precio visto ya lo tiene en cuenta
+     * @param cambioPorId si se cambia, quién lo cambió
      */
-    public record Renglon(UUID varianteId, int cantidad, long precioVisto) {
+    public record Renglon(UUID varianteId, int cantidad, long precioVisto, CambioDeAceite cambio, UUID cambioPorId) {
+
+        /** Un repuesto que no paga comisión: el renglón de siempre. */
+        public Renglon(UUID varianteId, int cantidad, long precioVisto) {
+            this(varianteId, cantidad, precioVisto, null, null);
+        }
     }
 
     /** @param valor pesos si es {@code MONTO}; porcentaje si es {@code PORCENTAJE} */

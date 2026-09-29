@@ -888,6 +888,59 @@ class MigracionesIntegracionTest {
         }
     }
 
+    @Test
+    @DisplayName("V30: los renglones de antes quedan sin cambio de aceite, y nace la categoría de costo de las comisiones")
+    void v30CambioDeAceite() throws SQLException {
+        Flyway hastaV29 = flywayHasta("29");
+        hastaV29.clean();
+        hastaV29.migrate();
+        UUID ruben = UUID.randomUUID();
+        UUID turnoId = UUID.randomUUID();
+        UUID ventaId = UUID.randomUUID();
+        UUID productoId = UUID.randomUUID();
+        UUID varianteId = UUID.randomUUID();
+        try (Connection c = conexion()) {
+            ejecutar(c, """
+                    insert into usuario (id, usuario, usuario_normalizado, nombre, hash, rol, activo,
+                                         debe_cambiar_contrasena, version_sesion, intentos_fallidos, creado_en)
+                    values (?, 'ruben', 'ruben', 'Rubén', '{bcrypt}x', 'ADMINISTRADOR', true, false, 1, 0, now())
+                    """, ruben);
+            ejecutar(c, "insert into turno_caja (id, abierto_por_id, abierto_en, fondo, estado) values (?, ?, now(), 100000, 'ABIERTO')",
+                    turnoId, ruben);
+            ejecutar(c, "insert into producto (id, nombre) values (?, 'MOTUL 7100 10W30')", productoId);
+            ejecutar(c, """
+                    insert into variante (id, producto_id, codigo, marca_repuesto, precio, stock, comision_cambio)
+                    values (?, ?, '104089', 'MOTUL', 65000, 9, 3000)
+                    """, varianteId, productoId);
+            ejecutar(c, """
+                    insert into venta (id, numero, turno_id, vendido_por_id, cobrada_en, subtotal, total, estado,
+                                       llave_idempotencia)
+                    values (?, 1, ?, ?, now(), 65000, 65000, 'COBRADA', gen_random_uuid())
+                    """, ventaId, turnoId, ruben);
+            ejecutar(c, """
+                    insert into linea_venta (id, venta_id, posicion, variante_id, cantidad, precio_unitario, total)
+                    values (gen_random_uuid(), ?, 0, ?, 1, 65000, 65000)
+                    """, ventaId, varianteId);
+        }
+
+        flywayHasta(null).migrate();
+
+        try (Connection c = conexion()) {
+            assertThat(valor(c, "select cambio is null and comision is null from linea_venta where venta_id = ?", ventaId))
+                    .isEqualTo(true);
+            assertThat(valor(c, "select naturaleza from categoria_gasto where nombre = ?", "Comisión cambio de aceite"))
+                    .isEqualTo("COSTO");
+            // "Se cambia" sin quién ni gasto no entra.
+            try (PreparedStatement ps = c.prepareStatement(
+                    "update linea_venta set cambio = 'SE_CAMBIA', comision = 3000 where venta_id = ?")) {
+                ps.setObject(1, ventaId);
+                org.assertj.core.api.Assertions.assertThatThrownBy(ps::executeUpdate)
+                        .hasMessageContaining("ck_linea_venta_cambio");
+            }
+            ejecutar(c, "update linea_venta set cambio = 'NO_SE_CAMBIA', comision = 3000 where venta_id = ?", ventaId);
+        }
+    }
+
     private static Object valor(Connection c, String sql, Object... parametros) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             for (int i = 0; i < parametros.length; i++) {

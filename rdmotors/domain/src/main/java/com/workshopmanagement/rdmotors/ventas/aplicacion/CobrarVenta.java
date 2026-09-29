@@ -13,6 +13,7 @@ import java.util.UUID;
 
 import org.springframework.transaction.annotation.Transactional;
 
+import com.workshopmanagement.rdmotors.caja.aplicacion.PagarComisionDeCambio;
 import com.workshopmanagement.rdmotors.caja.dominio.SinTurnoAbiertoException;
 import com.workshopmanagement.rdmotors.caja.dominio.TurnoCaja;
 import com.workshopmanagement.rdmotors.caja.dominio.puerto.RepositorioTurnos;
@@ -72,16 +73,26 @@ public class CobrarVenta {
     private final RepositorioKardex kardex;
     private final RepositorioAuditoria auditoria;
     private final FiarVenta fiar;
+    /** Paga del cajón la comisión de un cambio de aceite (spec 0015); nulo donde no se usa. */
+    private final PagarComisionDeCambio pagarComision;
     private final Reloj reloj;
 
+    /** Sin pagar comisiones de cambio de aceite: una venta con un aceite que se cambia no se cobra. */
     public CobrarVenta(RepositorioVentas ventas, RepositorioTurnos turnos, RepositorioVariantes variantes,
                        RepositorioKardex kardex, RepositorioAuditoria auditoria, FiarVenta fiar, Reloj reloj) {
+        this(ventas, turnos, variantes, kardex, auditoria, fiar, reloj, null);
+    }
+
+    public CobrarVenta(RepositorioVentas ventas, RepositorioTurnos turnos, RepositorioVariantes variantes,
+                       RepositorioKardex kardex, RepositorioAuditoria auditoria, FiarVenta fiar, Reloj reloj,
+                       PagarComisionDeCambio pagarComision) {
         this.ventas = ventas;
         this.turnos = turnos;
         this.variantes = variantes;
         this.kardex = kardex;
         this.auditoria = auditoria;
         this.fiar = fiar;
+        this.pagarComision = pagarComision;
         this.reloj = reloj;
     }
 
@@ -115,7 +126,8 @@ public class CobrarVenta {
         List<LineaVenta> lineas = new ArrayList<>();
         Dinero subtotal = Dinero.CERO;
         for (ComandoCobrarVenta.Renglon renglon : comando.renglones()) {
-            LineaVenta linea = LineaVenta.de(bloqueadas.get(renglon.varianteId()), renglon.cantidad());
+            LineaVenta linea = LineaVenta.de(bloqueadas.get(renglon.varianteId()), renglon.cantidad(), renglon.cambio(),
+                    renglon.cambioPorId());
             lineas.add(linea);
             subtotal = subtotal.mas(linea.getTotal());
         }
@@ -140,6 +152,20 @@ public class CobrarVenta {
             auditoria.registrar(EventoAuditoria.nuevo(ahora, comando.actor().id(),
                     AccionAuditada.APLICAR_DESCUENTO, Venta.TIPO_AUDITORIA, venta.getId(),
                     venta.fotografiaSinDescuento(), venta.fotografiaConDescuento(), venta.getDescuentoMotivo()));
+        }
+
+        // Spec 0015: la comisión de cada aceite que se cambió sale del cajón, antes de guardar la venta para que su
+        // renglón nazca con su gasto. Todo en esta transacción: sin venta no hay comisión.
+        for (LineaVenta linea : venta.getLineas()) {
+            if (linea.seCambia()) {
+                if (pagarComision == null) {
+                    throw new IllegalStateException("Este cobro no sabe pagar comisiones de cambio de aceite");
+                }
+                String cuantos = linea.getCantidad() > 1 ? linea.getCantidad() + " × " : "";
+                linea.anotarGastoDeComision(pagarComision.ejecutar(linea.getId(), linea.getCambioPorId(),
+                        linea.getComision(), "venta N.º " + numero + " · " + cuantos
+                                + linea.getVariante().getProducto().getNombre(), comando.actor()).getId());
+            }
         }
 
         Venta guardada = ventas.guardar(venta);
@@ -187,9 +213,10 @@ public class CobrarVenta {
                 problemas.add(ProblemaDeRenglon.de(id, codigo, ProblemaDeRenglon.Tipo.INACTIVO));
             } else if (variante.getPrecio().esCero()) {
                 problemas.add(ProblemaDeRenglon.de(id, codigo, ProblemaDeRenglon.Tipo.SIN_PRECIO));
-            } else if (!variante.getPrecio().equals(Dinero.de(renglon.precioVisto()))) {
+            } else if (!LineaVenta.precioSegun(variante, renglon.cambio()).equals(Dinero.de(renglon.precioVisto()))) {
+                // Según lo que se escogió: sin cambio, el precio es el del repuesto menos su comisión (spec 0015).
                 problemas.add(ProblemaDeRenglon.precioCambiado(id, codigo, renglon.precioVisto(),
-                        variante.getPrecio().valor().longValueExact()));
+                        LineaVenta.precioSegun(variante, renglon.cambio()).valor().longValueExact()));
             }
             if (renglon.cantidad() > 0 && variante.getStock() < renglon.cantidad()) {
                 problemas.add(ProblemaDeRenglon.sinStock(id, codigo, variante.getStock(), renglon.cantidad()));

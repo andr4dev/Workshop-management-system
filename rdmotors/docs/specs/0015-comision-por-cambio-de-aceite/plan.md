@@ -1,146 +1,91 @@
 # Plan 0015 · La comisión por cambio de aceite
 
-**Traduce:** [`spec.md`](spec.md). El usuario pidió el plan el 2026-09-29 sin cambiar el spec: se toman las seis
-recomendaciones.
+**Traduce:** [`spec.md`](spec.md), **versión 2** (2026-09-29): el cajero escoge *se cambia / no se cambia* en cada
+aceite; *no se cambia* baja el precio la comisión; *se cambia* saca la comisión del cajón al cobrar, como un gasto de
+costo a nombre de la persona. Sin pantalla de pagar.
 
-**Estado:** aprobado el 2026-09-29 · en implementación · fase 1 hecha
-
-## Lo que se da por hecho (las tres aclaraciones del spec)
-
-El plan arranca con estas respuestas. Cualquiera se puede cambiar antes de la fase que la usa, sin rehacer las demás.
-
-| Pregunta | Se toma | Se usa en |
-|---|---|---|
-| Una moto con dos botellas, ¿uno o dos cambios? | **Por unidad**, y en el cobro se corrige cuántos cambios fueron (de 0 a la cantidad) | Fase 2 |
-| ¿Cambia aceite alguien sin usuario? | **No**: se escoge entre los usuarios activos (hoy Ruben, Deibis y Gustavo) | Fase 2 |
-| ¿Se registran las 6 ventas de aceite de antes? | **No**: arranca el día que se sube la fase 2. Si el dueño las quiere, se cargan a mano después, con un guion | — |
+**Estado:** fase 1 hecha · fases 2 y 3 en implementación · **todo en local** (rama `spec-0015-comisiones`); a
+producción solo cuando el dueño lo diga. En `main` quedó el revert de la fase 1 sin subir (la V29 se queda).
 
 ---
 
 ## Dónde vive cada pieza
 
-Un módulo nuevo, `comisiones`, al lado de `clientes`: la venta le pide que registre, como hoy le pide a la cartera que
-fíe (`FiarVenta`).
-
 | Pieza | Carpeta | Qué es |
 |---|---|---|
-| `Variante.comisionCambio` (monto, o nulo si no paga) | `domain/…/inventario/dominio/` | La marca del repuesto (decisión 1) |
-| `Comision` | `domain/…/comisiones/dominio/` | Un cambio: venta, renglón, repuesto, persona, monto, pago y anulación |
-| `PagoDeComisiones` | `domain/…/comisiones/dominio/` | Lo que se le pagó a una persona: cuánto, de dónde, qué comisiones cubrió |
-| `SaldoDeComisiones` | `domain/…/comisiones/dominio/` | Por persona: registrado − anulado = por pagar + pagado (la regla de plata del spec) |
-| `RepositorioComisiones`, `RepositorioPagosDeComisiones` | `domain/…/comisiones/dominio/puerto/` | Lo que el dominio pide de afuera |
-| `RegistrarComisiones` | `domain/…/comisiones/aplicacion/` | Lo llama `CobrarVenta` dentro de su transacción; y `alAnular`, `AnularVenta` |
-| `ConsultarComisiones`, `PagarComisiones`, `AnularPagoDeComisiones` | `domain/…/comisiones/aplicacion/` | Los casos de uso de la pantalla |
-| Adaptadores JPA y `ComisionController` (`/api/comisiones`) | `pos/…/comisiones/infraestructura/` | — |
-| `RenglonVendido.comision` y su reparto en `LoCobrado` | `domain/…/reportes/dominio/` | La comisión entra al reporte como el costo (decisión 6) |
+| `Variante.comisionCambio` (hecha) | `domain/…/inventario/dominio/` | La marca del repuesto |
+| `CambioDeAceite` (enum: `SE_CAMBIA`, `NO_SE_CAMBIA`) | `domain/…/ventas/dominio/` | La elección de un renglón |
+| `LineaVenta`: `cambio`, `cambioPorId`, `comision`, `comisionGastoId` | `domain/…/ventas/dominio/` | El renglón guarda lo que se escogió, a quién, cuánto y su gasto |
+| `PagarComisionDeCambio` | `domain/…/caja/aplicacion/` | Registra el gasto del cajón de la comisión; lo llama `CobrarVenta` en su transacción, como `FiarVenta` |
+| Categoría del sistema *"Comisión cambio de aceite"* (costo) | V30 | La siembra la migración; el caso de uso la busca por nombre |
 
-**Pagar desde el cajón reusa el retiro** (`RegistrarRetiro`): el pago guarda el id de su retiro, con el motivo
-*"Pago de comisiones a Gustavo"*. Así el arqueo, el cierre, su comprobante y su correo ya lo cuentan sin tocar las
-columnas del cierre ni sus `CHECK` (lo que costó la V21 con los abonos). Un retiro no cuenta en los reportes, que es
-justo lo que pide el RF-010: pagar no vuelve a restar. La línea en el cierre dice su motivo; el spec pedía *"su línea
-propia"*, y esto la da sin una columna nueva.
+**La comisión es un gasto del cajón**: el arqueo, el cierre, su comprobante, su correo, *Reportes › Gastos* y *Ver
+cálculo* ya lo cuentan. Por eso no hay tabla de comisiones ni pantalla nueva de reportes: el renglón sabe su gasto, y
+el gasto dice la venta y la persona.
 
 ---
 
-## Fase 1 · Qué repuestos pagan comisión (decisión 1, RF-001)
+## Fase 1 · Qué repuestos pagan comisión — hecha (commit abab464, rama)
 
-- **V29**: `variante.comision_cambio numeric(14,2)` nulo, con `CHECK (comision_cambio IS NULL OR comision_cambio > 0)`.
-- `Variante`: `comisionCambio` (`Dinero`, nulo), con su regla: mayor que $0 y en pesos enteros.
-- `ActualizarRepuesto`: lo recibe; cambiarlo es del administrador y queda en la auditoría como `CORREGIR_REPUESTO`, con
-  el antes y el después. Si tiene comisiones por pagar, no las toca (se avisa en la pantalla, fase 3).
-- La búsqueda y la ficha del repuesto lo devuelven; el cajero ve si un repuesto paga comisión, no le hace falta más.
-- Pantalla: en `FichaRepuesto`, *"Paga comisión por cambio de aceite"* con su monto (de entrada $3.000 al marcarlo).
-- Al subirla: marcar en producción MOTUL 5100 (104081), MOTUL 7100 (104089), KIXX 10W40 (706207) y KIXX 20W50 (706209)
-  con $3.000, por la API.
+Marca y monto por repuesto, V29, `CambiarComisionDeCambio`, la tarjeta y su ventana en la ficha.
 
-**Pruebas:** `VarianteTest` (monto inválido), `ActualizarRepuestoTest` (el cajero no puede, la auditoría),
-`MigracionesIntegracionTest` (V29 sobre una base con repuestos: quedan sin marca), `inventario.test.js`.
-**Romper:** dejar que el cajero lo cambie; aceptar $0.
-**Checkpoint:** en producción, los cuatro aceites marcados; el lubricante de cadena no.
+## Fase 2 · Escoger en la venta y pagar al cobrar (RF-002 a RF-008)
 
-## Fase 2 · Registrar al cobrar (decisiones 2 a 4, RF-002 a RF-004, RF-008)
+- **V30**: en `linea_venta`, `cambio` (`SE_CAMBIA`/`NO_SE_CAMBIA`, nulo en los que no pagan comisión),
+  `cambio_por_id` → usuario, `comision numeric(14,2)`, `comision_gasto_id` → gasto; `CHECK`: *se cambia* lleva
+  persona, comisión y gasto; *no se cambia* lleva comisión y no persona ni gasto. La categoría *"Comisión cambio de
+  aceite"* (costo), si no existe.
+- `ComandoCobrarVenta.Renglon` + `cambio` y `cambioPorId` (un constructor sin ellos para lo de antes).
+- `LineaVenta.de(variante, cantidad, cambio, cambioPorId)`: si el repuesto paga comisión, **exige** la elección; *no
+  se cambia* → precio unitario = precio − comisión (una comisión mayor o igual al precio no se deja); *se cambia* →
+  precio del repuesto y guarda la comisión × cantidad. Si el repuesto no paga, la elección no puede venir.
+- `CobrarVenta`: el precio visto se compara con el precio **según la elección**; ya guardada la venta, por cada
+  renglón que se cambia, `PagarComisionDeCambio` registra el gasto del cajón (sin pedir confirmar), con la
+  descripción *"venta N.º 12 · MOTUL 7100 10W30 · Gustavo"*, y el renglón guarda su id. La persona tiene que ser un
+  usuario activo.
+- `GET /api/ventas/personas`: los usuarios activos (id y nombre), para escoger quién cambió (el cajero no ve
+  `/api/usuarios`).
+- Pantalla (`Vender`, `utils/venta.js`): el renglón de un repuesto con comisión muestra *¿Se cambia aquí?* **[Sí] [No
+  (−$3.000)]**, sin nada escogido; con *Sí*, *¿Quién?* (de entrada quien registra). El precio y el total siguen la
+  elección. Sin escoger, *Cobrar* no se habilita y dice cuál falta. Viaja en el borrador y en el comando.
+- Comprobante: el renglón *no se cambia* dice *"sin cambio"*.
 
-- **V30**: `comision` (id, venta_id, posicion del renglón, variante_id, persona_id → usuario, monto > 0 o < 0 en un
-  ajuste, registrada_en, pago_id, anulada_en, anulada_por_id, origen `CAMBIO`/`AJUSTE`, ajusta_a_id) y
-  `pago_comisiones` (id, persona_id, monto, forma, cuenta_id, turno_id, retiro_id, pagado_por_id, pagado_en,
-  llave_idempotencia única, anulado_en, anulado_por_id, motivo_anulacion). Los `CHECK` de las dos, y el de la auditoría
-  con `ANULAR_PAGO_COMISIONES`.
-- `ComandoCobrarVenta.Renglon` suma `cambios` (cuántas unidades se cambiaron aquí) y el comando suma `cambioPorId`
-  (quién). `CobrarVenta`, ya guardada la venta, llama `RegistrarComisiones.alCobrar`: una comisión por unidad
-  cambiada de cada renglón cuyo repuesto paga, con el monto **de ese momento** (RF-001). Un renglón sin marca que
-  diga `cambios` → error de lectura; la persona tiene que ser un usuario activo.
-- `AnularVenta` llama `RegistrarComisiones.alAnular`: las pendientes se anulan; por cada una ya pagada, un **ajuste**
-  de −$monto pendiente con la misma persona (RF-008: se descuenta del próximo pago). Todo en la misma transacción.
-- `GET /api/comisiones/personas`: los usuarios activos, id y nombre, para el cobro (el cajero no ve `/api/usuarios`).
-- Pantalla: en `ModalCobro`, si algún renglón paga comisión, *"Cambios de aceite"*: cada uno con *se cambió aquí*
-  (cuántos, de entrada la cantidad) y *¿quién hizo el cambio?* (de entrada quien registra). Viaja en el borrador de la
-  venta, para que un reintento cobre lo mismo. `utils/venta.js` lo manda en el comando. Sin aceite, nada cambia.
+**Pruebas:** `LineaVentaTest` (precio sin cambio; exige elección; sin marca no acepta), `CobrarVentaTest` (se cambia →
+un gasto por renglón con la comisión × cantidad; no se cambia → cobra menos y sin gasto; precio visto según la
+elección; persona inactiva), `CajaYVentasIntegracionTest` o uno nuevo contra Postgres (venta y gasto en una
+transacción; el esperado del cierre baja), `MigracionesIntegracionTest` (V30), `venta.test.js` (el renglón, el total,
+el comando, el borrador, cobrar sin escoger).
+**Romper:** cobrar sin escoger; *no se cambia* a precio lleno; *se cambia* sin gasto; la comisión de hoy en vez de la
+del cobro.
+**Checkpoint (local):** cobrar un MOTUL 7100 *se cambia · Gustavo* deja un gasto de $3.000 en el cajón a su nombre;
+*no se cambia* cobra $62.000.
 
-**Pruebas:** `RegistrarComisionesTest` (por unidad; desmarcado no deja nada; monto del momento; anular pendiente y
-pagada con su ajuste), `CobrarVentaTest` (la venta con comisión sigue valiendo lo mismo), un
-`ComisionesIntegracionTest` contra Postgres (cobro y anulación en una transacción; dos cobros a la vez),
-`MigracionesIntegracionTest` (V30), `venta.test.js` (el comando y el borrador).
-**Romper:** comisión por venta en vez de por unidad; anular sin ajuste de la pagada; usar el monto de hoy y no el del
-cobro.
-**Checkpoint:** en producción, cobrar un MOTUL 7100 con Gustavo deja $3.000 por pagar a Gustavo; la venta sigue en su
-precio.
+## Fase 3 · Anular y ver (RF-009 a RF-011)
 
-## Fase 3 · Ver y pagar (decisión 5, RF-005 a RF-007)
-
-- `ConsultarComisiones`: por persona, por pagar (pendientes, ajustes incluidos) y pagado en el período, con cada una
-  (fecha, venta N.º, repuesto, monto). Administrador: todas las personas.
-- `PagarComisiones` (administrador): paga las pendientes de una persona (todas, o las escogidas), con llave. **Del
-  cajón**: exige turno abierto propio (spec 0004), registra el retiro con motivo *"Pago de comisiones a <nombre>"* y
-  pide confirmar si pasa de lo que debería haber, como un gasto. **Por fuera**: efectivo o transferencia con su
-  cuenta, sin cajón. Un pago de $0 o negativo (solo ajustes) no se registra: se avisa.
-- `AnularPagoDeComisiones` (administrador, con motivo): sus comisiones vuelven a pendientes; si salió del cajón, anula
-  su retiro (con las reglas del retiro: el mismo turno abierto). Auditado.
-- Pantalla *Reportes › Comisiones*: una tarjeta por persona con lo por pagar y *Pagar*; el detalle con cada cambio;
-  los pagos con *Anular*. Y en la ficha del repuesto, el aviso si tiene comisiones por pagar al cambiar el monto.
-
-**Pruebas:** `SaldoDeComisionesTest` (registrado − anulado = por pagar + pagado, con ajustes), `PagarComisionesTest`
-(del cajón resta del esperado; doble clic deja uno; sin turno; el cajero no puede), `AnularPagoDeComisionesTest`,
-integración (el retiro y el arqueo del cierre), `comisiones.test.js`.
-**Romper:** pagar dos veces con la misma llave; pagar del cajón sin retiro; que el pago reste en los reportes.
-**Checkpoint:** en producción, pagarle a Gustavo desde el cajón baja el esperado y deja sus cambios pagados.
-
-## Fase 4 · En los reportes (decisión 6, RF-009, RF-010)
-
-- `RepositorioReportes.renglonesDe` trae, por renglón, la suma de sus comisiones de cambio vigentes (los ajustes no
-  cuentan: son del pago, no de la venta).
-- `LoCobrado`: la comisión se reparte como el costo, por acumulado, en la parte cobrada (spec 0014).
-- `ResultadosDelPeriodo`: `Cifras.comisiones`; *utilidad bruta = ventas netas − costo vendido − comisiones − costos
-  adicionales*, con su prueba; las filas del día por día y los repuestos la restan igual.
-- Pantalla: *Ver cálculo* de la utilidad bruta con la línea *Comisiones por cambio de aceite* y cada una (fecha, venta,
-  persona, monto); la ayuda lo dice.
-
-**Pruebas:** `LoCobradoTest` (fiado a medias: la mitad de la comisión), `ResultadosDelPeriodoTest` (las partes
-suman), integración (un cobro con cambio baja la bruta $3.000; pagarlo no la mueve).
-**Romper:** restar el pago en vez de la comisión; contar la comisión entera de un fiado sin cobrar.
-**Checkpoint:** en producción, la utilidad bruta del día baja $3.000 por cambio y *Ver cálculo* lo muestra.
-
-## Fase 5 · Lo del cajero (P3, RF-011)
-
-- `ConsultarComisiones` para un cajero: solo las suyas. *Mis comisiones* en el menú del cajero.
-- **Pruebas:** el cajero no ve las de otro (servidor, no pantalla). **Checkpoint:** Gustavo entra y ve las suyas.
+- `AnularVenta`: por cada renglón con gasto de comisión, lo anula si su turno sigue abierto (motivo *"Se anuló la
+  venta N.º 12"*); si no, lo deja y el resultado lo avisa.
+- *Ver cálculo* y *Reportes › Gastos* ya muestran los gastos de costo con su enlace (spec 0014): se revisa que la
+  comisión salga con la persona, y en *Gastos* el filtro por la categoría.
+- Pruebas: anular en el mismo turno (el gasto se anula, el esperado vuelve) y en otro (se queda); el reporte resta la
+  comisión como costo.
+**Checkpoint (local):** anular la venta del MOTUL devuelve los $3.000 al esperado del cajón.
 
 ---
 
 ## Verificación
 
-1. `./mvnw clean install` (dominio, Postgres, migraciones) y en el frontend `eslint`, `node --test` y `vite build`.
-2. Capturas con Edge sin interfaz y respuestas simuladas (desde PowerShell): el cobro con aceite, *Comisiones*, *Ver
-   cálculo*; en claro, oscuro y 390 px.
-3. Romper a propósito, por fase.
-4. Cada fase: commit solo de sus archivos, push, esperar a Render y comprobar en producción (solo lectura, y las
-   escrituras por la API).
+1. `./mvnw clean install` y en el frontend `eslint`, `node --test` y `vite build`.
+2. En local, con el servidor en 8081 y la pantalla en `http://127.0.0.1:5174` (usuario `ruben`): una venta de cada
+   caso, el cierre y el reporte.
+3. Capturas con Edge sin interfaz, desde PowerShell.
+4. Romper a propósito por fase.
+5. **Nada a producción** sin la orden del dueño.
 
 ## Bitácora de decisiones
 
 | Fecha | Fase | Decisión | Por qué |
 |---|---|---|---|
-| 2026-09-29 | — | **Pagar desde el cajón es un retiro** con el id del pago, no una salida nueva del cierre | El arqueo, el cierre, su comprobante y su correo ya cuentan los retiros; una salida nueva obligaba a reescribir las columnas y los `CHECK` del cierre, como la V21. Y un retiro no cuenta en los reportes, que es lo que pide el RF-010 |
-| 2026-09-29 | — | **Lo pagado de una venta que se anula vuelve como un ajuste negativo** pendiente con la persona | Así el próximo pago lo descuenta solo, y *por pagar* sigue siendo una suma, sin estados especiales |
-| 2026-09-29 | — | **La comisión guarda el monto del momento del cobro** | Cambiar el monto del repuesto no puede cambiar lo que ya se le debe a alguien (RF-001) |
-| 2026-09-29 | 1 | **La marca va por un endpoint propio (`PUT /api/repuestos/{id}/comision`, caso de uso `CambiarComisionDeCambio`), no dentro de `ActualizarRepuesto`** | Marcar un aceite no obliga a reenviar la ficha entera, y el comando de corregir ficha (que usan la pantalla y varias pruebas) no cambia. Queda auditado igual, como `CORREGIR_REPUESTO` con el antes y el después |
-| 2026-09-29 | 1 | Cierre: 566 del dominio y la suite de Postgres (V29, permiso de administrador); 316 de pantalla, lint y build; captura de la ficha marcando .000. Romper: quitar el permiso de administrador (atrapado). De paso, `CorreoIntegracionTest` esperaba el remitente "RD MOTORS": el cambio de nombre del 2026-09-29 se subió sin la suite completa | — |
+| 2026-09-29 | 1 | **La marca va por un endpoint propio** (`PUT /api/repuestos/{id}/comision`) | No obliga a reenviar la ficha entera y no cambia el comando de corregirla |
+| 2026-09-29 | 1 | Cierre de la fase 1: 566 del dominio y la suite de Postgres; 316 de pantalla; captura de la ficha | — |
+| 2026-09-29 | — | **Nada a producción sin la orden del dueño**: la fase 1 se había subido; en `main` quedó un revert **sin subir** que deja la V29 | La tienda trabaja con la app en vivo. Borrar el archivo de una migración ya aplicada no deja arrancar el servidor |
+| 2026-09-29 | — | **Versión 2 del spec: la comisión es un gasto del cajón de costo, registrado al cobrar**, no una tabla con pagos | El dueño no quiere un paso de "pagar": sale del cajón al cobrar. Siendo un gasto, el cierre, los reportes y *Ver cálculo* ya la cuentan, y las fases 3 a 5 del plan anterior (pagar, reportes, lo del cajero) dejan de hacer falta |

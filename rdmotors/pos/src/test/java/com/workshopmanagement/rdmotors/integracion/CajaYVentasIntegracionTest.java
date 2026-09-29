@@ -101,6 +101,8 @@ class CajaYVentasIntegracionTest {
     @Autowired ActualizarDatosTienda actualizarDatosTienda;
     @Autowired AnularVenta anularVenta;
     @Autowired AnularCompra anularCompra;
+    @Autowired com.workshopmanagement.rdmotors.inventario.aplicacion.CambiarComisionDeCambio cambiarComision;
+    @Autowired com.workshopmanagement.rdmotors.caja.aplicacion.ConsultarTurnos consultarTurnos;
 
     private final Actor cajero;
 
@@ -271,6 +273,40 @@ class CajaYVentasIntegracionTest {
         } finally {
             hilos.shutdownNow();
         }
+    }
+
+    @Test
+    @DisplayName("SPEC 0015 contra Postgres: el aceite que se cambia deja su gasto de comisión en el cajón con la venta; el que no se cambia cobra menos")
+    void cambioDeAceiteContraPostgres() {
+        conTurnoAbierto();
+        Variante aceite = repuestoConStock(5, 250_000, 65_000);
+        cambiarComision.ejecutar(aceite.getId(), Dinero.de(3_000), personas.administrador());
+        Dinero antes = consultarTurnos.detalle(turnos.abierto().orElseThrow().getId(), cajero).orElseThrow().arqueo().esperado();
+
+        var seCambia = cobrarVenta.ejecutar(new ComandoCobrarVenta(UUID.randomUUID(),
+                List.of(new ComandoCobrarVenta.Renglon(aceite.getId(), 1, 65_000,
+                        com.workshopmanagement.rdmotors.ventas.dominio.CambioDeAceite.SE_CAMBIA, cajero.id())),
+                null, List.of(new ComandoCobrarVenta.Pago(FormaPago.EFECTIVO, 65_000, null)), cajero)).venta();
+        var sinCambio = cobrarVenta.ejecutar(new ComandoCobrarVenta(UUID.randomUUID(),
+                List.of(new ComandoCobrarVenta.Renglon(aceite.getId(), 1, 62_000,
+                        com.workshopmanagement.rdmotors.ventas.dominio.CambioDeAceite.NO_SE_CAMBIA, null)),
+                null, List.of(new ComandoCobrarVenta.Pago(FormaPago.EFECTIVO, 62_000, null)), cajero)).venta();
+
+        assertThat(jdbc.queryForObject("""
+                select c.naturaleza || ' ' || g.monto::bigint || ' ' || g.del_cajon
+                from linea_venta l join gasto g on g.id = l.comision_gasto_id join categoria_gasto c on c.id = g.categoria_id
+                where l.venta_id = ?
+                """, String.class, seCambia.getId())).isEqualTo("COSTO 3000 true");
+        assertThat(jdbc.queryForObject("select total::bigint from venta where id = ?", Long.class, sinCambio.getId()))
+                .isEqualTo(62_000L);
+        assertThat(consultarTurnos.detalle(turnos.abierto().orElseThrow().getId(), cajero).orElseThrow().arqueo().esperado())
+                .as("entraron las dos ventas y salió una comisión").isEqualTo(antes.mas(Dinero.de(65_000 + 62_000 - 3_000)));
+        DetalleVenta detalle = consultarVentas.detalle(seCambia.getId(), personas.administrador()).orElseThrow();
+        assertThat(detalle.renglones().getFirst().cambioPor().nombre()).isEqualTo(cajero.nombre());
+        assertThat(detalle.renglones().getFirst().comision()).isEqualTo(Dinero.de(3_000));
+        // Ni la base deja un aceite que se cambió sin su gasto.
+        assertThatThrownBy(() -> jdbc.update("update linea_venta set comision_gasto_id = null where venta_id = ?",
+                seCambia.getId())).hasMessageContaining("ck_linea_venta_cambio");
     }
 
     @Test

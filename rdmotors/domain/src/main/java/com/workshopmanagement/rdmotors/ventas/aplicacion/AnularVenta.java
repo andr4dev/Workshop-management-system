@@ -8,6 +8,8 @@ import java.util.UUID;
 
 import org.springframework.transaction.annotation.Transactional;
 
+import com.workshopmanagement.rdmotors.caja.dominio.puerto.RepositorioGastos;
+import com.workshopmanagement.rdmotors.caja.aplicacion.AnularGasto;
 import com.workshopmanagement.rdmotors.caja.dominio.SinTurnoAbiertoException;
 import com.workshopmanagement.rdmotors.caja.dominio.TurnoCaja;
 import com.workshopmanagement.rdmotors.caja.dominio.puerto.RepositorioTurnos;
@@ -50,6 +52,8 @@ import com.workshopmanagement.rdmotors.ventas.dominio.puerto.RepositorioVentas;
 @Transactional
 public class AnularVenta {
 
+    private final RepositorioGastos gastos;
+    private final AnularGasto anularGasto;
     private final RepositorioVentas ventas;
     private final RepositorioTurnos turnos;
     private final RepositorioVariantes variantes;
@@ -58,8 +62,21 @@ public class AnularVenta {
     private final FiarVenta fiar;
     private final Reloj reloj;
 
+    /** Sin anular comisiones de cambio de aceite: lo de antes del spec 0015. */
     public AnularVenta(RepositorioVentas ventas, RepositorioTurnos turnos, RepositorioVariantes variantes,
                        RepositorioKardex kardex, RepositorioAuditoria auditoria, FiarVenta fiar, Reloj reloj) {
+        this(ventas, turnos, variantes, kardex, auditoria, fiar, reloj, null, null);
+    }
+
+    /**
+     * @param gastos      para saber de qué turno es el gasto de una comisión (spec 0015)
+     * @param anularGasto anula ese gasto si su turno sigue abierto
+     */
+    public AnularVenta(RepositorioVentas ventas, RepositorioTurnos turnos, RepositorioVariantes variantes,
+                       RepositorioKardex kardex, RepositorioAuditoria auditoria, FiarVenta fiar, Reloj reloj,
+                       RepositorioGastos gastos, AnularGasto anularGasto) {
+        this.gastos = gastos;
+        this.anularGasto = anularGasto;
         this.ventas = ventas;
         this.turnos = turnos;
         this.variantes = variantes;
@@ -100,7 +117,26 @@ public class AnularVenta {
         if (guardada.tieneFiado()) {
             fiar.alAnular(ventaId, guardada.getClienteId(), usuarioId, ahora);
         }
+        anularComisiones(guardada, turno, actor);
         return guardada;
+    }
+
+    /**
+     * La comisión de un aceite que se cambió vuelve al cajón si salió en este mismo turno: quien la recibió la devuelve
+     * (spec 0015, decisión 7). Si salió en un turno ya cerrado, se queda: ese arqueo ya se firmó.
+     */
+    private void anularComisiones(Venta venta, TurnoCaja turno, Actor actor) {
+        for (LineaVenta linea : venta.getLineas()) {
+            if (linea.getComisionGastoId() == null) {
+                continue;
+            }
+            if (gastos == null || anularGasto == null) {
+                throw new IllegalStateException("Esta anulación no sabe devolver comisiones de cambio de aceite");
+            }
+            gastos.buscar(linea.getComisionGastoId())
+                    .filter(g -> !g.estaAnulado() && turno.getId().equals(g.getTurnoId()))
+                    .ifPresent(g -> anularGasto.ejecutar(g.getId(), "Se anuló la venta N.º " + venta.getNumero(), actor));
+        }
     }
 
     private void devolver(LineaVenta linea, UUID ventaId, String motivo, UUID usuarioId, Instant ahora) {

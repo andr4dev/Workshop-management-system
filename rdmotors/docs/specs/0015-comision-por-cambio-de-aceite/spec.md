@@ -1,170 +1,159 @@
 # Spec 0015 · La comisión por cambio de aceite
 
-**Estado:** el usuario pidió el plan el 2026-09-29 sin cambios: se toman las recomendaciones · [plan](plan.md) · en implementación
+**Estado:** versión 2, 2026-09-29: el dueño cambió las decisiones 3 a 6 después del plan (ver *Cambios de la
+versión 2*) · [plan](plan.md) · en implementación, **solo en local** (rama `spec-0015-comisiones`)
 
 **Pedido del usuario (2026-09-29):** *«cada venta de aceite son 3000 pesos que se deben sacar aparte para el que
 cambió el aceite, es decir el aceite cuesta 64000, de esos 64000 salen 3000 para el que cambió el aceite o atendió,
 y debe quedar el registro»*.
 
+**Cambios de la versión 2** (pedidos el mismo día, al verla): *«hay que agregar el caso en que el cliente desea no
+cambiarlo, entonces se le hace el descuento a 62.000 […] siempre que el cajero escoja […]; si el cliente escoge
+cambiarlo, poder seleccionar a quién se le acumulan esos 3000, y que automáticamente se registre que se le va a pagar,
+no que toque pagarlos y dar un paso adicional; que se vea en el reporte; hay que generar menos fricción»*. Y al
+preguntarle: **el cajero escoge siempre** (no hay respuesta de entrada) y **los $3.000 salen del cajón al cobrar**.
+
 ---
 
 ## 1. Objetivo de negocio
 
-Cuando se vende un aceite y se cambia en la tienda, **$3.000 son de quien hizo el cambio**. Hoy eso se hace de
-memoria: nadie sabe cuánto se le debe a quién, si ya se le pagó, ni cuánto de la ganancia del aceite se va en eso. El
-dueño quiere que cada cambio **quede registrado**, a nombre de la persona, y que se vea qué está pagado y qué no.
+El aceite se vende **con el cambio incluido**: $65.000 el MOTUL 7100, de los que $3.000 son de quien lo cambia. Si el
+cliente se lo lleva sin cambiar, paga $62.000. Hoy eso se hace de memoria: nadie sabe cuánto se le pagó a quién, ni
+cuánto de la ganancia del aceite se va en eso.
 
-El precio para el cliente no cambia: el aceite sigue costando $64.000. Lo que cambia es cuánto le queda a la tienda:
-$64.000 − su costo − $3.000.
+El dueño quiere que **cada cambio quede registrado a nombre de la persona**, que la plata **salga del cajón sola** al
+cobrar (sin un paso de "pagar" aparte) y que **se vea en los reportes**. Sin fricción: un toque por aceite.
 
 ## 2. Historias
 
 | | Historia | Se demuestra sola cuando… |
 |---|---|---|
-| **P1** | Como cajero, al cobrar una venta con aceite queda registrado **quién hizo el cambio** y los $3.000 que le tocan, sin pasos de más. | Se cobra un MOTUL 7100 y en el registro aparece: venta N.º, aceite, Gustavo, $3.000, *por pagar*. |
-| **P1** | Como dueño, veo **cuánto se le debe a cada uno** y le pago; el pago queda registrado y sale del cajón o por fuera. | Gustavo tiene $9.000 por pagar de tres cambios; se le pagan, y quedan *pagados* con la fecha y quién pagó. |
-| **P1** | Como dueño, los reportes descuentan los $3.000 de la ganancia del aceite. | La utilidad del día baja $3.000 por cada cambio, y *Ver cálculo* dice que es por comisiones. |
-| **P2** | Como dueño, escojo qué repuestos pagan comisión y cuánto. | Se marca el KIXX 10W40 con $3.000; el lubricante de cadena no se marca y no paga nada. |
-| **P2** | Como dueño, si se anula una venta con aceite, su comisión también se anula; si ya se había pagado, se descuenta del próximo pago. | Se anula la venta 5: la comisión de Ruben sale de *por pagar*. |
-| **P3** | Como cajero, veo lo que me deben a mí. | Gustavo entra y ve sus cambios del mes y cuánto le falta por cobrar. |
+| **P1** | Como cajero, al agregar un aceite a la venta escojo **se cambia aquí** o **no se cambia**; si no, el precio baja $3.000. | Un MOTUL 7100 *no se cambia* entra a $62.000; *se cambia*, a $65.000. Sin escoger no deja cobrar. |
+| **P1** | Como cajero, si se cambia, escojo **quién lo cambió** (de entrada, yo), y al cobrar los $3.000 **salen del cajón a su nombre**, solos. | Se cobra con *se cambia · Gustavo*: el cierre espera $3.000 menos, y en Gastos aparece *"venta N.º 12 · MOTUL 7100 · Gustavo"*. |
+| **P1** | Como dueño, los reportes restan esas comisiones de la ganancia y dicen de quién es cada una. | La utilidad bruta del día baja $3.000 por cambio; *Ver cálculo* lista cada comisión con su venta y la persona. |
+| **P2** | Como dueño, escojo qué repuestos pagan comisión y cuánto. | *Hecho en la fase 1*: el KIXX 10W40 se marca con $3.000; el lubricante de cadena no. |
+| **P2** | Como dueño, veo cuánto se le pagó a cada uno en el período. | En *Reportes › Gastos* filtrando la categoría, cada comisión con la persona, y el total. |
 
 ## 3. Qué existe hoy
 
 | Qué | Dónde | Hecho verificado |
 |---|---|---|
-| La venta guarda **quién la registró**, no quién hizo el trabajo | `domain/…/ventas/dominio/Venta.java:66` | Un solo "quién" por venta: el que cobró |
-| Los renglones de la venta | `domain/…/ventas/dominio/Venta.java:129` | Repuesto, cantidad, precio |
-| El repuesto no tiene nada que diga "esto es un aceite" | `domain/…/inventario/dominio/Producto.java:37-42` | Nombre y categoría |
-| **El aceite no está en una sola categoría** | producción, 2026-09-29 | KIXX 10W40 y 20W50 en *LUBRICANTES Y QUIMICOS*; MOTUL 5100 y 7100 en *MOTOR*; en *LUBRICANTES* también está el lubricante de cadena, que no es un cambio |
-| **Hay ventas de dos aceites juntos** | producción: ventas 8 y 10 | 2 × MOTUL 5100 cada una |
-| Las personas que atienden | producción: tabla de usuarios | Ruben y Deibis (administradores), Gustavo (cajero). Hasta hoy todas las ventas las registró Ruben |
-| Lo que sale del cajón resta de lo que debería haber al cerrar | `domain/…/caja/dominio/ArqueoDeTurno.java:22, 98-99` | Los gastos del cajón y los retiros |
-| Un gasto puede ser **costo** (resta de la utilidad bruta) o **gasto** (de la operativa) | `domain/…/caja/dominio/NaturalezaGasto.java:10-13` | El envío de la WE-10238 es costo |
-| Lo fiado cuenta en los reportes cuando se cobra, con su parte del costo | spec 0014 (`reportes/dominio/LoCobrado.java`) | Si el aceite se fió, su plata y su costo entran al abonarse |
-| El cobro ya pregunta cosas cuando hacen falta (cliente al fiar) sin frenar la venta | `frontend/src/componentes/venta/ModalCobro.jsx` | Modelo a seguir para preguntar quién hizo el cambio |
+| La marca por repuesto (fase 1) | rama `spec-0015-comisiones`: `inventario/dominio/Variante.java` (`comisionCambio`), V29 | Hecha y probada; en producción solo la columna, vacía |
+| La venta guarda **quién la registró**, no quién hizo el trabajo | `domain/…/ventas/dominio/Venta.java:66` | Un solo "quién" por venta |
+| Cada renglón tiene su precio unitario y su posición | `domain/…/ventas/dominio/LineaVenta.java:36-47` | El precio sale de la variante al cobrar |
+| El cobro no deja cobrar con un precio distinto del que vio la pantalla | `ComandoCobrarVenta.Renglon.precioVisto` (`…/ventas/aplicacion/ComandoCobrarVenta.java:67`) | *"no se cobra"* si cambió |
+| Un gasto del cajón resta de lo que debería haber al cerrar | `domain/…/caja/dominio/ArqueoDeTurno.java:22, 98-99` | Y se ve en *Lo que salió del cajón* |
+| Un gasto de naturaleza **costo** resta de la utilidad bruta, y *Ver cálculo* lo lista con su enlace | spec 0014 (fase 4) | El envío de la WE-10238 ya sale así |
+| Un gasto del cajón solo se anula mientras su turno siga abierto | el caso de uso de anular gasto | La plata ya salió del cajón de ese turno |
 
 ## 4. Las decisiones
 
-### Decisión 1 · ¿Qué es "un aceite"? — la que cambia el alcance
+### Decisión 1 · ¿Qué es "un aceite"? — hecha
 
-Por categoría no sirve: los aceites están en dos categorías, y en una de ellas hay cosas que no son cambios.
+Una marca en cada repuesto con su monto (*"paga comisión por cambio: $3.000"*), que pone el administrador en la
+ficha. Por categoría no sirve: los aceites están en dos, y con uno de ellos está el lubricante de cadena.
 
-**Recomendación: una marca en cada repuesto, *"paga comisión de cambio: $3.000"*,** que el administrador pone en la
-ficha del repuesto. El monto es por repuesto (el día que un aceite sintético pague $4.000, se cambia ahí). Al
-arrancar se marcan los cuatro de hoy: MOTUL 5100, MOTUL 7100, KIXX 10W40 y KIXX 20W50.
+### Decisión 2 · Por renglón, no por unidad suelta
 
-### Decisión 2 · ¿Se paga por venta o por unidad?
+Cada renglón de aceite se escoge entero: *se cambia* (todas sus unidades) o *no se cambia*. Dos aceites del mismo
+repuesto, uno cambiado y otro no, en la misma venta: se cobran en dos ventas. [Es raro; si pasa seguido, se parte el
+renglón en una versión futura.]
 
-Las ventas 8 y 10 llevaron 2 aceites cada una. ¿Son $3.000 o $6.000?
+### Decisión 3 · ¿Se cambia aquí? — el cajero escoge siempre
 
-**Recomendación: por unidad**, porque en una moto un aceite es un cambio: dos aceites suelen ser dos motos, o una que
-lleva más. En el cobro se puede corregir cuántos cambios fueron.
-[NECESITA ACLARACIÓN: ¿una moto que lleva dos botellas paga uno o dos cambios?]
+> ✅ **Decidido por el dueño:** sin respuesta de entrada. Un renglón de aceite sin escoger no deja cobrar.
 
-### Decisión 3 · ¿Y si el cliente se lleva el aceite y no se lo cambian aquí?
-
-*"Para el que cambió el aceite"*: si nadie lo cambió, no hay a quién pagarle.
-
-**Recomendación: en el cobro, cada aceite viene marcado *"se cambió aquí"*,** y se desmarca si se lo lleva. Es
-un toque, solo cuando hay aceite, y no frena la venta.
+- **Se cambia aquí:** el precio es el del repuesto ($65.000) y hay que decir quién lo cambió.
+- **No se cambia:** el precio baja la comisión: $65.000 − $3.000 = **$62.000** por unidad.
 
 ### Decisión 4 · ¿A quién le toca?
 
-La venta guarda quién la registró. Pero el que registra puede no ser el que cambió el aceite (Ruben cobra, Gustavo
-cambia).
+Al escoger *se cambia*, **quién** viene con el que registra la venta, y se cambia con un toque a otra persona de la
+tienda (los usuarios activos: hoy Ruben, Deibis y Gustavo).
 
-**Recomendación: en el cobro, *"¿Quién hizo el cambio?"*, con el que registra escogido de entrada,** y se puede
-escoger a otra persona de la tienda. [NECESITA ACLARACIÓN: ¿hay quien cambie aceite y no tenga usuario en el
-sistema? Si lo hay, hace falta una lista de trabajadores aparte de los usuarios.]
-Solo hay 3 usuarios son los unicos 3 que trabajan 
+### Decisión 5 · ¿Cuándo se paga? — al cobrar, del cajón
 
-### Decisión 5 · ¿Cuándo se le paga, y de dónde sale la plata?
+> ✅ **Decidido por el dueño:** los $3.000 salen del cajón **al cobrar**, solos. No hay un paso de "pagar".
 
-| Opción | Qué pasa |
-|---|---|
-| **A. Queda *por pagar* y se paga cuando el dueño decida** | Cada cambio queda como deuda con la persona. En *Comisiones* se ve cuánto se le debe a cada uno, y *Pagar* registra la salida: del cajón del turno abierto (resta del esperado, como un gasto del cajón) o por fuera. Se puede pagar al cierre, cada semana, o con la nómina. |
-| B. Sale del cajón en el momento | Cada cobro con aceite saca $3.000 del cajón automáticamente. El arqueo lo descuenta solo, pero los $3.000 tienen que salir físicamente del cajón en ese momento, venta por venta; y un aceite fiado sacaría plata que no entró. |
+Al cobrar, cada renglón que *se cambia* registra **un gasto del cajón** en la categoría del sistema *"Comisión cambio
+de aceite"*, por su comisión × cantidad, con la descripción *"venta N.º 12 · MOTUL 7100 10W30 · Gustavo"* y enlazado a
+su renglón. El cierre ya descuenta los gastos del cajón: el efectivo de ese turno espera $3.000 menos, y la persona se
+lleva los $3.000 en ese momento. Vale igual si la venta se pagó por transferencia o se fió: la comisión se paga en
+efectivo del cajón.
 
-**Recomendación: A.** Deja el registro de quién debe cobrar qué, no mueve el cajón a cada venta, y sirve igual si
-se paga a diario o cada semana. Pagar desde el cajón sigue siendo un toque.
+### Decisión 6 · En los reportes — como costo, el día que se pagó
 
-### Decisión 6 · ¿Cómo cuenta en los reportes?
+La categoría es de naturaleza **costo**: resta de la utilidad bruta el día del gasto (el día que salió la plata), y
+*Ver cálculo* la lista con su enlace. Como la plata salió ese día, contarla ese día es lo que pasó, también en una venta
+fiada.
 
-Es plata que se va por la venta del aceite, como su costo.
+### Decisión 7 · Si se anula la venta
 
-**Recomendación: como costo de la venta** (resta de la utilidad bruta) y **con la misma regla del spec 0014**: si el
-aceite se fió, su comisión entra al reporte en la parte que se cobra. En *Ver cálculo* aparece como *Comisiones por
-cambio de aceite*, con cada una. Pagarla después no vuelve a restar: el costo ya estaba.
+- Si el turno del gasto sigue abierto, **el gasto se anula** con la venta: la persona devuelve los $3.000 al cajón.
+- Si el turno ya se cerró, **el gasto se queda**: la plata salió en ese turno, que ya cuadró. La anulación lo avisa.
 
 ## 5. Requisitos funcionales
 
-**Qué paga comisión (P2)**
-- **RF-001** · Un repuesto puede estar marcado *paga comisión de cambio*, con su monto en pesos. Lo marca el
-  administrador en la ficha del repuesto. Cambiar el monto no cambia las comisiones que ya se registraron.
+**La marca (fase 1, hecha)**
+- **RF-001** · Un repuesto puede pagar comisión por cambio, con su monto. Lo marca el administrador en la ficha.
+
+**En la venta (P1)**
+- **RF-002** · Un renglón de un repuesto marcado pide *¿se cambia aquí?* con dos respuestas y ninguna escogida. Sin
+  escoger, *Cobrar* no se habilita y dice por qué.
+- **RF-003** · *No se cambia*: el precio unitario del renglón es el del repuesto menos su comisión, y así se cobra, se
+  ve en el total y sale en el comprobante (*"sin cambio"*).
+- **RF-004** · *Se cambia aquí*: el precio es el del repuesto, y el renglón lleva quién (de entrada, el que registra).
+- **RF-005** · La elección viaja en el borrador de la venta: un reintento cobra exactamente lo mismo.
 
 **Al cobrar (P1)**
-- **RF-002** · Si la venta lleva algún repuesto marcado, el cobro muestra cada uno con *se cambió aquí* (marcado) y
-  *¿quién hizo el cambio?* (el que registra, de entrada). Sin aceite, el cobro es como hoy.
-- **RF-003** · Al cobrar, cada unidad marcada *se cambió aquí* deja una comisión: la venta, el repuesto, la persona, el
-  monto y la fecha. Queda *por pagar*.
-- **RF-004** · La comisión no cambia el precio ni el total de la venta, ni lo que se cobra al cliente.
+- **RF-006** · Por cada renglón que se cambia, un gasto del cajón en *"Comisión cambio de aceite"* (costo) por
+  comisión × cantidad, con la venta, el repuesto y la persona en la descripción, enlazado a su renglón. En la misma
+  transacción que la venta: o quedan los dos o ninguno.
+- **RF-007** · Ese gasto no pide confirmar aunque pase de lo que hay en el cajón: la venta ya se cobró.
+- **RF-008** · La comisión es la del repuesto **en el momento del cobro**.
 
-**Pagar (P1)**
-- **RF-005** · *Comisiones* muestra, por persona, lo por pagar y lo pagado del período, con cada cambio (fecha, venta,
-  aceite, monto).
-- **RF-006** · *Pagar* a una persona paga todo lo que tiene por pagar (o lo que se escoja): sale del cajón del turno
-  abierto o por fuera (efectivo o transferencia desde una cuenta), con quién pagó y cuándo. Si sale del cajón, resta
-  del esperado al cerrar.
-- **RF-007** · Un pago no se edita: se anula con motivo, y lo que pagaba vuelve a *por pagar*.
+**Anular (P1)**
+- **RF-009** · Al anular la venta, sus gastos de comisión se anulan si su turno sigue abierto; si no, se quedan y la
+  pantalla lo dice.
 
-**Anular (P2)**
-- **RF-008** · Al anular una venta, sus comisiones se anulan. Si alguna ya se había pagado, queda como saldo a favor de
-  la tienda con esa persona y se descuenta del próximo pago.
-
-**Reportes (P1)**
-- **RF-009** · En *Resultados*, las comisiones son costo de la venta: restan de la utilidad bruta, en la parte cobrada
-  de su venta (spec 0014), y aparecen en *Ver cálculo* como *Comisiones por cambio de aceite*, cada una con su venta.
-- **RF-010** · Pagarlas no vuelve a restar: el pago mueve plata, no ganancia.
-
-**Lo del cajero (P3)**
-- **RF-011** · El cajero ve sus propias comisiones: por pagar y pagadas. No ve las de los demás.
+**Reportes (P1 y P2)**
+- **RF-010** · Las comisiones restan de la utilidad bruta como costo, y *Ver cálculo* las muestra con su enlace.
+- **RF-011** · (P2) En *Reportes › Gastos*, filtrando *"Comisión cambio de aceite"*, se ve cada una con la persona;
+  el total es lo que se pagó en comisiones en el período.
 
 ## 6. Manejo de errores
 
-- Una venta con aceite y *se cambió aquí* sin persona → no puede pasar: la persona viene escogida de entrada.
-- Pagar desde el cajón sin turno abierto → *"No hay turno abierto: págalo por fuera, o abre el turno"*.
-- Pagar desde el cajón más de lo que debería haber → se pide confirmar, como un gasto del cajón.
-- Pagar dos veces lo mismo (doble clic, reintento) → una llave por pago, como los gastos: queda uno.
-- Cambiar el monto de un repuesto con comisiones por pagar → las que ya están no cambian; se avisa.
+- Un renglón de aceite sin escoger → no deja cobrar: *"Escoge si el MOTUL 7100 se cambia aquí"*.
+- *Se cambia* con una persona que ya no está activa → no deja cobrar; se escoge otra.
+- Un repuesto que dejó de pagar comisión entre armar la venta y cobrarla → el precio visto no cuadra y no se cobra,
+  como hoy con un precio que cambió.
+- Anular una venta cuyo turno de comisión ya se cerró → se anula la venta y se avisa que la comisión se queda.
 
 ## 7. No funcionales
 
-- **Plata:** pesos enteros. Por persona, *lo registrado − lo anulado = por pagar + pagado*, con su prueba.
-- **Roles:** marcar repuestos y pagar es del administrador; el cajero registra (al cobrar) y ve lo suyo.
-- **Auditoría:** anular un pago y cambiar el monto de un repuesto quedan con quién y por qué.
-- **Esquema:** una migración nueva (la marca y el monto en el repuesto; la comisión; el pago).
-- **Caja:** un pago desde el cajón entra al arqueo como una salida más, con su línea propia en el cierre.
+- **Plata:** pesos enteros; precio sin cambio = precio − comisión, nunca negativo (una comisión mayor que el precio no
+  se deja cobrar).
+- **Caja:** la comisión es un gasto del cajón: entra al arqueo, al cierre, a su comprobante y a su correo sin nada nuevo.
+- **Roles:** marcar es del administrador; escoger y cobrar, del que vende.
+- **Esquema:** la categoría del sistema y, en el renglón, la elección, la persona, la comisión y el gasto.
 
 ## 8. Criterios de aceptación
 
-- [ ] Con MOTUL 7100 marcado en $3.000, cobrar uno con Gustavo como quien hizo el cambio deja una comisión de $3.000
-      por pagar a Gustavo; el total de la venta sigue en $65.000.
-- [ ] Cobrar 2 × MOTUL 5100 deja $6.000 (dos comisiones); desmarcar uno *se cambió aquí* deja $3.000.
-- [ ] El lubricante de cadena, sin marca, no deja comisión.
-- [ ] En *Comisiones*, Gustavo con tres cambios debe $9.000; pagarle desde el cajón baja el esperado en $9.000 y deja
-      los tres pagados.
-- [ ] Anular la venta de un cambio ya pagado deja $3.000 a favor de la tienda, que se descuentan del próximo pago.
-- [ ] La utilidad bruta del día baja $3.000 por cada cambio de un aceite de contado; uno fiado, en la parte cobrada.
+- [ ] Un MOTUL 7100 ($65.000, comisión $3.000) *no se cambia*: la venta cobra $62.000 y no hay gasto.
+- [ ] *Se cambia · Gustavo*: la venta cobra $65.000, hay un gasto del cajón de $3.000 a nombre de Gustavo, y el
+      esperado del cierre baja $3.000.
+- [ ] 2 × MOTUL 5100 *se cambia*: un gasto de $6.000.
+- [ ] Sin escoger no se cobra; el lubricante de cadena (sin marca) no pregunta nada.
+- [ ] La utilidad bruta baja $3.000 por cambio, y *Ver cálculo* muestra la comisión con la venta y la persona.
+- [ ] Anular la venta en el mismo turno anula el gasto; en otro turno lo deja y lo avisa.
 
 ## 9. Qué no se toca
 
-- El precio y el comprobante que ve el cliente.
-- La nómina: la comisión es aparte (si se paga junto con ella, son dos registros).
+- La nómina: la comisión es aparte.
+- Los reportes y el cierre: ya cuentan los gastos del cajón de costo.
 
 ## Fuera de alcance
 
-- Comisiones por otros servicios (cambio de llanta, mano de obra general). Si el dueño las quiere, la marca del
-  repuesto (decisión 1) sirve igual para cualquier repuesto.
-- Porcentajes: la comisión es un monto fijo por unidad.
-- Comisiones de ventas pasadas: arranca el día que se construya. [NECESITA ACLARACIÓN: ¿se cargan las 6 ventas de
-  aceite que ya hay (del 26 y 28 de septiembre)?]
+- Partir un renglón (unas unidades con cambio y otras sin).
+- Comisiones de ventas pasadas.
+- Otras comisiones (mano de obra general): la marca del repuesto sirve igual para cualquier repuesto.

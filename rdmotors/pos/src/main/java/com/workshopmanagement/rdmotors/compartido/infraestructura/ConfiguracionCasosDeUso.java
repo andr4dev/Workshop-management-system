@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.workshopmanagement.rdmotors.caja.aplicacion.PagarComisionDeCambio;
 import com.workshopmanagement.rdmotors.caja.aplicacion.AbrirTurno;
 import com.workshopmanagement.rdmotors.caja.aplicacion.ActualizarCategoriaGasto;
 import com.workshopmanagement.rdmotors.caja.aplicacion.AnularGasto;
@@ -255,8 +256,16 @@ class ConfiguracionCasosDeUso {
                             RepositorioKardex kardex,
                             RepositorioAuditoria auditoria,
                             FiarVenta fiar,
-                            Reloj reloj) {
-        return new CobrarVenta(ventas, turnos, variantes, kardex, auditoria, fiar, reloj);
+                            Reloj reloj,
+                            PagarComisionDeCambio pagarComision) {
+        return new CobrarVenta(ventas, turnos, variantes, kardex, auditoria, fiar, reloj, pagarComision);
+    }
+
+    /** La comisión de un cambio de aceite sale del cajón al cobrar, como un gasto (spec 0015, decisión 5). */
+    @Bean
+    PagarComisionDeCambio pagarComisionDeCambio(RegistrarGasto registrarGasto, RepositorioCategoriasGasto categorias,
+                                                RepositorioUsuarios usuarios) {
+        return new PagarComisionDeCambio(registrarGasto, categorias, usuarios);
     }
 
     @Bean
@@ -266,8 +275,10 @@ class ConfiguracionCasosDeUso {
                             RepositorioKardex kardex,
                             RepositorioAuditoria auditoria,
                             FiarVenta fiar,
-                            Reloj reloj) {
-        return new AnularVenta(ventas, turnos, variantes, kardex, auditoria, fiar, reloj);
+                            Reloj reloj,
+                            RepositorioGastos gastos,
+                            AnularGasto anularGasto) {
+        return new AnularVenta(ventas, turnos, variantes, kardex, auditoria, fiar, reloj, gastos, anularGasto);
     }
 
     @Bean

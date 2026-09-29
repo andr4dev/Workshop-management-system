@@ -259,6 +259,8 @@ export const ventasApi = {
   anular: (id, motivo) => api.post(`/api/ventas/${id}/anulacion`, { motivo }),
   /** ¿Queda a pérdida? El cajero recibe solo `bajoCosto` y `sinCosto`; el administrador, además las cifras. */
   avisoDePerdida: (consulta) => api.post('/api/ventas/aviso-de-perdida', consulta),
+  /** Quién puede haber hecho un cambio de aceite: las personas activas, id y nombre (spec 0015). */
+  personas: () => api.get('/api/ventas/personas'),
 }
 
 /** Los clientes (spec 0008): a quién se le fía y a nombre de quién va una venta. */

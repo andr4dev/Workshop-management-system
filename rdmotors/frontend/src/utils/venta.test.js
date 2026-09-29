@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  escogerCambio, escogerQuien, precioDelRenglon,
   agregarRenglon, aplicarProblemas, billetesSugeridos, cambiarCantidad, cambioDelCobro, claveDelBorrador,
   comandoDeCobro, consultaDePerdida, llaveNueva, montoDescuento, pagosDelCobro, porcentajeDesdeTexto, problemaDelCobro,
   problemaParaAgregar, problemasDeLaVenta, quitarRenglon, refrescarRenglon, refrescarRenglones, restaurarVenta,
@@ -107,7 +108,7 @@ test('el comando de cobro lleva la llave, el precio que se vio y los pagos', () 
   const v = { ...ventaDe38(), descuento: { modo: 'PORCENTAJE', valor: '10', motivo: 'Cliente frecuente' } }
   const comando = comandoDeCobro(v, { forma: 'TRANSFERENCIA' })
   assert.equal(comando.llave, 'llave-fija')
-  assert.deepEqual(comando.renglones[0], { varianteId: 'v-filtro', cantidad: 2, precioVisto: 13000 })
+  assert.deepEqual(comando.renglones[0], { varianteId: 'v-filtro', cantidad: 2, precioVisto: 13000, cambio: null, cambioPorId: null })
   assert.deepEqual(comando.descuento, { modo: 'PORCENTAJE', valor: 10, motivo: 'Cliente frecuente' })
   assert.deepEqual(comando.pagos, [{ forma: 'TRANSFERENCIA', monto: 34200, recibido: null }])
 })
@@ -150,8 +151,8 @@ test('al servidor se le pregunta por la pérdida con los renglones y el descuent
   const v = { ...ventaDe38(), descuento: { modo: 'MONTO', valor: 20000, motivo: 'Negociación' } }
   assert.deepEqual(consultaDePerdida(v), {
     renglones: [
-      { varianteId: 'v-filtro', cantidad: 2, precioVisto: 13000 },
-      { varianteId: 'v-pastillas', cantidad: 1, precioVisto: 12000 },
+      { varianteId: 'v-filtro', cantidad: 2, precioVisto: 13000, cambio: null, cambioPorId: null },
+      { varianteId: 'v-pastillas', cantidad: 1, precioVisto: 12000, cambio: null, cambioPorId: null },
     ],
     descuento: { modo: 'MONTO', valor: 20000, motivo: 'Negociación' },
   })
@@ -250,4 +251,46 @@ test('la venta a medias se guarda por persona: otra persona en el mismo equipo n
   assert.equal(claveDelBorrador('id-de-carolina'), 'rdmotors:venta-en-curso:id-de-carolina')
   assert.notEqual(claveDelBorrador('id-de-carolina'), claveDelBorrador('id-de-andres'))
   assert.equal(claveDelBorrador('id-de-carolina'), claveDelBorrador('id-de-carolina'))
+})
+
+// ── El cambio de aceite (spec 0015) ──────────────────────────────────────────
+
+const MOTUL = { id: 'v-motul', codigo: '104089', nombre: 'MOTUL 7100 10W30', marca: 'MOTUL', precio: 65000, stock: 9,
+  comisionCambio: 3000 }
+
+test('un aceite que paga comisión entra sin escoger, y sin escoger no se cobra', () => {
+  const venta = { ...ventaNueva('llave'), renglones: agregarRenglon([], MOTUL) }
+  assert.equal(venta.renglones[0].cambio, '')
+  assert.deepEqual(problemasDeLaVenta(venta), ['Escoge si el MOTUL 7100 10W30 se cambia aquí'])
+  assert.equal(totalesDe(venta).total, 65000, 'mientras tanto se ve el precio del repuesto')
+})
+
+test('no se cambia: $62.000 y sin quién; se cambia: $65.000 y quién arranca con el que registra', () => {
+  const renglones = agregarRenglon([], MOTUL)
+  const sinCambio = escogerCambio(renglones, 'v-motul', 'NO_SE_CAMBIA', 'u-ruben')
+  assert.equal(precioDelRenglon(sinCambio[0]), 62000)
+  assert.equal(sinCambio[0].cambioPorId, null)
+  assert.equal(totalesDe({ ...ventaNueva('llave'), renglones: sinCambio }).total, 62000)
+
+  const seCambia = escogerCambio(renglones, 'v-motul', 'SE_CAMBIA', 'u-ruben')
+  assert.equal(precioDelRenglon(seCambia[0]), 65000)
+  assert.equal(seCambia[0].cambioPorId, 'u-ruben')
+  const gustavo = escogerQuien(seCambia, 'v-motul', 'u-gustavo')
+  assert.equal(gustavo[0].cambioPorId, 'u-gustavo')
+  assert.equal(escogerCambio(gustavo, 'v-motul', 'SE_CAMBIA', 'u-ruben')[0].cambioPorId, 'u-gustavo',
+    'volver a escoger sí no pisa a quien ya se escogió')
+  assert.deepEqual(problemasDeLaVenta({ ...ventaNueva('llave'), renglones: escogerQuien(seCambia, 'v-motul', '') }),
+    ['Di quién le cambió el aceite al MOTUL 7100 10W30'])
+})
+
+test('al servidor va el precio que se ve y lo que se escogió; el filtro no manda nada de eso', () => {
+  const renglones = escogerCambio(agregarRenglon(agregarRenglon([], MOTUL), { ...MOTUL, id: 'v-filtro', comisionCambio: null, precio: 8000 }),
+    'v-motul', 'NO_SE_CAMBIA', 'u-ruben')
+  const venta = { ...ventaNueva('llave'), renglones }
+  const comando = comandoDeCobro(venta, { forma: 'EFECTIVO', recibido: '' })
+  assert.deepEqual(comando.renglones, [
+    { varianteId: 'v-motul', cantidad: 1, precioVisto: 62000, cambio: 'NO_SE_CAMBIA', cambioPorId: null },
+    { varianteId: 'v-filtro', cantidad: 1, precioVisto: 8000, cambio: null, cambioPorId: null },
+  ])
+  assert.deepEqual(consultaDePerdida(venta).renglones[0].precioVisto, 62000)
 })

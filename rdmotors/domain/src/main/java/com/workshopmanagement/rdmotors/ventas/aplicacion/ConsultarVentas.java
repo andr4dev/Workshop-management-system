@@ -95,7 +95,9 @@ public class ConsultarVentas {
     /** Los nombres, los clientes y las deudas de toda la lista, con una consulta de cada uno. */
     private List<DetalleVenta> detallesDe(List<Venta> lista) {
         Map<UUID, String> nombres = usuarios.nombresDe(lista.stream()
-                .flatMap(v -> Stream.of(v.getVendidoPorId(), v.getAnuladaPorId()))
+                .flatMap(v -> Stream.concat(Stream.of(v.getVendidoPorId(), v.getAnuladaPorId()),
+                        // Quién cambió cada aceite (spec 0015): en la misma consulta de nombres.
+                        v.getLineas().stream().map(l -> l.getCambioPorId())))
                 .filter(Objects::nonNull)
                 .toList());
         List<UUID> clienteIds = lista.stream().map(Venta::getClienteId).filter(Objects::nonNull).distinct().toList();

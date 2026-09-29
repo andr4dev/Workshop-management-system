@@ -50,7 +50,8 @@ export function armarTicket(venta, tienda, { atendio = venta.vendidoPor?.nombre 
     atendio,
     anulada: venta.estado === 'ANULADA' ? { fecha: fechaDelTicket(venta.anuladaEn) } : null,
     renglones: venta.renglones.map((r) => ({
-      descripcion: [r.nombre, r.marca].filter(Boolean).join(' '),
+      // Spec 0015: el aceite que no se cambió aquí lo dice, porque su precio es otro.
+      descripcion: [r.nombre, r.marca, r.cambio === 'NO_SE_CAMBIA' ? '(sin cambio)' : null].filter(Boolean).join(' '),
       codigo: r.codigo,
       cantidad: r.cantidad,
       precioUnitario: r.precioUnitario,

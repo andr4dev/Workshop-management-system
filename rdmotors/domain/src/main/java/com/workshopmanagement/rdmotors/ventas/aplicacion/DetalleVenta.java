@@ -12,6 +12,7 @@ import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
 import com.workshopmanagement.rdmotors.compartido.dominio.FormaPago;
 import com.workshopmanagement.rdmotors.compartido.dominio.Persona;
 import com.workshopmanagement.rdmotors.inventario.dominio.Variante;
+import com.workshopmanagement.rdmotors.ventas.dominio.CambioDeAceite;
 import com.workshopmanagement.rdmotors.ventas.dominio.EstadoVenta;
 import com.workshopmanagement.rdmotors.ventas.dominio.LineaVenta;
 import com.workshopmanagement.rdmotors.ventas.dominio.ModoDescuento;
@@ -63,14 +64,21 @@ public record DetalleVenta(
         }
     }
 
+    /**
+     * @param cambio    solo en un aceite que paga comisión (spec 0015): si se cambió aquí o no
+     * @param cambioPor quién lo cambió, si se cambió
+     * @param comision  la que se pagó del cajón, o la que se descontó del precio
+     */
     public record Renglon(UUID lineaId, int posicion, UUID varianteId, String codigo, String nombre,
-                          String marca, int cantidad, Dinero precioUnitario, Dinero total) {
+                          String marca, int cantidad, Dinero precioUnitario, Dinero total,
+                          CambioDeAceite cambio, Persona cambioPor, Dinero comision) {
 
-        static Renglon de(LineaVenta l) {
+        static Renglon de(LineaVenta l, Map<UUID, String> nombres) {
             Variante v = l.getVariante();
             return new Renglon(l.getId(), l.getPosicion(), v.getId(), v.getCodigo(),
                     v.getProducto().getNombre(), v.getMarcaRepuesto(), l.getCantidad(),
-                    l.getPrecioUnitario(), l.getTotal());
+                    l.getPrecioUnitario(), l.getTotal(), l.getCambio(),
+                    l.getCambioPorId() == null ? null : Persona.de(l.getCambioPorId(), nombres), l.getComision());
         }
     }
 
@@ -93,7 +101,7 @@ public record DetalleVenta(
                 Persona.de(v.getVendidoPorId(), nombres),
                 v.getCobradaEn(), v.getSubtotal(), v.getDescuentoMonto(), v.getDescuentoModo(),
                 v.getDescuentoPorcentaje(), v.getDescuentoMotivo(), v.getTotal(), v.cambio(),
-                v.getLineas().stream().map(Renglon::de).toList(),
+                v.getLineas().stream().map(l -> Renglon.de(l, nombres)).toList(),
                 v.getPagos().stream().map(Pago::de).toList(),
                 v.getAnuladaEn(), Persona.de(v.getAnuladaPorId(), nombres), v.getMotivoAnulacion(),
                 v.getClienteId() == null ? null : ClienteDeLaVenta.de(clientes.get(v.getClienteId())),

@@ -15,6 +15,8 @@ import com.workshopmanagement.rdmotors.compartido.infraestructura.seguridad.Acto
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
 import com.workshopmanagement.rdmotors.compartido.dominio.FormaPago;
 import com.workshopmanagement.rdmotors.compartido.dominio.Persona;
+import com.workshopmanagement.rdmotors.usuarios.dominio.puerto.RepositorioUsuarios;
+import com.workshopmanagement.rdmotors.ventas.dominio.CambioDeAceite;
 import com.workshopmanagement.rdmotors.ventas.aplicacion.AnularVenta;
 import com.workshopmanagement.rdmotors.ventas.aplicacion.CobrarVenta;
 import com.workshopmanagement.rdmotors.ventas.aplicacion.ComandoCobrarVenta;
@@ -52,6 +54,7 @@ class VentaController {
     private final AnularVenta anularVenta;
     private final ConsultarVentas consultarVentas;
     private final RevisarPerdida revisarPerdida;
+    private final RepositorioUsuarios usuarios;
 
     @PostMapping
     ResponseEntity<RespuestaVenta> cobrar(@Valid @RequestBody PeticionCobro peticion,
@@ -110,7 +113,7 @@ class VentaController {
     Object avisoDePerdida(@RequestBody PeticionAviso peticion, @ActorActual Actor actor) {
         List<ComandoCobrarVenta.Renglon> renglones = peticion.renglones() == null ? List.of()
                 : peticion.renglones().stream()
-                        .map(r -> new ComandoCobrarVenta.Renglon(r.varianteId(), r.cantidad(), r.precioVisto()))
+                        .map(PeticionRenglon::aRenglon)
                         .toList();
         PeticionDescuento d = peticion.descuento();
         var perdida = revisarPerdida.ejecutar(renglones,
@@ -144,7 +147,7 @@ class VentaController {
 
         ComandoCobrarVenta aComando(Actor actor) {
             return new ComandoCobrarVenta(llave,
-                    renglones.stream().map(r -> new ComandoCobrarVenta.Renglon(r.varianteId(), r.cantidad(), r.precioVisto())).toList(),
+                    renglones.stream().map(PeticionRenglon::aRenglon).toList(),
                     descuento == null ? null
                             : new ComandoCobrarVenta.ComandoDescuento(descuento.modo(), descuento.valor(), descuento.motivo()),
                     pagos == null ? List.of()
@@ -153,7 +156,26 @@ class VentaController {
         }
     }
 
-    record PeticionRenglon(@NotNull UUID varianteId, @Positive int cantidad, @PositiveOrZero long precioVisto) {
+    /** {@code cambio} y {@code cambioPorId} solo en un aceite que paga comisión por cambio (spec 0015). */
+    record PeticionRenglon(@NotNull UUID varianteId, @Positive int cantidad, @PositiveOrZero long precioVisto,
+                           CambioDeAceite cambio, UUID cambioPorId) {
+
+        ComandoCobrarVenta.Renglon aRenglon() {
+            return new ComandoCobrarVenta.Renglon(varianteId, cantidad, precioVisto, cambio, cambioPorId);
+        }
+    }
+
+    /**
+     * Quién puede haber hecho un cambio de aceite: las personas activas de la tienda (spec 0015, decisión 4). Lo ve el
+     * cajero, que no ve la lista de usuarios; solo el id y el nombre.
+     */
+    @GetMapping("/personas")
+    List<RespuestaPersona> personas() {
+        return usuarios.todos().stream().filter(u -> u.isActivo())
+                .map(u -> new RespuestaPersona(u.getId(), u.getNombre())).toList();
+    }
+
+    record RespuestaPersona(UUID id, String nombre) {
     }
 
     record PeticionAviso(List<PeticionRenglon> renglones, PeticionDescuento descuento) {
@@ -197,12 +219,15 @@ class VentaController {
     record RespuestaCliente(UUID id, String nombre, String documento) {
     }
 
+    /** {@code cambio}, {@code cambioPor} y {@code comision} solo en un aceite que paga comisión (spec 0015). */
     record RespuestaRenglon(UUID lineaId, int posicion, UUID varianteId, String codigo, String nombre, String marca,
-                            int cantidad, long precioUnitario, long total) {
+                            int cantidad, long precioUnitario, long total, CambioDeAceite cambio,
+                            com.workshopmanagement.rdmotors.compartido.dominio.Persona cambioPor, Long comision) {
 
         static RespuestaRenglon de(DetalleVenta.Renglon r) {
             return new RespuestaRenglon(r.lineaId(), r.posicion(), r.varianteId(), r.codigo(), r.nombre(), r.marca(),
-                    r.cantidad(), pesos(r.precioUnitario()), pesos(r.total()));
+                    r.cantidad(), pesos(r.precioUnitario()), pesos(r.total()), r.cambio(), r.cambioPor(),
+                    r.comision() == null ? null : pesos(r.comision()));
         }
     }
 

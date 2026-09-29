@@ -89,8 +89,12 @@ final class EscenarioCaja {
 
     final CalcularArqueo calcularArqueo = new CalcularArqueo(ventas, gastos, retiros, compras, abonos);
     final AbrirTurno abrirTurno = new AbrirTurno(turnos, reloj);
-    final CobrarVenta cobrarVenta = new CobrarVenta(ventas, turnos, variantes, kardex, auditoria, fiar, reloj);
-    final AnularVenta anularVenta = new AnularVenta(ventas, turnos, variantes, kardex, auditoria, fiar, reloj);
+    /** Con el pago de la comisión de un cambio de aceite (spec 0015): sale del cajón como un gasto. */
+    final CobrarVenta cobrarVenta = new CobrarVenta(ventas, turnos, variantes, kardex, auditoria, fiar, reloj,
+            new PagarComisionDeCambio(new RegistrarGasto(gastos, categorias, cuentas, turnos, calcularArqueo, reloj),
+                    categorias, usuarios));
+    final AnularVenta anularVenta = new AnularVenta(ventas, turnos, variantes, kardex, auditoria, fiar, reloj, gastos,
+            new AnularGasto(gastos, turnos, auditoria, reloj));
     final RegistrarGasto registrarGasto = new RegistrarGasto(gastos, categorias, cuentas, turnos, calcularArqueo, reloj);
     final AnularGasto anularGasto = new AnularGasto(gastos, turnos, auditoria, reloj);
     final RegistrarRetiro registrarRetiro = new RegistrarRetiro(retiros, turnos, calcularArqueo, reloj);

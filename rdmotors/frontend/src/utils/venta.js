@@ -57,8 +57,46 @@ export function renglonDesdeRepuesto(r) {
     costoPromedio: r.costoPromedio == null ? null : Number(r.costoPromedio),
     cantidad: 1,
     problema: null,
+    // Spec 0015: si paga comisión por cambio de aceite, el cajero escoge siempre; nada viene escogido.
+    comisionCambio: r.comisionCambio == null ? null : Number(r.comisionCambio),
+    cambio: '',
+    cambioPorId: null,
   }
 }
+
+// ── El cambio de aceite (spec 0015) ──────────────────────────────────────────
+
+/** Si el renglón es de un repuesto que paga comisión por cambio: hay que escoger si se cambia aquí. */
+export const pagaComision = (r) => r.comisionCambio != null
+
+/** El precio por unidad que se cobra: el del repuesto, o sin la comisión si no se cambia aquí ($65.000 → $62.000). */
+export const precioDelRenglon = (r) => (pagaComision(r) && r.cambio === 'NO_SE_CAMBIA' ? r.precio - r.comisionCambio : r.precio)
+
+/**
+ * Escoge si el aceite se cambia aquí. Al escoger que sí, quién lo cambió arranca con `quien` (el que registra), si
+ * no se había escogido a otro; al escoger que no, no hay quién.
+ */
+export function escogerCambio(renglones, varianteId, cambio, quien) {
+  return renglones.map((r) => (r.varianteId !== varianteId ? r : {
+    ...r,
+    cambio,
+    cambioPorId: cambio === 'SE_CAMBIA' ? (r.cambioPorId ?? quien ?? null) : null,
+  }))
+}
+
+/** Quién le cambió el aceite a ese renglón. */
+export function escogerQuien(renglones, varianteId, personaId) {
+  return renglones.map((r) => (r.varianteId === varianteId ? { ...r, cambioPorId: personaId || null } : r))
+}
+
+/** Lo que el servidor necesita de un renglón: el precio que se ve, y si paga comisión, lo que se escogió. */
+const renglonParaElServidor = (r) => ({
+  varianteId: r.varianteId,
+  cantidad: r.cantidad,
+  precioVisto: precioDelRenglon(r),
+  cambio: pagaComision(r) && r.cambio ? r.cambio : null,
+  cambioPorId: pagaComision(r) && r.cambio === 'SE_CAMBIA' ? r.cambioPorId : null,
+})
 
 /** `null` si se puede agregar una unidad más de ese repuesto; si no, por qué. */
 export function problemaParaAgregar(repuesto, renglones) {
@@ -87,7 +125,7 @@ export const quitarRenglon = (renglones, varianteId) => renglones.filter((r) => 
 
 // ── Totales ──────────────────────────────────────────────────────────────────
 
-export const subtotalDe = (renglones) => renglones.reduce((s, r) => s + r.precio * r.cantidad, 0)
+export const subtotalDe = (renglones) => renglones.reduce((s, r) => s + precioDelRenglon(r) * r.cantidad, 0)
 
 /** "7,5" o "7.5" → 7.5. `null` si no es un número. */
 export function porcentajeDesdeTexto(texto) {
@@ -119,6 +157,11 @@ export function problemasDeLaVenta(venta) {
   const problemas = []
   if (venta.renglones.length === 0) problemas.push('La venta no tiene repuestos')
   for (const r of venta.renglones) {
+    // Spec 0015: sin escoger no se cobra, y si se cambia hay que decir quién.
+    if (pagaComision(r) && !r.cambio) problemas.push(`Escoge si el ${r.nombre} se cambia aquí`)
+    else if (pagaComision(r) && r.cambio === 'SE_CAMBIA' && !r.cambioPorId) {
+      problemas.push(`Di quién le cambió el aceite al ${r.nombre}`)
+    }
     if (r.problema) problemas.push(r.problema.texto)
     else if (r.cantidad > r.stock) {
       problemas.push(r.stock === 0 ? `Ya no hay unidades de ${r.codigo}` : `De ${r.codigo} solo hay ${r.stock}`)
@@ -135,7 +178,7 @@ export function problemasDeLaVenta(venta) {
  */
 export function consultaDePerdida(venta) {
   return {
-    renglones: venta.renglones.map((r) => ({ varianteId: r.varianteId, cantidad: r.cantidad, precioVisto: r.precio })),
+    renglones: venta.renglones.map(renglonParaElServidor),
     descuento: venta.descuento
       ? { modo: venta.descuento.modo, valor: venta.descuento.valor, motivo: venta.descuento.motivo ?? null }
       : null,
@@ -254,7 +297,7 @@ export function comandoDeCobro(venta, cobro) {
   const { total } = totalesDe(venta)
   return {
     llave: venta.llave,
-    renglones: venta.renglones.map((r) => ({ varianteId: r.varianteId, cantidad: r.cantidad, precioVisto: r.precio })),
+    renglones: venta.renglones.map(renglonParaElServidor),
     descuento: venta.descuento
       ? { modo: venta.descuento.modo, valor: Number(venta.descuento.valor), motivo: venta.descuento.motivo }
       : null,
@@ -284,7 +327,8 @@ export function aplicarProblemas(renglones, problemas) {
     const p = porRepuesto.get(r.varianteId)
     if (!p) return r
     const actualizado = { ...r }
-    if (p.tipo === 'PRECIO_CAMBIADO') actualizado.precio = p.precioActual
+    // Sin cambio, el precio que responde el servidor ya trae la comisión restada: se guarda el del repuesto.
+    if (p.tipo === 'PRECIO_CAMBIADO') actualizado.precio = p.precioActual + (r.cambio === 'NO_SE_CAMBIA' ? r.comisionCambio ?? 0 : 0)
     if (p.tipo === 'SIN_STOCK') actualizado.stock = p.disponible
     // El precio actualizado ya no bloquea: queda como aviso para que el cajero lo mire.
     actualizado.problema = p.tipo === 'PRECIO_CAMBIADO' ? null : { tipo: p.tipo, texto: `${r.codigo}: ${textoDeProblema(p)}` }
@@ -303,6 +347,10 @@ export function refrescarRenglon(renglon, repuesto) {
     stock: Number(repuesto.stock),
     costoPromedio: repuesto.costoPromedio == null ? null : Number(repuesto.costoPromedio),
     precio,
+    // Si dejó de pagar comisión, ya no hay nada que escoger; si empezó a pagar, se escoge (spec 0015).
+    comisionCambio: repuesto.comisionCambio == null ? null : Number(repuesto.comisionCambio),
+    cambio: repuesto.comisionCambio == null ? '' : renglon.cambio ?? '',
+    cambioPorId: repuesto.comisionCambio == null ? null : renglon.cambioPorId ?? null,
     aviso: precio !== renglon.precio
       ? `El precio cambió de ${formatoCOP(renglon.precio)} a ${formatoCOP(precio)} mientras la venta estaba guardada.`
       : renglon.aviso ?? null,

@@ -17,6 +17,7 @@ import { armarTicket, htmlDelTicket, problemasDelTicket } from '../utils/ticket'
 import { esTurnoAjeno, textoDeTurnoAjeno } from '../utils/permisos'
 import {
   agregarRenglon, aplicarProblemas, cambiarCantidad, CLAVE_BORRADOR, claveDelBorrador, comandoDeCobro, consultaDePerdida,
+  escogerCambio, escogerQuien,
   problemaParaAgregar, problemasDeLaVenta, quitarRenglon, refrescarRenglones, restaurarVenta, serializarVenta,
   textoDePerdida, totalesDe, unidadesDe, ventaAlVolver, ventaNueva,
 } from '../utils/venta'
@@ -102,7 +103,17 @@ export default function Vender() {
   const [impresion, setImpresion] = useState({ ventaId: null, estado: null })
   const [viendoTicket, setViendoTicket] = useState(false)
   const [viendoCatalogo, setViendoCatalogo] = useState(false)
+  // Quién puede haber hecho un cambio de aceite (spec 0015). Si no llega, se escoge a quien registra.
+  const [personas, setPersonas] = useState([])
   const buscador = useRef(null)
+
+  useEffect(() => {
+    let vigente = true
+    ventasApi.personas()
+      .then((lista) => { if (vigente) setPersonas(lista) })
+      .catch(() => { if (vigente) setPersonas([{ id: usuario.id, nombre: usuario.nombre }]) })
+    return () => { vigente = false }
+  }, [usuario.id, usuario.nombre])
 
   const totales = totalesDe(venta)
   const problemas = problemasDeLaVenta(venta)
@@ -124,7 +135,8 @@ export default function Vender() {
     }, 500)
     return () => { vigente = false; clearTimeout(espera) }
   }, [consulta, turno, ajeno, venta.renglones.length])
-  const perdida = venta.renglones.length > 0 && !bloqueada ? avisoPerdida : null
+  // Solo si de verdad queda a pérdida: el servidor también responde cuando no, y eso pintaba un ⚠ sin texto.
+  const perdida = venta.renglones.length > 0 && !bloqueada && textoDePerdida(avisoPerdida) ? avisoPerdida : null
 
   // Se guarda con cada cambio. Como lo guardado ya se retomó al abrir, guardar nunca pisa una venta pendiente.
   useEffect(() => {
@@ -401,6 +413,9 @@ export default function Vender() {
                       bloqueado={bloqueada}
                       onCantidad={(texto) => setVenta((v) => ({ ...v, renglones: cambiarCantidad(v.renglones, r.varianteId, texto) }))}
                       onQuitar={() => { setVenta((v) => ({ ...v, renglones: quitarRenglon(v.renglones, r.varianteId) })); enfocarBuscador() }}
+                      personas={personas}
+                      onCambio={(cambio) => setVenta((v) => ({ ...v, renglones: escogerCambio(v.renglones, r.varianteId, cambio, usuario.id) }))}
+                      onQuien={(id) => setVenta((v) => ({ ...v, renglones: escogerQuien(v.renglones, r.varianteId, id) }))}
                     />
                   ))}
                 </ul>
