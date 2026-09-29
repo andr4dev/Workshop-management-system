@@ -169,6 +169,37 @@ export function totalesDe(venta) {
   return { subtotal, descuento, total: subtotal - descuento }
 }
 
+/**
+ * El pedido, renglón por renglón, para verlo al cobrar: qué se lleva, cuánto sale cada cosa y, en un aceite, lo que se
+ * escogió. Con descuento, el subtotal y el descuento. Las partes suman el total que se cobra.
+ *
+ * @param personas para decir quién cambia el aceite por su nombre
+ */
+export function desgloseDelCobro(venta, personas = []) {
+  const { subtotal, descuento, total } = totalesDe(venta)
+  const renglones = venta.renglones.map((r) => {
+    const precio = precioDelRenglon(r)
+    const quien = personas.find((p) => p.id === r.cambioPorId)?.nombre
+    const detalle = [
+      r.cantidad > 1 ? `${formatoCOP(precio)} c/u` : null,
+      pagaComision(r) && r.cambio === 'SE_CAMBIA' ? `se cambia aquí${quien ? `, lo cambia ${quien}` : ''}` : null,
+      pagaComision(r) && r.cambio === 'NO_SE_CAMBIA' ? 'sin cambio' : null,
+    ].filter(Boolean).join(' · ')
+    return { varianteId: r.varianteId, cantidad: r.cantidad, nombre: r.nombre, detalle, total: precio * r.cantidad }
+  })
+  const d = venta.descuento
+  return {
+    renglones,
+    subtotal,
+    descuento: descuento > 0 ? {
+      texto: d.modo === 'PORCENTAJE' ? `Descuento (${d.valor}%)` : 'Descuento',
+      motivo: d.motivo ?? '',
+      monto: descuento,
+    } : null,
+    total,
+  }
+}
+
 /** Lo que impide cobrar, en frases. Vacío si se puede. */
 export function problemasDeLaVenta(venta) {
   const problemas = []

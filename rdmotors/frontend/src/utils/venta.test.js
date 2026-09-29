@@ -1,13 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  escogerCambio, escogerQuien, precioDelRenglon, preguntaElCambio,
+  desgloseDelCobro, escogerCambio, escogerQuien, precioDelRenglon, preguntaElCambio,
   agregarRenglon, aplicarProblemas, billetesSugeridos, cambiarCantidad, cambioDelCobro, claveDelBorrador,
   comandoDeCobro, consultaDePerdida, llaveNueva, montoDescuento, pagosDelCobro, porcentajeDesdeTexto, problemaDelCobro,
   problemaParaAgregar, problemasDeLaVenta, quitarRenglon, refrescarRenglon, refrescarRenglones, restaurarVenta,
   serializarVenta, ventaAlVolver, AVISO_RETOMADA,
   textoDePerdida, totalesDe, ventaNueva, fiadoDelCobro,
 } from './venta.js'
+import { formatoCOP } from './formato.js'
 
 const juan = { id: 'c-juan', nombre: 'Juan Pérez', documento: '1234567', celular: '3001234567', debe: 20_000,
   datosQueFaltan: [], fiadoCerrado: false }
@@ -307,6 +308,33 @@ test('desde el catálogo se pregunta al agregar, y entra ya escogido; una unidad
   assert.equal(agregarRenglon(sinEscoger, MOTUL, { cambio: 'NO_SE_CAMBIA' })[0].cambio, 'NO_SE_CAMBIA')
   assert.equal(agregarRenglon([], filtro, { cambio: 'SE_CAMBIA', cambioPorId: 'u-deibis' })[0].cambio, '',
     'al filtro no se le pega una elección')
+})
+
+test('al cobrar se ve el pedido: cada renglón con lo escogido, el descuento, y las partes suman el total', () => {
+  const filtro = { ...MOTUL, id: 'v-filtro', nombre: 'FILTRO DE ACEITE', comisionCambio: null, precio: 11000 }
+  const kixx = { ...MOTUL, id: 'v-kixx', nombre: 'KIXX 20W50', precio: 35000 }
+  let renglones = agregarRenglon([], MOTUL, { cambio: 'SE_CAMBIA', cambioPorId: 'u-carolina' })
+  renglones = agregarRenglon(renglones, MOTUL)
+  renglones = agregarRenglon(renglones, kixx, { cambio: 'NO_SE_CAMBIA' })
+  renglones = agregarRenglon(renglones, filtro)
+  const venta = { ...ventaNueva('llave'), renglones, descuento: { modo: 'MONTO', valor: 4000, motivo: 'Cliente frecuente' } }
+
+  const d = desgloseDelCobro(venta, [{ id: 'u-carolina', nombre: 'Carolina Ruiz' }])
+  assert.deepEqual(d.renglones.map(({ cantidad, nombre, detalle, total }) => [cantidad, nombre, detalle, total]), [
+    [2, 'MOTUL 7100 10W30', `${formatoCOP(65000)} c/u · se cambia aquí, lo cambia Carolina Ruiz`, 130000],
+    [1, 'KIXX 20W50', 'sin cambio', 32000],
+    [1, 'FILTRO DE ACEITE', '', 11000],
+  ])
+  assert.deepEqual(d.descuento, { texto: 'Descuento', motivo: 'Cliente frecuente', monto: 4000 })
+  assert.equal(d.subtotal, 173000)
+  assert.equal(d.total, totalesDe(venta).total, 'el mismo total que se cobra')
+  assert.equal(d.renglones.reduce((s, r) => s + r.total, 0) - d.descuento.monto, d.total)
+
+  const sinDescuento = desgloseDelCobro({ ...venta, descuento: null })
+  assert.equal(sinDescuento.descuento, null)
+  assert.equal(sinDescuento.renglones[0].detalle, `${formatoCOP(65000)} c/u · se cambia aquí`, 'sin la lista de personas, sin nombre')
+  assert.equal(desgloseDelCobro({ ...venta, descuento: { modo: 'PORCENTAJE', valor: '10', motivo: 'x' } }).descuento.texto,
+    'Descuento (10%)')
 })
 
 test('al servidor va el precio que se ve y lo que se escogió; el filtro no manda nada de eso', () => {

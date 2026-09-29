@@ -1,3 +1,35 @@
+/* El pedido (arriba del total): lo que se lleva, para repasarlo con el cliente. Uno largo se desplaza. */
+.pedido {
+  margin: 0 0 var(--esp-3);
+  padding-bottom: var(--esp-3);
+  border-bottom: 1px solid var(--border);
+}
+.pedidoLista {
+  max-height: min(34vh, 260px);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.pedidoRenglon {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  padding: 5px 0;
+}
+.pedidoRenglon + .pedidoRenglon { border-top: 1px dashed var(--border-subtle, var(--border)); }
+.pedidoTexto { display: flex; flex-direction: column; min-width: 0; }
+.pedidoNombre { font-size: 14px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.pedidoCantidad { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.pedidoDetalle { display: block; font-size: 12.5px; font-weight: 400; color: var(--text-muted); }
+.pedidoValor { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.pedidoCifras { margin: var(--esp-2) 0 0; }
+.pedidoCifras > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--esp-3); padding: 2px 0; }
+.pedidoCifras dt { font-size: 13.5px; color: var(--text-muted); }
+.pedidoCifras dd { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
 .total {
   display: flex;
   align-items: baseline;

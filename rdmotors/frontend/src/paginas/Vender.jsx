@@ -17,7 +17,7 @@ import { armarTicket, htmlDelTicket, problemasDelTicket } from '../utils/ticket'
 import { esTurnoAjeno, textoDeTurnoAjeno } from '../utils/permisos'
 import {
   agregarRenglon, aplicarProblemas, cambiarCantidad, CLAVE_BORRADOR, claveDelBorrador, comandoDeCobro, consultaDePerdida,
-  escogerCambio, escogerQuien, preguntaElCambio,
+  desgloseDelCobro, escogerCambio, escogerQuien, preguntaElCambio,
   problemaParaAgregar, problemasDeLaVenta, quitarRenglon, refrescarRenglones, restaurarVenta, serializarVenta,
   textoDePerdida, totalesDe, unidadesDe, ventaAlVolver, ventaNueva,
 } from '../utils/venta'
@@ -504,6 +504,7 @@ export default function Vender() {
       {cobrando && (
         <ModalCobro
           total={totales.total}
+          desglose={desgloseDelCobro(venta, personas)}
           cobroAnterior={venta.cobro}
           enviando={enviando}
           error={errorCobro}

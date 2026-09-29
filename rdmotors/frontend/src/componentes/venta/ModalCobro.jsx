@@ -28,9 +28,12 @@ const FORMAS = [
  * algo, y cuánto queda debiendo. El cliente se escoge o se crea aquí mismo, sin salir de la venta, y al escogerlo el
  * cursor pasa a *Fiar*: Enter lo cierra.
  *
+ * Arriba, el pedido renglón por renglón: el cajero lo repasa con el cliente antes de recibir la plata.
+ *
  * @param cobroAnterior  el cobro de un intento que quedó sin respuesta: se reintenta exactamente ese
+ * @param desglose       el pedido (`desgloseDelCobro`); sus partes suman `total`
  */
-export default function ModalCobro({ total, cobroAnterior, onCobrar, onCerrar, enviando, error, sinRespuesta }) {
+export default function ModalCobro({ total, desglose, cobroAnterior, onCobrar, onCerrar, enviando, error, sinRespuesta }) {
   const [cobro, setCobro] = useState(cobroAnterior
     ?? { forma: 'EFECTIVO', recibido: '', efectivo: '', cliente: null, pagaAhora: '', formaPagaAhora: 'EFECTIVO' })
   const [mostrandoCliente, setMostrandoCliente] = useState(false)
@@ -103,6 +106,36 @@ export default function ModalCobro({ total, cobroAnterior, onCobrar, onCerrar, e
         </>
       }
     >
+      {desglose && desglose.renglones.length > 0 && (
+        <section className={estilos.pedido} aria-label="El pedido">
+          <ul className={estilos.pedidoLista}>
+            {desglose.renglones.map((r) => (
+              <li key={r.varianteId} className={estilos.pedidoRenglon}>
+                <span className={estilos.pedidoTexto}>
+                  <span className={estilos.pedidoNombre}>
+                    <span className={estilos.pedidoCantidad}>{r.cantidad} ×</span> {r.nombre}
+                  </span>
+                  {r.detalle && <span className={estilos.pedidoDetalle}>{r.detalle}</span>}
+                </span>
+                <span className={estilos.pedidoValor}>{formatoCOP(r.total)}</span>
+              </li>
+            ))}
+          </ul>
+          {desglose.descuento && (
+            <dl className={estilos.pedidoCifras}>
+              <div><dt>Subtotal</dt><dd>{formatoCOP(desglose.subtotal)}</dd></div>
+              <div className={estilos.pedidoDescuento}>
+                <dt>
+                  {desglose.descuento.texto}
+                  {desglose.descuento.motivo && <span className={estilos.pedidoDetalle}>{desglose.descuento.motivo}</span>}
+                </dt>
+                <dd>− {formatoCOP(desglose.descuento.monto)}</dd>
+              </div>
+            </dl>
+          )}
+        </section>
+      )}
+
       <p className={estilos.total}>
         <span className={estilos.totalEtiqueta}>Total a pagar</span>
         <span className={estilos.totalValor}>{formatoCOP(total)}</span>
