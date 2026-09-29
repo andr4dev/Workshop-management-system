@@ -30,6 +30,9 @@ public class ActualizarCategoriaGasto {
         CategoriaGasto categoria = categorias.buscar(categoriaId)
                 .orElseThrow(() -> new ReglaDeNegocioException("La categoría no existe"));
         String limpio = CategoriaGasto.normalizar(nombre);
+        if (PagarComisionDeCambio.esLaDeComisiones(categoria) && !categoria.getNombre().equals(limpio)) {
+            throw new ReglaDeNegocioException(PagarComisionDeCambio.NO_SE_TOCA);
+        }
         categorias.buscarPorNombre(limpio)
                 .filter(otra -> !otra.getId().equals(categoriaId))
                 .ifPresent(otra -> {

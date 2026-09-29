@@ -27,6 +27,17 @@ public class PagarComisionDeCambio {
     /** La categoría del sistema: la siembra la V30. */
     public static final String CATEGORIA = "Comisión cambio de aceite";
 
+    static final String NO_SE_TOCA = "«" + CATEGORIA + "» es la que usa el cobro para pagar los cambios de aceite: "
+            + "no se renombra ni se desactiva";
+
+    /**
+     * El cobro la busca por su nombre: renombrarla o desactivarla dejaría sin cobrar toda venta de un aceite que se
+     * cambia aquí, con un mensaje que el cajero no puede resolver. Por eso la cuidan quienes la editan.
+     */
+    static boolean esLaDeComisiones(CategoriaGasto categoria) {
+        return CATEGORIA.equals(categoria.getNombre());
+    }
+
     private final RegistrarGasto registrarGasto;
     private final RepositorioCategoriasGasto categorias;
     private final RepositorioUsuarios usuarios;

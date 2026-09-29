@@ -28,6 +28,9 @@ public class DesactivarCategoriaGasto {
         actor.exigirAdministrador();
         CategoriaGasto categoria = categorias.buscar(categoriaId)
                 .orElseThrow(() -> new ReglaDeNegocioException("La categoría no existe"));
+        if (PagarComisionDeCambio.esLaDeComisiones(categoria)) {
+            throw new ReglaDeNegocioException(PagarComisionDeCambio.NO_SE_TOCA);
+        }
         categoria.desactivar();
         return categorias.guardar(categoria);
     }

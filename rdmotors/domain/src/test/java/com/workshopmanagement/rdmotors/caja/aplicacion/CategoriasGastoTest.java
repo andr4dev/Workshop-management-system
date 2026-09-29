@@ -103,4 +103,23 @@ class CategoriasGastoTest {
         assertThatThrownBy(() -> registrar.ejecutar("flete de importacion", NaturalezaGasto.COSTO, admin))
                 .hasMessage("Ya existe la categoría «Flete de importación», desactivada");
     }
+
+    @Test
+    @DisplayName("SPEC 0015: la de las comisiones de cambio de aceite no se renombra ni se desactiva; decir si es mensual sí")
+    void laDeComisiones() {
+        CategoriaGasto comisiones = categorias.sembrar(CategoriaGasto.nueva(PagarComisionDeCambio.CATEGORIA,
+                NaturalezaGasto.COSTO));
+
+        assertThatThrownBy(() -> actualizar.ejecutar(comisiones.getId(), "Pago a mecánicos", false, admin))
+                .isInstanceOf(ReglaDeNegocioException.class)
+                .hasMessage("«Comisión cambio de aceite» es la que usa el cobro para pagar los cambios de aceite: "
+                        + "no se renombra ni se desactiva");
+        assertThatThrownBy(() -> desactivar.ejecutar(comisiones.getId(), admin))
+                .hasMessageContaining("no se renombra ni se desactiva");
+        assertThat(comisiones.getNombre()).isEqualTo(PagarComisionDeCambio.CATEGORIA);
+        assertThat(comisiones.isActiva()).isTrue();
+
+        assertThat(actualizar.ejecutar(comisiones.getId(), "  Comisión  cambio de aceite ", false, admin).getNombre())
+                .as("guardarla con el mismo nombre no es renombrarla").isEqualTo(PagarComisionDeCambio.CATEGORIA);
+    }
 }
