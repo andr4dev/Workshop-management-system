@@ -163,6 +163,8 @@ export const repuestosApi = {
   kardex: (id) => api.get(`/api/repuestos/${id}/kardex`),
   /** Las correcciones de la ficha, de la más antigua a la más reciente. */
   correcciones: (id) => api.get(`/api/repuestos/${id}/correcciones`),
+  /** Si paga comisión por cambio de aceite (spec 0015): `monto` en pesos, o `null` para que deje de pagar. */
+  cambiarComision: (id, monto) => api.put(`/api/repuestos/${id}/comision`, { monto }),
 }
 
 export const inventarioApi = {

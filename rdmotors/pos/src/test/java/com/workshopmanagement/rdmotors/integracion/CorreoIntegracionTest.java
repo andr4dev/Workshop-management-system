@@ -243,7 +243,7 @@ class CorreoIntegracionTest {
         assertThat(estado.destinatarios()).containsExactly("ruben@rdmotors.co");
         assertThat(estado.listoParaMandar()).isTrue();
         assertThat(estado.loQueFalta()).isNull();
-        assertThat(estado.remitente()).isEqualTo("RD MOTORS <caja@rdmotors.co>");
+        assertThat(estado.remitente()).isEqualTo("RD MOTOS <caja@rdmotors.co>");
         assertThat(estado.toString()).doesNotContain("xkeysib");
     }
 

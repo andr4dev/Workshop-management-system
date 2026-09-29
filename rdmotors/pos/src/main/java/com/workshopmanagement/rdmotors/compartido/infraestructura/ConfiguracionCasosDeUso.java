@@ -57,6 +57,7 @@ import com.workshopmanagement.rdmotors.compras.dominio.puerto.RepositorioCompras
 import com.workshopmanagement.rdmotors.compras.dominio.puerto.RepositorioCuentas;
 import com.workshopmanagement.rdmotors.compras.dominio.puerto.RepositorioProveedores;
 import com.workshopmanagement.rdmotors.inventario.aplicacion.ActualizarRepuesto;
+import com.workshopmanagement.rdmotors.inventario.aplicacion.CambiarComisionDeCambio;
 import com.workshopmanagement.rdmotors.inventario.aplicacion.BuscarRepuestos;
 import com.workshopmanagement.rdmotors.inventario.aplicacion.CrearRepuesto;
 import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioCategorias;
@@ -176,6 +177,12 @@ class ConfiguracionCasosDeUso {
                                 RepositorioProductos productos,
                                 RepositorioCategorias categorias) {
         return new CrearRepuesto(variantes, productos, categorias);
+    }
+
+    @Bean
+    CambiarComisionDeCambio cambiarComisionDeCambio(RepositorioVariantes variantes, RepositorioAuditoria auditoria,
+                                                    Reloj reloj) {
+        return new CambiarComisionDeCambio(variantes, auditoria, reloj);
     }
 
     @Bean

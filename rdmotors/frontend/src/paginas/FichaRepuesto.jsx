@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import Ayuda from '../componentes/Ayuda'
 import Boton from '../componentes/Boton'
 import InsigniaStock from '../componentes/inventario/InsigniaStock'
+import ModalComisionCambio from '../componentes/inventario/ModalComisionCambio'
 import ModalRepuestoNuevo from '../componentes/compra/ModalRepuestoNuevo'
 import { repuestosApi } from '../api/cliente'
 import { useSesion } from '../componentes/sesion/contexto'
@@ -40,6 +41,7 @@ export default function FichaRepuesto() {
     clave: null, ficha: null, kardex: [], correcciones: [], error: null,
   })
   const [corrigiendo, setCorrigiendo] = useState(false)
+  const [comision, setComision] = useState(false)
 
   useEffect(() => {
     let vigente = true
@@ -65,6 +67,7 @@ export default function FichaRepuesto() {
   function fichaCorregida(actualizada) {
     setEstado((e) => ({ ...e, ficha: actualizada }))
     setCorrigiendo(false)
+    setComision(false)
     // La corrección recién guardada tiene que aparecer en el rastro sin recargar la página.
     repuestosApi.correcciones(id)
       .then((lista) => setEstado((e) => ({ ...e, correcciones: lista })))
@@ -158,6 +161,19 @@ export default function FichaRepuesto() {
             {m ? `${formatoCOP(m.utilidad)} por unidad` : 'Sin costo no hay margen'}
           </span>
         </div>}
+        {/* Spec 0015: lo que se le paga a quien cambia el aceite. Lo ven los dos roles; cambiarlo es del administrador. */}
+        <div className={estilos.tarjeta}>
+          <span className={estilos.tarjetaEtiqueta}>Comisión por cambio</span>
+          <span className={estilos.tarjetaValor}>
+            {ficha.comisionCambio == null ? 'No paga' : formatoCOP(ficha.comisionCambio)}
+          </span>
+          <span className={estilos.tarjetaNota}>
+            {ficha.comisionCambio == null ? 'No es un aceite que se cambie aquí' : 'Para quien hace el cambio, por unidad'}
+            {esAdministrador(usuario) && (
+              <> · <button type="button" className={estilos.enlaceTarjeta} onClick={() => setComision(true)}>Cambiar</button></>
+            )}
+          </span>
+        </div>
         {conCostos && <div className={estilos.tarjeta}>
           <span className={estilos.tarjetaEtiqueta}>Valor al costo</span>
           <span className={estilos.tarjetaValor}>
@@ -297,6 +313,10 @@ export default function FichaRepuesto() {
           </ol>
         )}
       </section>
+
+      {comision && (
+        <ModalComisionCambio repuesto={ficha} onGuardado={fichaCorregida} onCerrar={() => setComision(false)} />
+      )}
 
       {corrigiendo && (
         <ModalRepuestoNuevo

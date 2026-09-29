@@ -858,6 +858,36 @@ class MigracionesIntegracionTest {
         }
     }
 
+    @Test
+    @DisplayName("V29 sobre una base con repuestos: ninguno paga comisión de cambio hasta que se marque, y $0 no es una comisión")
+    void v29ComisionDeCambio() throws SQLException {
+        Flyway hastaV28 = flywayHasta("28");
+        hastaV28.clean();
+        hastaV28.migrate();
+        UUID productoId = UUID.randomUUID();
+        UUID motul = UUID.randomUUID();
+        try (Connection c = conexion()) {
+            ejecutar(c, "insert into producto (id, nombre) values (?, 'MOTUL 7100 10W30')", productoId);
+            ejecutar(c, """
+                    insert into variante (id, producto_id, codigo, marca_repuesto, precio, stock)
+                    values (?, ?, '104089', 'MOTUL', 65000, 9)
+                    """, motul, productoId);
+        }
+
+        flywayHasta(null).migrate();
+
+        try (Connection c = conexion()) {
+            assertThat(valor(c, "select comision_cambio is null from variante where id = ?", motul)).isEqualTo(true);
+            try (PreparedStatement ps = c.prepareStatement("update variante set comision_cambio = 0 where id = ?")) {
+                ps.setObject(1, motul);
+                org.assertj.core.api.Assertions.assertThatThrownBy(ps::executeUpdate)
+                        .hasMessageContaining("ck_variante_comision_cambio");
+            }
+            ejecutar(c, "update variante set comision_cambio = 3000 where id = ?", motul);
+            assertThat(valor(c, "select comision_cambio::bigint from variante where id = ?", motul)).isEqualTo(3000L);
+        }
+    }
+
     private static Object valor(Connection c, String sql, Object... parametros) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             for (int i = 0; i < parametros.length; i++) {

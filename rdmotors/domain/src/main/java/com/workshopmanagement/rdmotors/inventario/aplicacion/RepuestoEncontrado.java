@@ -18,6 +18,9 @@ import com.workshopmanagement.rdmotors.inventario.dominio.Variante;
  * el repuesto nunca se ha comprado y su costo no se conoce. Se muestra como "—", nunca como cero:
  * un cero inventado se lee como un hecho y haría que el repuesto reportara 100% de margen (RF-013).
  *
+ * <p>{@code comisionCambio}: lo que se le paga a quien cambia el aceite, o {@code null} si no paga (spec 0015). Lo
+ * ven los dos roles: el cajero lo necesita al cobrar.
+ *
  * <p>Trae {@code categoriaId} y {@code stockMinimo} porque el formulario de corregir ficha arranca
  * con estos datos. Sin ellos arrancaba con categoría vacía y stock mínimo 5, y al guardar borraba la
  * categoría real y pisaba el stock mínimo.
@@ -34,7 +37,8 @@ public record RepuestoEncontrado(
         int stock,
         int stockMinimo,
         BigDecimal costoPromedio,
-        boolean stockBajo) {
+        boolean stockBajo,
+        Dinero comisionCambio) {
 
     public static RepuestoEncontrado de(Variante variante) {
         Producto producto = variante.getProducto();
@@ -51,7 +55,8 @@ public record RepuestoEncontrado(
                 variante.getStock(),
                 variante.getStockMinimo(),
                 variante.getCostoPromedio(),
-                variante.tieneStockBajo());
+                variante.tieneStockBajo(),
+                variante.getComisionCambio());
     }
 
     /** {@code true} si nunca se ha comprado. El borde lo usa para pintar "—" en vez de una cifra. */

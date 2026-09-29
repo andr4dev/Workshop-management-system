@@ -80,6 +80,14 @@ public class Variante {
     @Column(name = "activa", nullable = false)
     private boolean activa;
 
+    /**
+     * Lo que se le paga a quien hace el cambio, por cada unidad vendida y cambiada en la tienda (spec 0015, decisión
+     * 1): el aceite. {@code null} si el repuesto no paga comisión, que es lo de casi todos.
+     */
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "comision_cambio"))
+    private Dinero comisionCambio;
+
     protected Variante() {
         // JPA
     }
@@ -264,6 +272,23 @@ public class Variante {
     }
 
     /**
+     * Si paga comisión por cambio de aceite, y cuánto (spec 0015, RF-001). {@code null} deja de pagar.
+     *
+     * @throws ReglaDeNegocioException si el monto no es mayor que $0
+     */
+    public void cambiarComisionDeCambio(Dinero monto) {
+        if (monto != null && (monto.esCero() || monto.esNegativo())) {
+            throw new ReglaDeNegocioException("La comisión por cambio tiene que ser mayor a $0; para que no pague, quítala");
+        }
+        this.comisionCambio = monto;
+    }
+
+    /** Si al venderlo y cambiarlo en la tienda se le debe algo a quien hizo el cambio. */
+    public boolean pagaComisionDeCambio() {
+        return comisionCambio != null;
+    }
+
+    /**
      * La ficha tal como se ve en el antes y el después de corregirla (spec 0002, H7). Solo lo que
      * la ficha deja corregir: stock y costo no están porque no se corrigen desde aquí.
      */
@@ -276,6 +301,7 @@ public class Variante {
         foto.put("marca", marcaRepuesto);
         foto.put("precio", precio.valor().longValueExact());
         foto.put("stockMinimo", stockMinimo);
+        foto.put("comisionCambio", comisionCambio == null ? null : comisionCambio.valor().longValueExact());
         return foto;
     }
 

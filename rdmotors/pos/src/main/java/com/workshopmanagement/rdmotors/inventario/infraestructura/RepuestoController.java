@@ -25,6 +25,7 @@ import com.workshopmanagement.rdmotors.compras.infraestructura.DocumentosDeCompr
 import com.workshopmanagement.rdmotors.compras.infraestructura.DocumentosDeCompra.Documento;
 import com.workshopmanagement.rdmotors.compras.infraestructura.DocumentosDeCompra.Descripcion;
 import com.workshopmanagement.rdmotors.inventario.aplicacion.ActualizarRepuesto;
+import com.workshopmanagement.rdmotors.inventario.aplicacion.CambiarComisionDeCambio;
 import com.workshopmanagement.rdmotors.inventario.aplicacion.ActualizarRepuesto.ComandoActualizarRepuesto;
 import com.workshopmanagement.rdmotors.inventario.aplicacion.BuscarRepuestos;
 import com.workshopmanagement.rdmotors.inventario.aplicacion.ComandoCrearRepuesto;
@@ -56,6 +57,7 @@ class RepuestoController {
 
     private final CrearRepuesto crearRepuesto;
     private final ActualizarRepuesto actualizarRepuesto;
+    private final CambiarComisionDeCambio cambiarComisionDeCambio;
     private final BuscarRepuestos buscarRepuestos;
     private final RepositorioKardex kardex;
     private final DocumentosDeCompra documentosDeCompra;
@@ -81,6 +83,20 @@ class RepuestoController {
                                  @Valid @RequestBody PeticionActualizar peticion,
                                  @ActorActual Actor actor) {
         return RespuestaRepuesto.de(actualizarRepuesto.ejecutar(id, peticion.aComando(actor)));
+    }
+
+    /**
+     * Si paga comisión por cambio de aceite, y cuánto (spec 0015, RF-001). {@code monto} nulo: deja de pagar. Reemplaza,
+     * como la ficha: repetirlo deja el mismo estado.
+     */
+    @PutMapping("/{id}/comision")
+    RespuestaRepuesto cambiarComision(@PathVariable UUID id, @RequestBody PeticionComision peticion,
+                                      @ActorActual Actor actor) {
+        return RespuestaRepuesto.de(cambiarComisionDeCambio.ejecutar(id,
+                peticion.monto() == null ? null : Dinero.de(peticion.monto()), actor));
+    }
+
+    record PeticionComision(Long monto) {
     }
 
     /**
@@ -225,7 +241,7 @@ class RepuestoController {
                                     String aplicacion, UUID categoriaId, String categoria,
                                     long precio, int stock, int stockMinimo,
                                     BigDecimal costoPromedio, boolean costoDesconocido,
-                                    boolean stockBajo, Long valor) {
+                                    boolean stockBajo, Long valor, Long comisionCambio) {
 
         static RespuestaRepuesto de(RepuestoEncontrado r) {
             return new RespuestaRepuesto(r.id(), r.codigo(), r.nombre(), r.marcaRepuesto(),
@@ -233,7 +249,8 @@ class RepuestoController {
                     r.precio().valor().longValueExact(), r.stock(), r.stockMinimo(),
                     r.costoPromedio(), r.costoDesconocido(), r.stockBajo(),
                     // Se redondea a pesos al SALIR: 15 x 13.333,3333 son $200.000, no $199.999
-                    r.valor() == null ? null : Dinero.de(r.valor()).valor().longValueExact());
+                    r.valor() == null ? null : Dinero.de(r.valor()).valor().longValueExact(),
+                    r.comisionCambio() == null ? null : r.comisionCambio().valor().longValueExact());
         }
 
         static RespuestaRepuesto de(Variante v) {
@@ -243,7 +260,7 @@ class RepuestoController {
         /** Tal cual al administrador; al cajero, sin costo ni valor (spec 0004, decisión 1). */
         Object para(Actor actor) {
             return actor.rol().veCostos() ? this : new RespuestaRepuestoSinCostos(id, codigo, nombre, marca,
-                    aplicacion, categoriaId, categoria, precio, stock, stockMinimo, stockBajo);
+                    aplicacion, categoriaId, categoria, precio, stock, stockMinimo, stockBajo, comisionCambio);
         }
     }
 
@@ -253,7 +270,8 @@ class RepuestoController {
      */
     public record RespuestaRepuestoSinCostos(UUID id, String codigo, String nombre, String marca,
                                              String aplicacion, UUID categoriaId, String categoria,
-                                             long precio, int stock, int stockMinimo, boolean stockBajo) {
+                                             long precio, int stock, int stockMinimo, boolean stockBajo,
+                                             Long comisionCambio) {
     }
 
     /**

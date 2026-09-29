@@ -183,5 +183,6 @@ export function cambiosDeFicha(antes, despues) {
   campo('Marca', 'marca')
   campo('Precio de venta', 'precio', (p) => (p == null ? '—' : formatoCOP(p)))
   campo('Avisar con', 'stockMinimo', (n) => (n == null ? '—' : `${n} o menos`))
+  campo('Comisión por cambio', 'comisionCambio', (m) => (m == null ? 'No paga' : formatoCOP(m)))
   return cambios
 }

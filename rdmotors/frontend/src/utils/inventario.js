@@ -100,3 +100,16 @@ export function paginaDeLaUrl(valor) {
   const n = Number(valor)
   return Number.isInteger(n) && n > 0 ? n : 0
 }
+
+// ── La comisión por cambio de aceite (spec 0015) ─────────────────────────────
+
+/** Lo que se propone al marcar un repuesto: lo que el dueño paga hoy por cambio. */
+export const COMISION_DE_ENTRADA = 3000
+
+/** Por qué no sirve lo escrito como comisión, o `null` si sirve. */
+export function problemaDeComision(texto) {
+  const digitos = String(texto ?? '').replace(/\D/g, '')
+  if (!digitos) return 'Escribe cuánto es por cada cambio'
+  if (Number(digitos) <= 0) return 'Tiene que ser mayor a $0; para que no pague, desmárcala'
+  return null
+}

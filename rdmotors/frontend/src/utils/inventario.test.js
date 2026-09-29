@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  COMISION_DE_ENTRADA, problemaDeComision,
   direccionesDelPromedio, documentoDe, entradaSalida, estadoStock, fechaLocal, nombreMovimiento,
   paginaDeLaUrl, rangoDePagina,
 } from './inventario.js'
@@ -83,4 +84,12 @@ test('fechaLocal no le quita un día a la factura en Colombia', () => {
   assert.equal(fecha.getDate(), 1)
   assert.equal(fechaLocal(null), null)
   assert.equal(fechaLocal('basura'), null)
+})
+
+test('la comisión por cambio de aceite (spec 0015): un monto mayor a $0', () => {
+  assert.equal(problemaDeComision('3000'), null)
+  assert.equal(problemaDeComision('$ 3.000'), null)
+  assert.match(problemaDeComision(''), /Escribe cuánto/)
+  assert.match(problemaDeComision('0'), /mayor a \$0/)
+  assert.equal(COMISION_DE_ENTRADA, 3000)
 })

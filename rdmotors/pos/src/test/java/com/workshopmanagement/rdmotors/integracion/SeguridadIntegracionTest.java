@@ -488,6 +488,8 @@ class SeguridadIntegracionTest {
                 {"PUT", "/api/repuestos/" + repuesto, """
                         {"nombreProducto":"FILTRO","codigo":"FA-SESION","marcaRepuesto":"INOKI","precio":1000,"stockMinimo":1}
                         """},
+                // Spec 0015: marcar qué paga comisión por cambio de aceite es del administrador.
+                {"PUT", "/api/repuestos/" + repuesto + "/comision", "{\"monto\":3000}"},
                 {"GET", "/api/proveedores", null},
                 {"POST", "/api/proveedores", "{\"nombre\":\"Importadora Nueva\"}"},
                 {"POST", "/api/cuentas", "{\"nombre\":\"Daviplata\"}"},
