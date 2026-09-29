@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  escogerCambio, escogerQuien, precioDelRenglon,
+  escogerCambio, escogerQuien, precioDelRenglon, preguntaElCambio,
   agregarRenglon, aplicarProblemas, billetesSugeridos, cambiarCantidad, cambioDelCobro, claveDelBorrador,
   comandoDeCobro, consultaDePerdida, llaveNueva, montoDescuento, pagosDelCobro, porcentajeDesdeTexto, problemaDelCobro,
   problemaParaAgregar, problemasDeLaVenta, quitarRenglon, refrescarRenglon, refrescarRenglones, restaurarVenta,
@@ -281,6 +281,32 @@ test('no se cambia: $62.000 y sin quién; se cambia: $65.000 y quién arranca co
     'volver a escoger sí no pisa a quien ya se escogió')
   assert.deepEqual(problemasDeLaVenta({ ...ventaNueva('llave'), renglones: escogerQuien(seCambia, 'v-motul', '') }),
     ['Di quién le cambió el aceite al MOTUL 7100 10W30'])
+})
+
+test('desde el catálogo se pregunta al agregar, y entra ya escogido; una unidad más sigue lo escogido', () => {
+  const filtro = { ...MOTUL, id: 'v-filtro', comisionCambio: null, precio: 8000 }
+  assert.equal(preguntaElCambio(MOTUL, []), true)
+  assert.equal(preguntaElCambio(filtro, []), false, 'el filtro no paga comisión')
+
+  const seCambia = agregarRenglon([], MOTUL, { cambio: 'SE_CAMBIA', cambioPorId: 'u-deibis' })
+  assert.equal(seCambia[0].cambio, 'SE_CAMBIA')
+  assert.equal(seCambia[0].cambioPorId, 'u-deibis')
+  assert.deepEqual(problemasDeLaVenta({ ...ventaNueva('llave'), renglones: seCambia }), [], 'se puede cobrar de una')
+  assert.equal(preguntaElCambio(MOTUL, seCambia), false)
+
+  const dos = agregarRenglon(seCambia, MOTUL, { cambio: 'NO_SE_CAMBIA' })
+  assert.equal(dos[0].cantidad, 2)
+  assert.equal(dos[0].cambio, 'SE_CAMBIA', 'no pisa lo que ya se escogió')
+
+  const sinCambio = agregarRenglon([], MOTUL, { cambio: 'NO_SE_CAMBIA', cambioPorId: 'u-deibis' })
+  assert.equal(sinCambio[0].cambioPorId, null, 'si no se cambia, no hay quién')
+  assert.equal(totalesDe({ ...ventaNueva('llave'), renglones: sinCambio }).total, 62000)
+
+  const sinEscoger = agregarRenglon([], MOTUL)
+  assert.equal(preguntaElCambio(MOTUL, sinEscoger), true, 'uno agregado por el buscador sin escoger se pregunta')
+  assert.equal(agregarRenglon(sinEscoger, MOTUL, { cambio: 'NO_SE_CAMBIA' })[0].cambio, 'NO_SE_CAMBIA')
+  assert.equal(agregarRenglon([], filtro, { cambio: 'SE_CAMBIA', cambioPorId: 'u-deibis' })[0].cambio, '',
+    'al filtro no se le pega una elección')
 })
 
 test('al servidor va el precio que se ve y lo que se escogió; el filtro no manda nada de eso', () => {

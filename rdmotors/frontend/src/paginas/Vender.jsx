@@ -17,7 +17,7 @@ import { armarTicket, htmlDelTicket, problemasDelTicket } from '../utils/ticket'
 import { esTurnoAjeno, textoDeTurnoAjeno } from '../utils/permisos'
 import {
   agregarRenglon, aplicarProblemas, cambiarCantidad, CLAVE_BORRADOR, claveDelBorrador, comandoDeCobro, consultaDePerdida,
-  escogerCambio, escogerQuien,
+  escogerCambio, escogerQuien, preguntaElCambio,
   problemaParaAgregar, problemasDeLaVenta, quitarRenglon, refrescarRenglones, restaurarVenta, serializarVenta,
   textoDePerdida, totalesDe, unidadesDe, ventaAlVolver, ventaNueva,
 } from '../utils/venta'
@@ -178,10 +178,11 @@ export default function Vender() {
     setPedidoDeFoco((n) => n + 1)
   }, [])
 
-  function agregar(repuesto) {
+  /** @param eleccion si se cambia aquí y quién, cuando el catálogo lo preguntó al agregar (spec 0015) */
+  function agregar(repuesto, eleccion = null) {
     const problema = problemaParaAgregar(repuesto, venta.renglones)
     if (problema) return problema
-    setVenta((v) => ({ ...v, renglones: agregarRenglon(v.renglones, repuesto) }))
+    setVenta((v) => ({ ...v, renglones: agregarRenglon(v.renglones, repuesto, eleccion) }))
     setCobrada(null)
     setAviso(null)
     return null
@@ -388,6 +389,10 @@ export default function Vender() {
                 <Catalogo
                   onAgregar={agregar}
                   onCerrar={cerrarCatalogo}
+                  // Desde el catálogo no se ven los renglones: el aceite se pregunta al agregarlo, no después.
+                  pideCambio={(r) => !problemaParaAgregar(r, venta.renglones) && preguntaElCambio(r, venta.renglones)}
+                  personas={personas}
+                  quienRegistra={{ id: usuario.id, nombre: usuario.nombre }}
                   bloqueado={bloqueada}
                   porQueNo={bloqueada ? 'Esta venta se mandó a cobrar y no hubo respuesta: primero reintenta el cobro.' : null}
                 />
@@ -449,6 +454,15 @@ export default function Vender() {
                 onClick={abrirCobro} disabled={!puedeCobrar && !bloqueada}>
                 {bloqueada ? 'Reintentar cobro' : 'Cobrar'} <kbd className={estilos.tecla}>F9</kbd>
               </Boton>
+              {/* Un botón apagado sin decir por qué obliga a adivinar; más si el renglón que falta no se ve. */}
+              {turno && !ajeno && !bloqueada && venta.renglones.length > 0 && problemas.length > 0 && (
+                <p className={estilos.falta}>
+                  <span aria-hidden>⚠</span> {problemas[0]}
+                  {viendoCatalogo && (
+                    <button type="button" className={estilos.faltaIr} onClick={cerrarCatalogo}>Ver en la venta</button>
+                  )}
+                </p>
+              )}
               <Boton variante="secundario" onClick={abrirDescuento}
                 disabled={venta.renglones.length === 0 || bloqueada}>
                 {venta.descuento ? 'Cambiar descuento' : 'Descuento'} <kbd className={estilos.tecla}>F4</kbd>

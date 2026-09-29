@@ -18,10 +18,18 @@ import estilos from './Catalogo.module.css'
  *
  * No muestra el costo: la pantalla de venta es del cajero.
  *
- * @param bloqueado    se ve pero no se agrega (RF-008)
- * @param porQueNo     por qué no se puede agregar, para decirlo
+ * Un aceite que paga comisión por cambio (spec 0015) se pregunta en su misma fila antes de agregarlo: desde aquí no se
+ * ven los renglones de la venta, y sin escoger no se cobra. Un toque dice a la vez que sí y quién lo cambió.
+ *
+ * @param bloqueado     se ve pero no se agrega (RF-008)
+ * @param porQueNo      por qué no se puede agregar, para decirlo
+ * @param pideCambio    si a ese repuesto hay que preguntarle si se cambia aquí
+ * @param personas      a quién se le puede anotar el cambio
+ * @param quienRegistra el que está vendiendo: va primero, y es a quien se le anota si no hay más
  */
-export default function Catalogo({ onAgregar, onCerrar, bloqueado = false, porQueNo = null }) {
+export default function Catalogo({
+  onAgregar, onCerrar, bloqueado = false, porQueNo = null, pideCambio = () => false, personas = [], quienRegistra = null,
+}) {
   const [escrito, setEscrito] = useState('')
   const [texto, setTexto] = useState('')
   const [elegida, setElegida] = useState(TODAS)
@@ -30,8 +38,19 @@ export default function Catalogo({ onAgregar, onCerrar, bloqueado = false, porQu
   const [lista, setLista] = useState({ clave: null, datos: null, error: null, cargandoMas: false })
   const [resaltado, setResaltado] = useState({ clave: null, indice: -1 })
   const [mensaje, setMensaje] = useState(null)
+  const [preguntando, setPreguntando] = useState(null)
   const campo = useRef(null)
   const filas = useRef(null)
+  const primeraOpcion = useRef(null)
+
+  // El que está vendiendo primero: casi siempre es quien cambia el aceite.
+  const quienes = [...(personas.length > 0 ? personas : [quienRegistra].filter(Boolean))]
+    .sort((a, b) => (b.id === quienRegistra?.id) - (a.id === quienRegistra?.id))
+
+  // Al preguntar, el cursor pasa a la primera respuesta: Enter la escoge, Tab pasa a las otras, Esc no agrega.
+  useEffect(() => {
+    if (preguntando) primeraOpcion.current?.focus()
+  }, [preguntando])
 
   // Lo escrito se busca tras una pausa, no con cada letra.
   useEffect(() => {
@@ -83,19 +102,44 @@ export default function Catalogo({ onAgregar, onCerrar, bloqueado = false, porQu
       .catch((error) => setLista((l) => (l.clave === clave ? { ...l, error, cargandoMas: false } : l)))
   }
 
-  function agregar(repuesto) {
+  /** @param eleccion si se cambia aquí y quién, cuando se contestó la pregunta del cambio de aceite */
+  function agregar(repuesto, eleccion = null) {
+    if (!bloqueado && !eleccion && pideCambio(repuesto)) {
+      setPreguntando(repuesto.id)
+      setMensaje(null)
+      return
+    }
+    setPreguntando(null)
     campo.current?.focus()
     if (bloqueado) {
       setMensaje({ tipo: 'problema', texto: porQueNo ?? 'Ahora no se puede agregar a la venta.' })
       return
     }
-    const problema = onAgregar(repuesto)
+    const problema = onAgregar(repuesto, eleccion)
     setMensaje(problema
       ? { tipo: 'problema', texto: problema }
-      : { tipo: 'agregado', texto: `Agregado a la venta: ${repuesto.nombre} ${repuesto.marca}` })
+      : { tipo: 'agregado', texto: `Agregado a la venta: ${repuesto.nombre} ${repuesto.marca}${textoDeLaEleccion(repuesto, eleccion)}` })
+  }
+
+  function textoDeLaEleccion(repuesto, eleccion) {
+    if (!eleccion) return ''
+    if (eleccion.cambio === 'NO_SE_CAMBIA') return `, sin cambio (${formatoCOP(sinComision(repuesto))})`
+    return `, lo cambia ${quienes.find((p) => p.id === eleccion.cambioPorId)?.nombre ?? 'quien se escogió'}`
+  }
+
+  function cancelarPregunta() {
+    setPreguntando(null)
+    campo.current?.focus()
   }
 
   function alTeclear(e) {
+    if (preguntando && e.key === 'Escape') {
+      e.preventDefault()
+      cancelarPregunta()
+      return
+    }
+    // Mientras se pregunta, Enter y Tab son de las respuestas; en el buscador, el teclado sigue como siempre.
+    if (preguntando && e.target !== campo.current) return
     if (e.key === 'Escape') {
       e.preventDefault()
       onCerrar()
@@ -123,7 +167,7 @@ export default function Catalogo({ onAgregar, onCerrar, bloqueado = false, porQu
         ref={campo}
         className={estilos.campo}
         value={escrito}
-        onChange={(e) => { setEscrito(e.target.value); setMensaje(null) }}
+        onChange={(e) => { setEscrito(e.target.value); setMensaje(null); setPreguntando(null) }}
         placeholder="Buscar en el catálogo: código, nombre, marca o moto"
         aria-label="Buscar en el catálogo"
         autoComplete="off"
@@ -138,7 +182,7 @@ export default function Catalogo({ onAgregar, onCerrar, bloqueado = false, porQu
           {chips.map((c) => (
             <button key={c.clave} type="button" aria-pressed={c.clave === categoria}
               className={c.clave === categoria ? estilos.categoriaActiva : estilos.categoria}
-              onMouseDown={sinQuitarFoco} onClick={() => { setElegida(c.clave); setMensaje(null) }}>
+              onMouseDown={sinQuitarFoco} onClick={() => { setElegida(c.clave); setMensaje(null); setPreguntando(null) }}>
               {c.nombre} <span className={estilos.cuenta}>{c.repuestos}</span>
             </button>
           ))}
@@ -183,6 +227,30 @@ export default function Catalogo({ onAgregar, onCerrar, bloqueado = false, porQu
                   onMouseDown={sinQuitarFoco} onClick={(e) => { e.stopPropagation(); agregar(r) }}>
                   +
                 </button>
+                {preguntando === r.id && (
+                  // Lo de adentro no es la fila: ni la agrega al tocarlo ni le quita el clic a sus botones.
+                  <div className={estilos.pregunta} role="group" aria-label={`¿Se le cambia el aceite aquí? ${r.nombre}`}
+                    onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+                    <span className={estilos.preguntaTexto}>¿Se cambia aquí?</span>
+                    <span className={estilos.respuestas}>
+                      <span className={estilos.respuestaTexto}>Sí, a {formatoCOP(r.precio)}. Lo cambia:</span>
+                      {quienes.map((p, j) => (
+                        <button key={p.id} ref={j === 0 ? primeraOpcion : undefined} type="button"
+                          className={estilos.respuesta}
+                          onClick={() => agregar(r, { cambio: 'SE_CAMBIA', cambioPorId: p.id })}>
+                          {p.nombre}
+                        </button>
+                      ))}
+                    </span>
+                    <span className={estilos.respuestas}>
+                      <button type="button" className={estilos.respuesta}
+                        onClick={() => agregar(r, { cambio: 'NO_SE_CAMBIA' })}>
+                        No se cambia, a {formatoCOP(sinComision(r))}
+                      </button>
+                      <button type="button" className={estilos.cancelar} onClick={cancelarPregunta}>Cancelar</button>
+                    </span>
+                  </div>
+                )}
               </li>
             )
           })}
@@ -200,3 +268,6 @@ export default function Catalogo({ onAgregar, onCerrar, bloqueado = false, porQu
     </section>
   )
 }
+
+/** El precio si el aceite no se cambia aquí: sin la comisión ($65.000 → $62.000). */
+const sinComision = (r) => Number(r.precio) - Number(r.comisionCambio)

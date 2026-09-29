@@ -172,6 +172,19 @@
 
 .botonCobrar { width: 100%; }
 
+/* Por qué el cobro está apagado, con un atajo al renglón si el catálogo lo tapa. */
+.falta { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.4; color: var(--warn); }
+.faltaIr {
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .tecla {
   padding: 1px 6px;
   border: 1px solid currentColor;

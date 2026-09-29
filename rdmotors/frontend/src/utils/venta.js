@@ -108,11 +108,28 @@ export function problemaParaAgregar(repuesto, renglones) {
   return null
 }
 
-/** Si el repuesto ya está, le suma una unidad a su renglón (RF-006); si no, lo agrega al final. */
-export function agregarRenglon(renglones, repuesto) {
+/**
+ * Si al agregar este repuesto hay que preguntar si se cambia aquí: paga comisión y no está ya en la venta con lo
+ * escogido. Una unidad más de un aceite ya escogido sigue lo que se escogió.
+ */
+export function preguntaElCambio(repuesto, renglones) {
+  if (repuesto.comisionCambio == null) return false
+  return !renglones.find((r) => r.varianteId === repuesto.id)?.cambio
+}
+
+/**
+ * Si el repuesto ya está, le suma una unidad a su renglón (RF-006); si no, lo agrega al final. `eleccion` es lo que se
+ * escogió al agregarlo desde el catálogo (`{ cambio, cambioPorId }`); no pisa lo que el renglón ya tenía escogido.
+ */
+export function agregarRenglon(renglones, repuesto, eleccion = null) {
+  const conEleccion = (r) => (eleccion && pagaComision(r) && !r.cambio ? {
+    ...r,
+    cambio: eleccion.cambio,
+    cambioPorId: eleccion.cambio === 'SE_CAMBIA' ? eleccion.cambioPorId ?? null : null,
+  } : r)
   const existente = renglones.find((r) => r.varianteId === repuesto.id)
-  if (!existente) return [...renglones, renglonDesdeRepuesto(repuesto)]
-  return renglones.map((r) => (r.varianteId === repuesto.id ? { ...r, cantidad: r.cantidad + 1 } : r))
+  if (!existente) return [...renglones, conEleccion(renglonDesdeRepuesto(repuesto))]
+  return renglones.map((r) => (r.varianteId === repuesto.id ? conEleccion({ ...r, cantidad: r.cantidad + 1 }) : r))
 }
 
 /** La cantidad escrita: solo dígitos, mínimo 1. Pasar del stock se permite escribirlo y se marca. */
