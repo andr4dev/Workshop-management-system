@@ -84,6 +84,20 @@ export function escogerCambio(renglones, varianteId, cambio, quien) {
   }))
 }
 
+/**
+ * Lo escogido en un aceite, en palabras: «se cambia aquí, lo cambia Carolina Ruiz» o «sin cambio». Vacío si no paga
+ * comisión o falta escoger.
+ *
+ * @param personas para decir quién por su nombre
+ */
+export function loEscogidoDe(r, personas = []) {
+  if (!pagaComision(r)) return ''
+  if (r.cambio === 'NO_SE_CAMBIA') return 'sin cambio'
+  if (r.cambio !== 'SE_CAMBIA') return ''
+  const quien = personas.find((p) => p.id === r.cambioPorId)?.nombre
+  return `se cambia aquí${quien ? `, lo cambia ${quien}` : ''}`
+}
+
 /** Quién le cambió el aceite a ese renglón. */
 export function escogerQuien(renglones, varianteId, personaId) {
   return renglones.map((r) => (r.varianteId === varianteId ? { ...r, cambioPorId: personaId || null } : r))
@@ -179,12 +193,8 @@ export function desgloseDelCobro(venta, personas = []) {
   const { subtotal, descuento, total } = totalesDe(venta)
   const renglones = venta.renglones.map((r) => {
     const precio = precioDelRenglon(r)
-    const quien = personas.find((p) => p.id === r.cambioPorId)?.nombre
-    const detalle = [
-      r.cantidad > 1 ? `${formatoCOP(precio)} c/u` : null,
-      pagaComision(r) && r.cambio === 'SE_CAMBIA' ? `se cambia aquí${quien ? `, lo cambia ${quien}` : ''}` : null,
-      pagaComision(r) && r.cambio === 'NO_SE_CAMBIA' ? 'sin cambio' : null,
-    ].filter(Boolean).join(' · ')
+    const detalle = [r.cantidad > 1 ? `${formatoCOP(precio)} c/u` : null, loEscogidoDe(r, personas)]
+      .filter(Boolean).join(' · ')
     return { varianteId: r.varianteId, cantidad: r.cantidad, nombre: r.nombre, detalle, total: precio * r.cantidad }
   })
   const d = venta.descuento

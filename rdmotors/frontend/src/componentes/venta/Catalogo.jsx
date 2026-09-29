@@ -12,9 +12,10 @@ import estilos from './Catalogo.module.css'
  * El catálogo del mostrador (spec 0005, H1, H2 y H5): *"muéstreme qué aceites tiene"*.
  *
  * Categorías con cuántos repuestos de lo buscado tiene cada una, un buscador propio y la lista con
- * precio y cuántos hay; los agotados al final y apagados. Se agrega con [+], con clic en la fila o con
- * Enter sobre la marcada, con las MISMAS reglas que el buscador de la venta (`onAgregar` es el `agregar`
- * de Vender y devuelve el problema si no se pudo). **Esc** vuelve a la venta.
+ * precio y cuántos hay; los agotados al final y apagados. Se agrega con [+] o con Enter sobre la marcada, con las
+ * MISMAS reglas que el buscador de la venta (`onAgregar` es el `agregar` de Vender y devuelve el problema si no se
+ * pudo). Tocar la fila solo la marca: un toque de más, sobre todo en el celular, no mete nada a la venta.
+ * **Esc** vuelve a la venta.
  *
  * No muestra el costo: la pantalla de venta es del cajero.
  *
@@ -26,9 +27,11 @@ import estilos from './Catalogo.module.css'
  * @param pideCambio    si a ese repuesto hay que preguntarle si se cambia aquí
  * @param personas      a quién se le puede anotar el cambio
  * @param quienRegistra el que está vendiendo: va primero, y es a quien se le anota si no hay más
+ * @param yaEscogido    lo escogido en ese aceite si ya está en la venta: una unidad más sigue igual, y se dice
  */
 export default function Catalogo({
   onAgregar, onCerrar, bloqueado = false, porQueNo = null, pideCambio = () => false, personas = [], quienRegistra = null,
+  yaEscogido = () => '',
 }) {
   const [escrito, setEscrito] = useState('')
   const [texto, setTexto] = useState('')
@@ -115,13 +118,16 @@ export default function Catalogo({
       setMensaje({ tipo: 'problema', texto: porQueNo ?? 'Ahora no se puede agregar a la venta.' })
       return
     }
+    // Antes de agregar: después, el renglón ya cambió.
+    const previo = eleccion ? '' : yaEscogido(repuesto)
     const problema = onAgregar(repuesto, eleccion)
     setMensaje(problema
       ? { tipo: 'problema', texto: problema }
-      : { tipo: 'agregado', texto: `Agregado a la venta: ${repuesto.nombre} ${repuesto.marca}${textoDeLaEleccion(repuesto, eleccion)}` })
+      : { tipo: 'agregado', texto: `Agregado a la venta: ${repuesto.nombre} ${repuesto.marca}${textoDeLaEleccion(repuesto, eleccion, previo)}` })
   }
 
-  function textoDeLaEleccion(repuesto, eleccion) {
+  function textoDeLaEleccion(repuesto, eleccion, previo) {
+    if (previo) return `. Otra unidad, igual que la que ya estaba: ${previo}`
     if (!eleccion) return ''
     if (eleccion.cambio === 'NO_SE_CAMBIA') return `, sin cambio (${formatoCOP(sinComision(repuesto))})`
     return `, lo cambia ${quienes.find((p) => p.id === eleccion.cambioPorId)?.nombre ?? 'quien se escogió'}`
@@ -210,7 +216,7 @@ export default function Catalogo({
             return (
               <li key={r.id} role="option" aria-selected={i === indice}
                 className={`${estilos.fila} ${r.stock > 0 ? '' : estilos.agotado} ${i === indice ? estilos.resaltada : ''}`}
-                onMouseDown={sinQuitarFoco} onClick={() => agregar(r)}>
+                onMouseDown={sinQuitarFoco} onClick={() => setResaltado({ clave: claveLista, indice: i })}>
                 <span className={estilos.repuesto}>
                   <span className={estilos.nombre}>{r.nombre} <span className={estilos.marca}>{r.marca}</span></span>
                   <span className={estilos.detalle}>

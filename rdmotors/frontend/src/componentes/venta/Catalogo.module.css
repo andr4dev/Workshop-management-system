@@ -95,7 +95,6 @@
   gap: var(--esp-3);
   padding: var(--esp-2) var(--esp-3);
   border-bottom: 1px solid var(--border-subtle);
-  cursor: pointer;
 }
 .fila:last-child { border-bottom: none; }
 .fila:hover { background: var(--surface-hover); }

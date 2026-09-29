@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  desgloseDelCobro, escogerCambio, escogerQuien, precioDelRenglon, preguntaElCambio,
+  desgloseDelCobro, escogerCambio, escogerQuien, loEscogidoDe, precioDelRenglon, preguntaElCambio,
   agregarRenglon, aplicarProblemas, billetesSugeridos, cambiarCantidad, cambioDelCobro, claveDelBorrador,
   comandoDeCobro, consultaDePerdida, llaveNueva, montoDescuento, pagosDelCobro, porcentajeDesdeTexto, problemaDelCobro,
   problemaParaAgregar, problemasDeLaVenta, quitarRenglon, refrescarRenglon, refrescarRenglones, restaurarVenta,
@@ -303,7 +303,13 @@ test('desde el catálogo se pregunta al agregar, y entra ya escogido; una unidad
   assert.equal(sinCambio[0].cambioPorId, null, 'si no se cambia, no hay quién')
   assert.equal(totalesDe({ ...ventaNueva('llave'), renglones: sinCambio }).total, 62000)
 
+  const personas = [{ id: 'u-deibis', nombre: 'Deibis' }]
+  assert.equal(loEscogidoDe(dos[0], personas), 'se cambia aquí, lo cambia Deibis', 'lo que dice al sumar otra unidad')
+  assert.equal(loEscogidoDe(sinCambio[0], personas), 'sin cambio')
+
   const sinEscoger = agregarRenglon([], MOTUL)
+  assert.equal(loEscogidoDe(sinEscoger[0], personas), '')
+  assert.equal(loEscogidoDe(agregarRenglon([], filtro)[0], personas), '', 'el filtro no dice nada')
   assert.equal(preguntaElCambio(MOTUL, sinEscoger), true, 'uno agregado por el buscador sin escoger se pregunta')
   assert.equal(agregarRenglon(sinEscoger, MOTUL, { cambio: 'NO_SE_CAMBIA' })[0].cambio, 'NO_SE_CAMBIA')
   assert.equal(agregarRenglon([], filtro, { cambio: 'SE_CAMBIA', cambioPorId: 'u-deibis' })[0].cambio, '',

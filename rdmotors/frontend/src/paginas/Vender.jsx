@@ -17,7 +17,7 @@ import { armarTicket, htmlDelTicket, problemasDelTicket } from '../utils/ticket'
 import { esTurnoAjeno, textoDeTurnoAjeno } from '../utils/permisos'
 import {
   agregarRenglon, aplicarProblemas, cambiarCantidad, CLAVE_BORRADOR, claveDelBorrador, comandoDeCobro, consultaDePerdida,
-  desgloseDelCobro, escogerCambio, escogerQuien, preguntaElCambio,
+  desgloseDelCobro, escogerCambio, escogerQuien, loEscogidoDe, preguntaElCambio,
   problemaParaAgregar, problemasDeLaVenta, quitarRenglon, refrescarRenglones, restaurarVenta, serializarVenta,
   textoDePerdida, totalesDe, unidadesDe, ventaAlVolver, ventaNueva,
 } from '../utils/venta'
@@ -393,6 +393,10 @@ export default function Vender() {
                   pideCambio={(r) => !problemaParaAgregar(r, venta.renglones) && preguntaElCambio(r, venta.renglones)}
                   personas={personas}
                   quienRegistra={{ id: usuario.id, nombre: usuario.nombre }}
+                  yaEscogido={(r) => {
+                    const renglon = venta.renglones.find((x) => x.varianteId === r.id)
+                    return renglon ? loEscogidoDe(renglon, personas) : ''
+                  }}
                   bloqueado={bloqueada}
                   porQueNo={bloqueada ? 'Esta venta se mandó a cobrar y no hubo respuesta: primero reintenta el cobro.' : null}
                 />
