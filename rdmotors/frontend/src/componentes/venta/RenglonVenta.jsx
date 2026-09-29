@@ -42,11 +42,14 @@ export default function RenglonVenta({ renglon, onCantidad, onQuitar, onCambio, 
               className={renglon.cambio === 'NO_SE_CAMBIA' ? estilos.opcionActiva : estilos.opcion}
               onClick={() => onCambio('NO_SE_CAMBIA')}>No (−{formatoCOP(renglon.comisionCambio)})</button>
             {renglon.cambio === 'SE_CAMBIA' && (
-              <select className={estilos.quien} value={renglon.cambioPorId ?? ''} disabled={bloqueado}
-                aria-label={`Quién le cambió el aceite: ${nombre}`} onChange={(e) => onQuien(e.target.value)}>
-                <option value="">¿Quién lo cambió?</option>
-                {personas.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-              </select>
+              <label className={estilos.quienFila}>
+                Lo cambió y se lleva {formatoCOP(renglon.comisionCambio * cantidad)}:
+                <select className={estilos.quien} value={renglon.cambioPorId ?? ''} disabled={bloqueado}
+                  onChange={(e) => onQuien(e.target.value)}>
+                  <option value="">Escoge quién</option>
+                  {personas.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              </label>
             )}
             {!renglon.cambio && <span className={estilos.problema}>Escoge uno para cobrar</span>}
           </span>
