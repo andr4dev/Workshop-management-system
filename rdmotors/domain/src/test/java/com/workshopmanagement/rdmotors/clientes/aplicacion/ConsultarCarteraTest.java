@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.workshopmanagement.rdmotors.clientes.dominio.VentaDeLaDeuda;
 import com.workshopmanagement.rdmotors.clientes.dominio.Abono;
 import com.workshopmanagement.rdmotors.clientes.dominio.CarteraDelCliente;
 import com.workshopmanagement.rdmotors.clientes.dominio.Cliente;
@@ -36,8 +38,8 @@ class ConsultarCarteraTest {
     private final Falsos.AbonosEnMemoria abonos = new Falsos.AbonosEnMemoria();
     private final Falsos.UsuariosEnMemoria usuarios = new Falsos.UsuariosEnMemoria();
     private final Falsos.AuditoriaEnMemoria auditoria = new Falsos.AuditoriaEnMemoria();
-    private final ConsultarCartera consultar = new ConsultarCartera(new Falsos.CarteraEnMemoria(clientes, deudas, abonos),
-            clientes, deudas, abonos, usuarios);
+    private final Falsos.CarteraEnMemoria cartera = new Falsos.CarteraEnMemoria(clientes, deudas, abonos);
+    private final ConsultarCartera consultar = new ConsultarCartera(cartera, clientes, deudas, abonos, usuarios);
     private final CambiarFiado cambiarFiado = new CambiarFiado(clientes, auditoria, reloj);
     private final Actor cajero = usuarios.sembrar(ActoresDePrueba.cajero());
     private final Actor administrador = usuarios.sembrar(ActoresDePrueba.administrador());
@@ -139,6 +141,29 @@ class ConsultarCarteraTest {
         assertThat(ficha.fiadoTotal()).isEqualTo(Dinero.de(80_000));
         assertThat(ficha.pagadoTotal()).isEqualTo(Dinero.de(60_000));
         assertThat(la41.getId()).isEqualTo(ficha.deudas().get(1).id());
+    }
+
+    @Test
+    @DisplayName("la ficha dice qué se llevó en cada venta fiada; el saldo del cuaderno no tiene venta")
+    void loQueSeLlevo() {
+        Cliente juan = cliente("Juan Pérez", "1234567");
+        Deuda la41 = fiar(juan, 41, LocalDate.of(2026, 9, 12), 50_000);
+        VentaDeLaDeuda venta41 = new VentaDeLaDeuda(la41.getVentaId(), List.of(
+                new VentaDeLaDeuda.Renglon("104089", "MOTUL 7100 10W30", "MOTUL", 1, Dinero.de(65_000),
+                        Dinero.de(65_000), "SE_CAMBIA"),
+                new VentaDeLaDeuda.Renglon("ABC123", "FILTRO DE ACEITE", "INOKI", 1, Dinero.de(11_000),
+                        Dinero.de(11_000), null)),
+                Dinero.de(76_000), Dinero.de(6_000), "Cliente frecuente", Dinero.de(70_000));
+        cartera.ventas.put(la41.getVentaId(), venta41);
+        new CargarSaldoDelCuaderno(clientes, deudas, abonos, auditoria, reloj)
+                .ejecutar(juan.getId(), Dinero.de(20_000), LocalDate.of(2026, 7, 1), "Lo del cuaderno", administrador);
+
+        FichaCliente ficha = consultar.ficha(juan.getId()).orElseThrow();
+
+        assertThat(ficha.deudas()).filteredOn(d -> d.origen() == OrigenDeuda.VENTA).singleElement()
+                .satisfies(d -> assertThat(d.venta()).isEqualTo(venta41));
+        assertThat(ficha.deudas()).filteredOn(d -> d.origen() == OrigenDeuda.CUADERNO).singleElement()
+                .satisfies(d -> assertThat(d.venta()).isNull());
     }
 
     @Test

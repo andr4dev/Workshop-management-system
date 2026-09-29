@@ -12,6 +12,7 @@ import com.workshopmanagement.rdmotors.clientes.dominio.AplicacionAbono;
 import com.workshopmanagement.rdmotors.clientes.dominio.CarteraDelCliente;
 import com.workshopmanagement.rdmotors.clientes.dominio.Deuda;
 import com.workshopmanagement.rdmotors.clientes.dominio.EstadoDeuda;
+import com.workshopmanagement.rdmotors.clientes.dominio.VentaDeLaDeuda;
 import com.workshopmanagement.rdmotors.clientes.dominio.OrigenDeuda;
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
 import com.workshopmanagement.rdmotors.compartido.dominio.FormaPago;
@@ -35,10 +36,15 @@ public record FichaCliente(ClienteEncontrado cliente, Dinero debe, Dinero aFavor
                                boolean vigente) {
     }
 
-    /** Una venta fiada o el saldo del cuaderno. {@code abonado + pendiente = monto}. */
+    /**
+     * Una venta fiada o el saldo del cuaderno. {@code abonado + pendiente = monto}.
+     *
+     * @param venta lo que se llevó en esa venta; nulo en el saldo del cuaderno
+     */
     public record DeudaDeLaFicha(UUID id, OrigenDeuda origen, UUID ventaId, Long numeroVenta, LocalDate fecha,
                                  Dinero monto, Dinero abonado, Dinero pendiente, EstadoDeuda estado, String motivo,
-                                 Persona registradaPor, Instant anuladaEn, List<ParteDeAbono> abonos) {
+                                 Persona registradaPor, Instant anuladaEn, List<ParteDeAbono> abonos,
+                                 VentaDeLaDeuda venta) {
     }
 
     /** Lo que un abono le aplicó a una deuda, visto desde el abono: "a la venta N.º 41". */
@@ -56,8 +62,12 @@ public record FichaCliente(ClienteEncontrado cliente, Dinero debe, Dinero aFavor
                                  List<ParteAplicada> aplicaciones) {
     }
 
-    /** @param nombres los de quienes registraron, recibieron o anularon, por id, de una sola consulta */
-    static FichaCliente de(CarteraDelCliente cartera, Dinero debe, Map<UUID, String> nombres) {
+    /**
+     * @param nombres los de quienes registraron, recibieron o anularon, por id, de una sola consulta
+     * @param ventas  lo que se llevó en cada venta fiada, por id de venta, de una sola consulta
+     */
+    static FichaCliente de(CarteraDelCliente cartera, Dinero debe, Map<UUID, String> nombres,
+                           Map<UUID, VentaDeLaDeuda> ventas) {
         List<Deuda> deudas = cartera.deudas();    // ya vienen en el orden en que se pagan
         List<Abono> abonos = cartera.abonos();
         Map<UUID, Deuda> porId = deudas.stream().collect(java.util.stream.Collectors.toMap(Deuda::getId, d -> d));
@@ -76,7 +86,8 @@ public record FichaCliente(ClienteEncontrado cliente, Dinero debe, Dinero aFavor
                                         .filter(ap -> ap.getDeudaId().equals(d.getId()))
                                         .map(ap -> parteDeAbono(a, ap)))
                                 .sorted(Comparator.comparing(ParteDeAbono::recibidoEn))
-                                .toList()))
+                                .toList(),
+                        d.getVentaId() == null ? null : ventas.get(d.getVentaId())))
                 .toList();
         List<AbonoDeLaFicha> recibidos = abonos.stream()
                 .sorted(Comparator.comparing(Abono::getRecibidoEn).thenComparingLong(Abono::getNumero).reversed())

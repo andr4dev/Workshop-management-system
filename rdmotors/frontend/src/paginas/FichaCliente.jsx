@@ -16,7 +16,7 @@ import { armarRecibo, htmlDelRecibo, problemasDelRecibo } from '../utils/reciboA
 import { esAdministrador } from '../utils/permisos'
 import { hoyEnColombia } from '../utils/periodo'
 import {
-  desdeCuandoEnPalabras, ESTADOS, fechaCorta, FORMAS, nombreDeLaDeuda, problemasDeLaFicha,
+  desdeCuandoEnPalabras, ESTADOS, fechaCorta, FORMAS, loQueSeLlevo, nombreDeLaDeuda, problemasDeLaFicha,
 } from '../utils/cartera'
 import comun from './Listado.module.css'
 import estilos from './Cartera.module.css'
@@ -267,6 +267,7 @@ export default function FichaCliente() {
                   {formatoCOP(d.monto)}
                 </span>
               </div>
+              <LoQueSeLlevo deuda={d} />
               {d.estado !== 'ANULADA' && (
                 <p className={estilos.deudaPartes}>
                   Abonado {formatoCOP(d.abonado)} · Pendiente <strong>{formatoCOP(d.pendiente)}</strong>
@@ -445,4 +446,38 @@ function AvisoImpresion({ estado }) {
   }
   if (!avisos[estado]) return null
   return <p className={estilos.impresion} role={estado === 'FALLO' || estado === 'NO_CUADRA' ? 'alert' : undefined}>{avisos[estado]}</p>
+}
+
+/**
+ * Qué se llevó en una venta fiada: cada repuesto con su valor y, si los hubo, el descuento y lo que pagó al llevárselo.
+ * Las partes suman lo fiado, la cifra de la derecha.
+ */
+function LoQueSeLlevo({ deuda }) {
+  const partes = loQueSeLlevo(deuda)
+  if (!partes) return null
+  return (
+    <ul className={estilos.productos} aria-label={`Lo que se llevó en la ${nombreDeLaDeuda(deuda).toLowerCase()}`}>
+      {partes.renglones.map((r, i) => (
+        <li key={i}>
+          <span>
+            {r.texto}
+            {r.detalle && <span className={estilos.productoDetalle}> · {r.detalle}</span>}
+          </span>
+          <span className={estilos.productoValor}>{formatoCOP(r.total)}</span>
+        </li>
+      ))}
+      {partes.descuento && (
+        <li className={estilos.productoResta}>
+          <span>Descuento{partes.descuento.motivo && ` · ${partes.descuento.motivo}`}</span>
+          <span className={estilos.productoValor}>− {formatoCOP(partes.descuento.monto)}</span>
+        </li>
+      )}
+      {partes.pagoAlLlevarselo > 0 && (
+        <li className={estilos.productoResta}>
+          <span>Pagó al llevárselo</span>
+          <span className={estilos.productoValor}>− {formatoCOP(partes.pagoAlLlevarselo)}</span>
+        </li>
+      )}
+    </ul>
+  )
 }

@@ -63,6 +63,32 @@ export function resumenDeLaCartera({ deben, porCobrar, clientes }, vista) {
 export const nombreDeLaDeuda = (d) => (d.origen === 'CUADERNO' ? 'Saldo del cuaderno' : `Venta N.º ${d.numeroVenta}`)
 
 /**
+ * Qué se llevó en una venta fiada, en renglones para leer: "2 × MOTUL 7100 10W30" con su valor, y abajo lo que la
+ * baja hasta lo fiado: el descuento y lo que pagó al llevárselo. Los renglones menos esas dos cosas suman `monto`.
+ * `null` si la deuda no tiene venta (el saldo del cuaderno).
+ */
+export function loQueSeLlevo(deuda) {
+  const v = deuda.venta
+  if (!v) return null
+  const renglones = v.renglones.map((r) => ({
+    texto: `${r.cantidad} × ${r.nombre}`,
+    detalle: [
+      r.marca && !r.nombre.toUpperCase().includes(r.marca.toUpperCase()) ? r.marca : null,
+      r.cantidad > 1 ? `${formatoCOP(r.precioUnitario)} c/u` : null,
+      r.cambio === 'NO_SE_CAMBIA' ? 'sin cambio' : null,
+      r.cambio === 'SE_CAMBIA' ? 'con cambio aquí' : null,
+    ].filter(Boolean).join(' · '),
+    total: r.total,
+  }))
+  const pagoAlLlevarselo = v.total - deuda.monto
+  return {
+    renglones,
+    descuento: v.descuento > 0 ? { monto: v.descuento, motivo: v.motivoDescuento ?? '' } : null,
+    pagoAlLlevarselo: pagoAlLlevarselo > 0 ? pagoAlLlevarselo : 0,
+  }
+}
+
+/**
  * Si las cifras de la ficha no cuadran, por qué: cada deuda `abonado + pendiente = monto`, y lo que debe es la suma de
  * lo pendiente. El servidor ya lo cumple; una lista con algo es un error de programa y se muestra en rojo.
  */

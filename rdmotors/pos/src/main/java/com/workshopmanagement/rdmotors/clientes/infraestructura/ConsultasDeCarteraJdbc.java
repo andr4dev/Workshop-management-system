@@ -3,7 +3,11 @@ package com.workshopmanagement.rdmotors.clientes.infraestructura;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -12,6 +16,7 @@ import org.springframework.stereotype.Repository;
 import com.workshopmanagement.rdmotors.clientes.dominio.Cliente;
 import com.workshopmanagement.rdmotors.clientes.dominio.FiltroCartera;
 import com.workshopmanagement.rdmotors.clientes.dominio.ResumenDeCliente;
+import com.workshopmanagement.rdmotors.clientes.dominio.VentaDeLaDeuda;
 import com.workshopmanagement.rdmotors.clientes.dominio.puerto.ConsultasDeCartera;
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
 import com.workshopmanagement.rdmotors.compartido.dominio.TextoDeBusqueda;
@@ -119,5 +124,41 @@ class ConsultasDeCarteraJdbc implements ConsultasDeCartera {
 
     private static String escapar(String texto) {
         return texto.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+    }
+
+    /**
+     * Los renglones de esas ventas con su repuesto, en el orden del comprobante. El precio y el total son la foto que
+     * quedó en la venta, no el precio de hoy.
+     */
+    @Override
+    public Map<UUID, VentaDeLaDeuda> ventas(Collection<UUID> ventaIds) {
+        if (ventaIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, VentaDeLaDeuda> porVenta = new LinkedHashMap<>();
+        String marcas = String.join(", ", Collections.nCopies(ventaIds.size(), "?"));
+        jdbc.query("""
+                select v.id, v.subtotal, v.descuento_monto, v.descuento_motivo, v.total,
+                       va.codigo, p.nombre, va.marca_repuesto, l.cantidad, l.precio_unitario, l.total as total_renglon,
+                       l.cambio
+                from venta v
+                join linea_venta l on l.venta_id = v.id
+                join variante va on va.id = l.variante_id
+                join producto p on p.id = va.producto_id
+                where v.id in (%s)
+                order by v.id, l.posicion
+                """.formatted(marcas), rs -> {
+            UUID ventaId = rs.getObject("id", UUID.class);
+            VentaDeLaDeuda.Renglon renglon = new VentaDeLaDeuda.Renglon(rs.getString("codigo"), rs.getString("nombre"),
+                    rs.getString("marca_repuesto"), rs.getInt("cantidad"), Dinero.de(rs.getBigDecimal("precio_unitario")),
+                    Dinero.de(rs.getBigDecimal("total_renglon")), rs.getString("cambio"));
+            VentaDeLaDeuda antes = porVenta.get(ventaId);
+            List<VentaDeLaDeuda.Renglon> renglones = new ArrayList<>(antes == null ? List.of() : antes.renglones());
+            renglones.add(renglon);
+            porVenta.put(ventaId, new VentaDeLaDeuda(ventaId, List.copyOf(renglones),
+                    Dinero.de(rs.getBigDecimal("subtotal")), Dinero.de(rs.getBigDecimal("descuento_monto")),
+                    rs.getString("descuento_motivo"), Dinero.de(rs.getBigDecimal("total"))));
+        }, ventaIds.toArray());
+        return porVenta;
     }
 }

@@ -18,6 +18,7 @@ import com.workshopmanagement.rdmotors.clientes.aplicacion.ClienteEncontrado;
 import com.workshopmanagement.rdmotors.clientes.aplicacion.ConsultarCartera;
 import com.workshopmanagement.rdmotors.clientes.aplicacion.CrearCliente;
 import com.workshopmanagement.rdmotors.clientes.aplicacion.FichaCliente;
+import com.workshopmanagement.rdmotors.clientes.dominio.VentaDeLaDeuda;
 import com.workshopmanagement.rdmotors.clientes.dominio.Cliente;
 import com.workshopmanagement.rdmotors.clientes.dominio.ClienteRepetidoException;
 import com.workshopmanagement.rdmotors.clientes.dominio.DatosCliente;
@@ -164,17 +165,39 @@ class ClienteController {
         }
     }
 
-    /** {@code abonado + pendiente = monto}. */
+    /**
+     * {@code abonado + pendiente = monto}.
+     *
+     * @param venta lo que se llevó; {@code null} en el saldo del cuaderno
+     */
     record RespuestaDeuda(UUID id, OrigenDeuda origen, UUID ventaId, Long numeroVenta, LocalDate fecha, long monto,
                           long abonado, long pendiente, EstadoDeuda estado, String motivo, Persona registradaPor,
-                          Instant anuladaEn, List<RespuestaParteDeAbono> abonos) {
+                          Instant anuladaEn, List<RespuestaParteDeAbono> abonos, RespuestaVentaDeLaDeuda venta) {
 
         static RespuestaDeuda de(FichaCliente.DeudaDeLaFicha d) {
             return new RespuestaDeuda(d.id(), d.origen(), d.ventaId(), d.numeroVenta(), d.fecha(), pesos(d.monto()),
                     pesos(d.abonado()), pesos(d.pendiente()), d.estado(), d.motivo(), d.registradaPor(), d.anuladaEn(),
                     d.abonos().stream().map(p -> new RespuestaParteDeAbono(p.abonoId(), p.numero(), p.recibidoEn(),
-                            p.forma(), pesos(p.monto()), p.vigente())).toList());
+                            p.forma(), pesos(p.monto()), p.vigente())).toList(),
+                    RespuestaVentaDeLaDeuda.de(d.venta()));
         }
+    }
+
+    /** Lo que se llevó en una venta fiada. {@code total} es el de la venta: lo fiado puede ser menos. */
+    record RespuestaVentaDeLaDeuda(List<RespuestaRenglonFiado> renglones, long subtotal, long descuento,
+                                   String motivoDescuento, long total) {
+
+        static RespuestaVentaDeLaDeuda de(VentaDeLaDeuda v) {
+            return v == null ? null
+                    : new RespuestaVentaDeLaDeuda(v.renglones().stream().map(r -> new RespuestaRenglonFiado(r.codigo(),
+                            r.nombre(), r.marca(), r.cantidad(), pesos(r.precioUnitario()), pesos(r.total()), r.cambio()))
+                            .toList(), pesos(v.subtotal()), pesos(v.descuento()), v.motivoDescuento(), pesos(v.total()));
+        }
+    }
+
+    /** @param cambio {@code SE_CAMBIA} o {@code NO_SE_CAMBIA} en un aceite que paga comisión (spec 0015); si no, nulo */
+    record RespuestaRenglonFiado(String codigo, String nombre, String marca, int cantidad, long precioUnitario,
+                                 long total, String cambio) {
     }
 
     /** {@code vigente} en falso: esa parte se anuló, o se movió a otra venta al anularse esta. */

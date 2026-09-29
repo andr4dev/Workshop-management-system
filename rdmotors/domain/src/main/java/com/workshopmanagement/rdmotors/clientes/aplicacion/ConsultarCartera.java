@@ -67,7 +67,9 @@ public class ConsultarCartera {
                             cartera.deudas().stream().flatMap(d -> Stream.of(d.getRegistradaPorId(), d.getAnuladaPorId())),
                             cartera.abonos().stream().flatMap(a -> Stream.of(a.getRecibidoPorId(), a.getAnuladoPorId())))
                     .filter(Objects::nonNull).distinct().toList());
-            return FichaCliente.de(cartera, cartera.debe(), nombres);
+            List<UUID> ventaIds = cartera.deudas().stream().map(d -> d.getVentaId()).filter(Objects::nonNull).toList();
+            return FichaCliente.de(cartera, cartera.debe(), nombres,
+                    ventaIds.isEmpty() ? Map.of() : consultas.ventas(ventaIds));
         });
     }
 

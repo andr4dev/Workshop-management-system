@@ -417,6 +417,21 @@ class ClientesYFiadoIntegracionTest {
                 .containsExactly(EstadoDeuda.PENDIENTE, EstadoDeuda.ANULADA);
         assertThat(consultarCartera.lista(FiltroCartera.losQueDeben()).clientes())
                 .anySatisfy(r -> assertThat(r.clienteId()).isEqualTo(juan.getId()));
+
+        // Lo que se llevó en cada venta, leído de la base: la foto del cobro, también en la anulada.
+        assertThat(ficha.deudas()).extracting(d -> d.venta().renglones().getFirst().codigo())
+                .containsExactly(b.getCodigo(), a.getCodigo());
+        FichaCliente.DeudaDeLaFicha pendiente = ficha.deudas().getFirst();
+        assertThat(pendiente.venta().total()).isEqualTo(Dinero.de(30_000));
+        assertThat(pendiente.monto()).as("pagó 10.000 al llevárselo").isEqualTo(Dinero.de(20_000));
+        assertThat(pendiente.venta().descuento()).isEqualTo(Dinero.CERO);
+        assertThat(pendiente.venta().renglones()).singleElement().satisfies(r -> {
+            assertThat(r.nombre()).isEqualTo("REPUESTO " + b.getCodigo());
+            assertThat(r.cantidad()).isEqualTo(1);
+            assertThat(r.precioUnitario()).isEqualTo(Dinero.de(30_000));
+            assertThat(r.total()).isEqualTo(Dinero.de(30_000));
+            assertThat(r.cambio()).isNull();
+        });
     }
 
     @Test

@@ -1,9 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  desdeCuandoEnPalabras, esDeudaVieja, fechaCorta, nombreDeLaDeuda, problemasDeLaFicha, resumenDeLaCartera,
-  textoPendientes,
+  desdeCuandoEnPalabras, esDeudaVieja, fechaCorta, loQueSeLlevo, nombreDeLaDeuda, problemasDeLaFicha,
+  resumenDeLaCartera, textoPendientes,
 } from './cartera.js'
+import { formatoCOP } from './formato.js'
 
 const HOY = '2026-09-21'
 
@@ -50,4 +51,33 @@ test('la ficha cuadra: cada venta abonado + pendiente = fiado, y lo que debe es 
   assert.equal(problemasDeLaFicha({ ...ficha, debe: 25_000 }).length, 1)
   const rota = { ...ficha, deudas: [{ ...ficha.deudas[0], abonado: 5_000 }] }
   assert.match(problemasDeLaFicha(rota)[0], /Venta N\.º 57/)
+})
+
+test('qué se llevó en una venta fiada: cada repuesto con su valor, y lo que la baja hasta lo fiado', () => {
+  const deuda = {
+    origen: 'VENTA', numeroVenta: 9, monto: 55_000,
+    venta: {
+      renglones: [
+        { codigo: '104089', nombre: 'MOTUL 7100 10W30', marca: 'MOTUL', cantidad: 1, precioUnitario: 62_000,
+          total: 62_000, cambio: 'NO_SE_CAMBIA' },
+        { codigo: 'ABC123', nombre: 'FILTRO DE ACEITE', marca: 'INOKI', cantidad: 2, precioUnitario: 11_000,
+          total: 22_000, cambio: null },
+      ],
+      subtotal: 84_000, descuento: 4_000, motivoDescuento: 'Cliente frecuente', total: 80_000,
+    },
+  }
+  const r = loQueSeLlevo(deuda)
+  assert.deepEqual(r.renglones.map((x) => [x.texto, x.detalle, x.total]), [
+    ['1 × MOTUL 7100 10W30', 'sin cambio', 62_000],
+    ['2 × FILTRO DE ACEITE', `INOKI · ${formatoCOP(11_000)} c/u`, 22_000],
+  ])
+  assert.deepEqual(r.descuento, { monto: 4_000, motivo: 'Cliente frecuente' })
+  assert.equal(r.pagoAlLlevarselo, 25_000, 'la venta fue de 80.000 y quedó fiado 55.000')
+  assert.equal(r.renglones.reduce((s, x) => s + x.total, 0) - r.descuento.monto - r.pagoAlLlevarselo, deuda.monto,
+    'las partes suman lo fiado')
+
+  const todoFiado = loQueSeLlevo({ ...deuda, monto: 80_000, venta: { ...deuda.venta, descuento: 0 } })
+  assert.equal(todoFiado.descuento, null)
+  assert.equal(todoFiado.pagoAlLlevarselo, 0)
+  assert.equal(loQueSeLlevo({ origen: 'CUADERNO', monto: 20_000, venta: null }), null, 'el cuaderno no tiene venta')
 })

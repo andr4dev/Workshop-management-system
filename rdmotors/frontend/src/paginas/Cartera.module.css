@@ -225,6 +225,20 @@
 .abonosDeLaDeuda li strong { color: var(--text); font-variant-numeric: tabular-nums; }
 .movido { text-decoration: line-through; }
 
+/* Qué se llevó en cada venta fiada: los repuestos con su valor; lo que la baja hasta lo fiado, más tenue. */
+.productos {
+  margin: var(--esp-2) 0 0;
+  padding: var(--esp-2) 0 0;
+  border-top: 1px dashed var(--border);
+  list-style: none;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.productos li { display: flex; justify-content: space-between; align-items: baseline; gap: var(--esp-3); padding: 1px 0; }
+.productoDetalle { color: var(--text-muted); font-size: 12.5px; }
+.productoValor { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.productoResta { color: var(--text-muted); font-size: 13px; }
+
 .linea {
   display: flex;
   flex-direction: column;

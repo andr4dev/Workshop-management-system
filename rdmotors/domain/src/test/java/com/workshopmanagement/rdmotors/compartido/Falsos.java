@@ -1128,6 +1128,9 @@ public final class Falsos {
      * deben, los que deben algo hoy; y el texto, como {@link ClientesEnMemoria#buscarPorTexto}.
      */
     public static final class CarteraEnMemoria implements ConsultasDeCartera {
+        /** Lo que se llevó en cada venta: la prueba lo siembra, como lo leería el adaptador de la base. */
+        public final Map<UUID, com.workshopmanagement.rdmotors.clientes.dominio.VentaDeLaDeuda> ventas =
+                new LinkedHashMap<>();
         private final ClientesEnMemoria clientes;
         private final DeudasEnMemoria deudas;
         private final AbonosEnMemoria abonos;
@@ -1149,6 +1152,14 @@ public final class Falsos {
                             abonos.delCliente(c.getId()))))
                     .filter(r -> filtro.vista() == FiltroCartera.Vista.HISTORIAL || r.debeAlgo())
                     .toList();
+        }
+
+        @Override
+        public Map<UUID, com.workshopmanagement.rdmotors.clientes.dominio.VentaDeLaDeuda> ventas(
+                java.util.Collection<UUID> ventaIds) {
+            Map<UUID, com.workshopmanagement.rdmotors.clientes.dominio.VentaDeLaDeuda> pedidas = new LinkedHashMap<>();
+            ventaIds.stream().filter(ventas::containsKey).forEach(id -> pedidas.put(id, ventas.get(id)));
+            return pedidas;
         }
 
         /** Como el adaptador: tuvo una venta fiada, o un abono, dentro del período. */
