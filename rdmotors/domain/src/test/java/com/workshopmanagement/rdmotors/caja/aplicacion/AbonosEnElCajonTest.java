@@ -155,7 +155,7 @@ class AbonosEnElCajonTest {
 
         assertThat(abono.estaAnulado()).isTrue();
         assertThat(tienda.calcularArqueo.de(tienda.turnoAbierto()).esperado()).isEqualTo(Dinero.de(100_000));
-        assertThat(tienda.deudas.deLaVenta(tienda.ventas.datos.values().iterator().next().getId()).orElseThrow()
+        assertThat(tienda.deudas.deLaVenta(tienda.ventas.datos.values().iterator().next().getId()).getFirst()
                 .estado()).isEqualTo(EstadoDeuda.PENDIENTE);
         assertThat(tienda.auditoria.eventos).anySatisfy(e -> {
             assertThat(e.accion()).isEqualTo(AccionAuditada.ANULAR_ABONO);

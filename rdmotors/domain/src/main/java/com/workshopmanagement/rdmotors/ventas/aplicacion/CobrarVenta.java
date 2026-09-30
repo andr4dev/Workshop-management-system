@@ -170,8 +170,12 @@ public class CobrarVenta {
 
         Venta guardada = ventas.guardar(venta);
         if (guardada.tieneFiado()) {
-            fiar.registrar(cliente, guardada.getId(), guardada.getNumero(), reloj.hoy(), guardada.getFiado(),
-                    comando.actor().id(), ahora);
+            // Una deuda por producto (spec 0016): la cartera necesita cada renglón y qué marcó el cajero como pagado.
+            fiar.registrar(cliente, guardada.getId(), guardada.getNumero(), reloj.hoy(),
+                    guardada.getLineas().stream().map(l -> new FiarVenta.RenglonFiado(l.getId(), l.getVariante().getId(),
+                            l.getPosicion(), l.getVariante().getProducto().getNombre(), l.getTotal())).toList(),
+                    guardada.getDescuentoMonto(), guardada.getFiado(), comando.pagaPrimero(), comando.actor().id(),
+                    ahora);
         }
         return ResultadoCobro.nueva(guardada);
     }

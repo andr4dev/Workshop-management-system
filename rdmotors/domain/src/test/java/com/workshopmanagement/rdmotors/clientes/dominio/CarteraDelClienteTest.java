@@ -51,10 +51,15 @@ class CarteraDelClienteTest {
     }
 
     private Abono abonar(long monto, UUID primeroA) {
+        return abonarPrimeroA(monto, primeroA == null ? List.of() : List.of(primeroA));
+    }
+
+    /** Pagando primero lo escogido, en ese orden (spec 0016). */
+    private Abono abonarPrimeroA(long monto, List<UUID> primero) {
         CarteraDelCliente cartera = cartera();
         Abono abono = Abono.recibir(siguienteAbono++, juan.getId(), Dinero.de(monto), FormaPago.EFECTIVO, null, null,
                 turno, cajero, UUID.randomUUID(), luego());
-        cartera.abonar(abono, primeroA, reloj);
+        cartera.abonar(abono, primero, reloj);
         abonos.add(abono);
         return abono;
     }

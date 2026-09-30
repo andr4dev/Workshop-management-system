@@ -1,6 +1,7 @@
 package com.workshopmanagement.rdmotors.clientes.aplicacion;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,7 +32,8 @@ import com.workshopmanagement.rdmotors.compartido.dominio.puerto.Reloj;
  *   <li><b>El cliente, bloqueado</b> (plan 0008, decisión 4): dos abonos a la vez al mismo cliente se hacen en fila y
  *       nunca lo dejan debiendo menos de cero.</li>
  *   <li><b>La llave otra vez</b>, ya con los bloqueos: si el otro abono ganó, este devuelve el suyo.</li>
- *   <li>Se reparte: a lo más viejo, o primero a la venta que el cliente diga.</li>
+ *   <li>Se reparte: a lo más viejo, o primero a lo que el cliente diga que paga (una venta, o los productos que se
+ *       marquen, spec 0016).</li>
  * </ol>
  */
 @Transactional
@@ -53,10 +55,11 @@ public class RegistrarAbono {
     }
 
     /**
-     * @param primeroA la venta que el cliente dijo que paga, o {@code null}: a lo más viejo
+     * @param primero lo que el cliente dijo que paga, en ese orden: productos o ventas (spec 0016); vacía o nula: a lo
+     *                más viejo
      */
     public Abono ejecutar(UUID llave, UUID clienteId, Dinero monto, FormaPago forma, String referencia, String nota,
-                          UUID primeroA, Actor actor) {
+                          List<UUID> primero, Actor actor) {
         if (actor == null) {
             throw new ReglaDeNegocioException("Al abono le falta quién lo recibe");
         }
@@ -85,7 +88,7 @@ public class RegistrarAbono {
                 turno == null ? null : turno.getId(), actor.id(), llave, ahora);
         CarteraDelCliente cartera = new CarteraDelCliente(cliente, deudas.delCliente(cliente.getId()),
                 abonos.delCliente(cliente.getId()));
-        cartera.abonar(abono, primeroA, ahora);
+        cartera.abonar(abono, primero == null ? List.of() : primero, ahora);
 
         // Las deudas primero: una aplicación no puede apuntar a una deuda que la base todavía no tiene.
         cartera.deudas().forEach(deudas::guardar);

@@ -13,7 +13,8 @@ import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
  * que ha tenido fiado y pagado. Las mismas cuentas que {@link CarteraDelCliente}, hechas por la base para toda la
  * lista de una vez.
  *
- * @param pendientes    cuántas deudas tienen algo por pagar
+ * @param pendientes    cuántas <b>ventas</b> (y el saldo del cuaderno) tienen algo por pagar: los productos de una
+ *                      misma venta cuentan una vez (spec 0016)
  * @param desde         el día de la deuda pendiente más vieja; {@code null} si está al día
  * @param fiadoTotal    lo que se le ha fiado en total, sin lo anulado ("prestado histórico" del car‑wash)
  * @param pagadoTotal   lo que ha abonado en total, sin lo anulado
@@ -38,7 +39,9 @@ public record ResumenDeCliente(UUID clienteId, String nombre, String documento, 
     public static ResumenDeCliente de(CarteraDelCliente cartera) {
         Cliente cliente = cartera.cliente();
         return new ResumenDeCliente(cliente.getId(), cliente.getNombre(), cliente.getDocumento(), cliente.getCelular(),
-                cliente.isFiadoCerrado(), cartera.debe(), cartera.aFavor(), cartera.pendientes().size(),
+                cliente.isFiadoCerrado(), cartera.debe(), cartera.aFavor(),
+                (int) cartera.pendientes().stream().map(d -> d.getVentaId() != null ? d.getVentaId() : d.getId())
+                        .distinct().count(),
                 cartera.desdeCuando(),
                 cartera.deudas().stream().filter(d -> !d.estaAnulada()).map(Deuda::getMonto)
                         .reduce(Dinero.CERO, Dinero::mas),

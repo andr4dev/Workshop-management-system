@@ -149,9 +149,9 @@ class ConsultarCarteraTest {
         Cliente juan = cliente("Juan Pérez", "1234567");
         Deuda la41 = fiar(juan, 41, LocalDate.of(2026, 9, 12), 50_000);
         VentaDeLaDeuda venta41 = new VentaDeLaDeuda(la41.getVentaId(), List.of(
-                new VentaDeLaDeuda.Renglon("104089", "MOTUL 7100 10W30", "MOTUL", 1, Dinero.de(65_000),
+                new VentaDeLaDeuda.Renglon(UUID.randomUUID(), "104089", "MOTUL 7100 10W30", "MOTUL", 1, Dinero.de(65_000),
                         Dinero.de(65_000), "SE_CAMBIA"),
-                new VentaDeLaDeuda.Renglon("ABC123", "FILTRO DE ACEITE", "INOKI", 1, Dinero.de(11_000),
+                new VentaDeLaDeuda.Renglon(UUID.randomUUID(), "ABC123", "FILTRO DE ACEITE", "INOKI", 1, Dinero.de(11_000),
                         Dinero.de(11_000), null)),
                 Dinero.de(76_000), Dinero.de(6_000), "Cliente frecuente", Dinero.de(70_000));
         cartera.ventas.put(la41.getVentaId(), venta41);

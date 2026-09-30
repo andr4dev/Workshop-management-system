@@ -13,6 +13,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
+import com.workshopmanagement.rdmotors.compartido.dominio.RepartoDeDescuento;
 import com.workshopmanagement.rdmotors.compartido.dominio.FormaPago;
 
 /**

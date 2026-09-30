@@ -47,7 +47,7 @@ class AbonoController {
     ResponseEntity<RespuestaAbono> abonar(@Valid @RequestBody PeticionAbono peticion, @ActorActual Actor actor) {
         try {
             Abono abono = registrarAbono.ejecutar(peticion.llave(), peticion.clienteId(), Dinero.de(peticion.monto()),
-                    peticion.forma(), peticion.referencia(), peticion.nota(), peticion.primeroA(), actor);
+                    peticion.forma(), peticion.referencia(), peticion.nota(), peticion.loQuePagaPrimero(), actor);
             return ResponseEntity.status(HttpStatus.CREATED).body(recibo(abono.getId()));
         } catch (MovimientoRepetidoException e) {
             // Dos abonos con la misma llave a la vez: el otro ganó y el abono ya está guardado.
@@ -82,10 +82,19 @@ class AbonoController {
     // ── Lo que entra ─────────────────────────────────────────────────────────
 
     /**
-     * @param primeroA la venta que el cliente dijo que paga; sin ella, a lo más viejo (RF-012)
+     * @param primeroA la venta que el cliente dijo que paga; sin ella, a lo más viejo (RF-012). La manda la pantalla
+     *                 de antes del spec 0016
+     * @param primero  los productos (o ventas) que el cliente dijo que paga, en ese orden (spec 0016)
      */
     record PeticionAbono(@NotNull UUID llave, @NotNull UUID clienteId, @Positive long monto, @NotNull FormaPago forma,
-                         String referencia, String nota, UUID primeroA) {
+                         String referencia, String nota, UUID primeroA, List<UUID> primero) {
+
+        List<UUID> loQuePagaPrimero() {
+            if (primero != null && !primero.isEmpty()) {
+                return primero;
+            }
+            return primeroA == null ? List.of() : List.of(primeroA);
+        }
     }
 
     record PeticionAnulacion(String motivo) {

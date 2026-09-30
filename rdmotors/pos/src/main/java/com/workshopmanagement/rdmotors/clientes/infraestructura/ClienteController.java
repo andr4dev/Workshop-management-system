@@ -170,12 +170,14 @@ class ClienteController {
      *
      * @param venta lo que se llevó; {@code null} en el saldo del cuaderno
      */
-    record RespuestaDeuda(UUID id, OrigenDeuda origen, UUID ventaId, Long numeroVenta, LocalDate fecha, long monto,
+    record RespuestaDeuda(UUID id, OrigenDeuda origen, UUID ventaId, Long numeroVenta, UUID lineaVentaId,
+                          Integer posicion, String descripcion, LocalDate fecha, long monto,
                           long abonado, long pendiente, EstadoDeuda estado, String motivo, Persona registradaPor,
                           Instant anuladaEn, List<RespuestaParteDeAbono> abonos, RespuestaVentaDeLaDeuda venta) {
 
         static RespuestaDeuda de(FichaCliente.DeudaDeLaFicha d) {
-            return new RespuestaDeuda(d.id(), d.origen(), d.ventaId(), d.numeroVenta(), d.fecha(), pesos(d.monto()),
+            return new RespuestaDeuda(d.id(), d.origen(), d.ventaId(), d.numeroVenta(), d.lineaVentaId(), d.posicion(),
+                    d.descripcion(), d.fecha(), pesos(d.monto()),
                     pesos(d.abonado()), pesos(d.pendiente()), d.estado(), d.motivo(), d.registradaPor(), d.anuladaEn(),
                     d.abonos().stream().map(p -> new RespuestaParteDeAbono(p.abonoId(), p.numero(), p.recibidoEn(),
                             p.forma(), pesos(p.monto()), p.vigente())).toList(),
@@ -189,15 +191,16 @@ class ClienteController {
 
         static RespuestaVentaDeLaDeuda de(VentaDeLaDeuda v) {
             return v == null ? null
-                    : new RespuestaVentaDeLaDeuda(v.renglones().stream().map(r -> new RespuestaRenglonFiado(r.codigo(),
+                    : new RespuestaVentaDeLaDeuda(v.renglones().stream().map(r -> new RespuestaRenglonFiado(r.lineaId(),
+                            r.codigo(),
                             r.nombre(), r.marca(), r.cantidad(), pesos(r.precioUnitario()), pesos(r.total()), r.cambio()))
                             .toList(), pesos(v.subtotal()), pesos(v.descuento()), v.motivoDescuento(), pesos(v.total()));
         }
     }
 
     /** @param cambio {@code SE_CAMBIA} o {@code NO_SE_CAMBIA} en un aceite que paga comisión (spec 0015); si no, nulo */
-    record RespuestaRenglonFiado(String codigo, String nombre, String marca, int cantidad, long precioUnitario,
-                                 long total, String cambio) {
+    record RespuestaRenglonFiado(UUID lineaId, String codigo, String nombre, String marca, int cantidad,
+                                 long precioUnitario, long total, String cambio) {
     }
 
     /** {@code vigente} en falso: esa parte se anuló, o se movió a otra venta al anularse esta. */

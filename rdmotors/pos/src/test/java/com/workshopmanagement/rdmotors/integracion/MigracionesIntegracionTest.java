@@ -8,6 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import org.flywaydb.core.Flyway;
@@ -16,6 +17,9 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
+import com.workshopmanagement.rdmotors.compartido.dominio.RepartoDeDescuento;
 
 /**
  * La pregunta que la suite normal no puede hacer: <b>¿la migración funciona en una base que YA
@@ -939,6 +943,153 @@ class MigracionesIntegracionTest {
             }
             ejecutar(c, "update linea_venta set cambio = 'NO_SE_CAMBIA', comision = 3000 where venta_id = ?", ventaId);
         }
+    }
+
+    @Test
+    @DisplayName("V31 sobre una base con fiados: los de un producto se anotan, los de varios sin abonos se parten y los demás quedan de la venta")
+    void v31DeudaPorProducto() throws SQLException {
+        Flyway hastaV30 = flywayHasta("30");
+        hastaV30.clean();
+        hastaV30.migrate();
+        UUID ruben = UUID.randomUUID();
+        UUID turnoId = UUID.randomUUID();
+        UUID juan = UUID.randomUUID();
+        UUID motul = UUID.randomUUID();
+        UUID filtro = UUID.randomUUID();
+        try (Connection c = conexion()) {
+            ejecutar(c, """
+                    insert into usuario (id, usuario, usuario_normalizado, nombre, hash, rol, activo,
+                                         debe_cambiar_contrasena, version_sesion, intentos_fallidos, creado_en)
+                    values (?, 'ruben', 'ruben', 'Rubén', '{bcrypt}x', 'ADMINISTRADOR', true, false, 1, 0, now())
+                    """, ruben);
+            ejecutar(c, "insert into turno_caja (id, abierto_por_id, abierto_en, fondo, estado) values (?, ?, now(), 100000, 'ABIERTO')",
+                    turnoId, ruben);
+            ejecutar(c, """
+                    insert into cliente (id, nombre, nombre_normalizado, creado_en, creado_por_id)
+                    values (?, 'Juan Pérez', 'juan perez', now(), ?)
+                    """, juan, ruben);
+            for (Object[] r : new Object[][] {{motul, "MOTUL 7100 10W30", "104089", 65_000},
+                    {filtro, "FILTRO DE ACEITE", "ABC123", 11_000}}) {
+                UUID productoId = UUID.randomUUID();
+                ejecutar(c, "insert into producto (id, nombre) values (?, ?)", productoId, r[1]);
+                ejecutar(c, """
+                        insert into variante (id, producto_id, codigo, marca_repuesto, precio, stock)
+                        values (?, ?, ?, 'MARCA', ?, 50)
+                        """, r[0], productoId, r[2], r[3]);
+            }
+        }
+        // Cada venta de antes: sus renglones (MOTUL y, si va, el filtro), su descuento, lo fiado y la deuda.
+        UUID unoConAbono = fiadoDeAntes(ruben, turnoId, juan, motul, null, 0, 65_000, 1);
+        UUID dosSinAbonos = fiadoDeAntes(ruben, turnoId, juan, motul, filtro, 3_000, 73_000, 2);
+        UUID dosConAbono = fiadoDeAntes(ruben, turnoId, juan, motul, filtro, 0, 76_000, 3);
+        UUID dosConPago = fiadoDeAntes(ruben, turnoId, juan, motul, filtro, 0, 56_000, 4);
+        UUID dosAnulada = fiadoDeAntes(ruben, turnoId, juan, motul, filtro, 0, 76_000, 5);
+        UUID abonoId = UUID.randomUUID();
+        try (Connection c = conexion()) {
+            ejecutar(c, """
+                    insert into abono (id, numero, cliente_id, monto, forma, turno_id, recibido_por_id, recibido_en,
+                                       llave_idempotencia, debe_despues)
+                    values (?, 1, ?, 30000, 'EFECTIVO', ?, ?, now(), gen_random_uuid(), 0)
+                    """, abonoId, juan, turnoId, ruben);
+            for (Object[] a : new Object[][] {{unoConAbono, 10_000}, {dosConAbono, 20_000}}) {
+                ejecutar(c, """
+                        insert into aplicacion_abono (id, abono_id, deuda_id, monto, aplicada_en)
+                        values (gen_random_uuid(), ?, ?, ?, now())
+                        """, abonoId, a[0], a[1]);
+                ejecutar(c, "update deuda set abonado = ? where id = ?", a[1], a[0]);
+            }
+            ejecutar(c, "update deuda set anulada_en = now(), anulada_por_id = ? where id = ?", ruben, dosAnulada);
+            ejecutar(c, """
+                    insert into deuda (id, cliente_id, origen, fecha, registrada_en, registrada_por_id, monto, motivo,
+                                       debe_despues)
+                    values (gen_random_uuid(), ?, 'CUADERNO', current_date, now(), ?, 20000, 'Lo del cuaderno', 20000)
+                    """, juan, ruben);
+        }
+
+        flywayHasta(null).migrate();
+
+        try (Connection c = conexion()) {
+            // Un producto: el mismo id, el mismo monto, su abono pegado; ahora sabe qué producto es.
+            assertThat(valor(c, """
+                    select descripcion || ' · ' || monto::int || ' · ' || abonado::int from deuda where id = ?""",
+                    unoConAbono)).isEqualTo("MOTUL 7100 10W30 · 65000 · 10000");
+            assertThat(valor(c, "select count(*) from aplicacion_abono where deuda_id = ?", unoConAbono)).isEqualTo(1L);
+
+            // Dos productos sin abonos: se parte con el reparto del descuento, igual al del dominio, y suma lo fiado.
+            List<Dinero> netos = RepartoDeDescuento.netos(List.of(Dinero.de(65_000), Dinero.de(11_000)),
+                    Dinero.de(3_000));
+            assertThat(valor(c, """
+                    select string_agg(descripcion || '=' || monto::int, ', ' order by posicion) from deuda
+                    where venta_id = (select venta_id from deuda where id = ?)""", dosSinAbonos))
+                    .isEqualTo("MOTUL 7100 10W30=" + netos.get(0).valor().longValueExact()
+                            + ", FILTRO DE ACEITE=" + netos.get(1).valor().longValueExact());
+            assertThat(valor(c, "select descripcion from deuda where id = ?", dosSinAbonos))
+                    .as("la fila original queda como el primer producto").isEqualTo("MOTUL 7100 10W30");
+            assertThat(valor(c, """
+                    select count(distinct debe_despues)::int || '/' || sum(monto)::int from deuda
+                    where venta_id = (select venta_id from deuda where id = ?)""", dosSinAbonos)).isEqualTo("1/73000");
+
+            // Con abonos, con pago al llevárselo, o anulada: quedan de la venta entera.
+            for (UUID sinPartir : List.of(dosConAbono, dosConPago, dosAnulada)) {
+                assertThat(valor(c, """
+                        select linea_venta_id is null and (select count(*) from deuda x where x.venta_id = d.venta_id) = 1
+                        from deuda d where id = ?""", sinPartir)).as(sinPartir.toString()).isEqualTo(true);
+            }
+            assertThat(valor(c, "select linea_venta_id is null from deuda where origen = 'CUADERNO'")).isEqualTo(true);
+
+            // Un producto no se fía dos veces, y lo del producto va con su renglón.
+            try (PreparedStatement ps = c.prepareStatement("""
+                    insert into deuda (id, cliente_id, origen, venta_id, numero_venta, fecha, registrada_en,
+                                       registrada_por_id, monto, debe_despues, linea_venta_id, posicion, descripcion)
+                    select gen_random_uuid(), cliente_id, origen, venta_id, numero_venta, fecha, registrada_en,
+                           registrada_por_id, 1, 0, linea_venta_id, posicion, descripcion from deuda where id = ?""")) {
+                ps.setObject(1, unoConAbono);
+                org.assertj.core.api.Assertions.assertThatThrownBy(ps::executeUpdate)
+                        .hasMessageContaining("ux_deuda_linea");
+            }
+            try (PreparedStatement ps = c.prepareStatement("update deuda set posicion = 3 where origen = 'CUADERNO'")) {
+                org.assertj.core.api.Assertions.assertThatThrownBy(ps::executeUpdate)
+                        .hasMessageContaining("ck_deuda_de_producto");
+            }
+        }
+    }
+
+    /** Una venta fiada como las de antes de la V31: una sola deuda por lo fiado. Devuelve el id de la deuda. */
+    private UUID fiadoDeAntes(UUID quien, UUID turnoId, UUID clienteId, UUID motul, UUID filtro, long descuento,
+                              long fiado, long numero) throws SQLException {
+        UUID ventaId = UUID.randomUUID();
+        UUID deudaId = UUID.randomUUID();
+        long subtotal = 65_000 + (filtro == null ? 0 : 11_000);
+        long total = subtotal - descuento;
+        try (Connection c = conexion()) {
+            ejecutar(c, """
+                    insert into venta (id, numero, turno_id, vendido_por_id, cobrada_en, subtotal, descuento_monto,
+                                       descuento_modo, descuento_motivo, total, estado, llave_idempotencia,
+                                       cliente_id, fiado)
+                    values (?, ?, ?, ?, now(), ?, ?, ?, ?, ?, 'COBRADA', gen_random_uuid(), ?, ?)
+                    """, ventaId, numero, turnoId, quien, subtotal, descuento, descuento > 0 ? "MONTO" : null,
+                    descuento > 0 ? "Cliente frecuente" : null, total, clienteId, fiado);
+            ejecutar(c, """
+                    insert into linea_venta (id, venta_id, posicion, variante_id, cantidad, precio_unitario, total)
+                    values (gen_random_uuid(), ?, 0, ?, 1, 65000, 65000)
+                    """, ventaId, motul);
+            if (filtro != null) {
+                ejecutar(c, """
+                        insert into linea_venta (id, venta_id, posicion, variante_id, cantidad, precio_unitario, total)
+                        values (gen_random_uuid(), ?, 1, ?, 1, 11000, 11000)
+                        """, ventaId, filtro);
+            }
+            if (total > fiado) {
+                ejecutar(c, "insert into pago_venta (id, venta_id, forma, monto) values (gen_random_uuid(), ?, 'EFECTIVO', ?)",
+                        ventaId, total - fiado);
+            }
+            ejecutar(c, """
+                    insert into deuda (id, cliente_id, origen, venta_id, numero_venta, fecha, registrada_en,
+                                       registrada_por_id, monto, debe_despues)
+                    values (?, ?, 'VENTA', ?, ?, current_date, now(), ?, ?, ?)
+                    """, deudaId, clienteId, ventaId, numero, quien, fiado, fiado);
+        }
+        return deudaId;
     }
 
     private static Object valor(Connection c, String sql, Object... parametros) throws SQLException {

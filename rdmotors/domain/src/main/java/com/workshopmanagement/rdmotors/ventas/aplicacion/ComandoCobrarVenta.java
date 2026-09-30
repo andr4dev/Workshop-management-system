@@ -20,6 +20,8 @@ import com.workshopmanagement.rdmotors.ventas.dominio.PagoVenta;
  * @param descuento {@code null} si no hubo
  * @param clienteId a nombre de quién, o {@code null}; obligatorio si hay fiado (spec 0008)
  * @param fiado     lo que queda debiendo el cliente, en pesos; 0 si pagó todo
+ * @param pagaPrimero en una venta fiada, los repuestos (por variante) que el cajero marcó como pagados al llevárselos,
+ *                  en su orden (spec 0016, decisión 2); vacía: lo pagado cubre en el orden de la venta
  */
 public record ComandoCobrarVenta(
         UUID llave,
@@ -28,12 +30,19 @@ public record ComandoCobrarVenta(
         List<Pago> pagos,
         UUID clienteId,
         long fiado,
-        Actor actor) {
+        Actor actor,
+        List<UUID> pagaPrimero) {
 
     /** Una venta de contado, sin cliente: la de siempre. */
     public ComandoCobrarVenta(UUID llave, List<Renglon> renglones, ComandoDescuento descuento, List<Pago> pagos,
                               Actor actor) {
         this(llave, renglones, descuento, pagos, null, 0, actor);
+    }
+
+    /** Sin marcar qué se paga al llevárselo: lo de antes del spec 0016. */
+    public ComandoCobrarVenta(UUID llave, List<Renglon> renglones, ComandoDescuento descuento, List<Pago> pagos,
+                              UUID clienteId, long fiado, Actor actor) {
+        this(llave, renglones, descuento, pagos, clienteId, fiado, actor, List.of());
     }
 
     public ComandoCobrarVenta {
@@ -54,6 +63,15 @@ public record ComandoCobrarVenta(
         }
         renglones = List.copyOf(renglones);
         pagos = pagos == null ? List.of() : List.copyOf(pagos);
+        pagaPrimero = pagaPrimero == null ? List.of() : List.copyOf(pagaPrimero);
+        if (!pagaPrimero.isEmpty() && fiado == 0) {
+            throw new ReglaDeNegocioException("Solo se escoge qué se paga ahora cuando se fía");
+        }
+        for (UUID varianteId : pagaPrimero) {
+            if (renglones.stream().noneMatch(r -> varianteId.equals(r.varianteId()))) {
+                throw new ReglaDeNegocioException("Lo que se paga ahora tiene que ser de esta venta");
+            }
+        }
     }
 
     /** Si queda algo debiendo. */

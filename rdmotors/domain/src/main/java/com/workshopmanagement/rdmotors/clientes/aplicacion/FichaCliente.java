@@ -37,14 +37,17 @@ public record FichaCliente(ClienteEncontrado cliente, Dinero debe, Dinero aFavor
     }
 
     /**
-     * Una venta fiada o el saldo del cuaderno. {@code abonado + pendiente = monto}.
+     * Un producto fiado, una venta fiada entera (las de antes que no se partieron) o el saldo del cuaderno.
+     * {@code abonado + pendiente = monto}.
      *
-     * @param venta lo que se llevó en esa venta; nulo en el saldo del cuaderno
+     * @param lineaVentaId el renglón de la venta si es la deuda de un producto (spec 0016); nulo si no
+     * @param descripcion  el nombre del producto al fiarlo; nulo si no es de un producto
+     * @param venta        lo que se llevó en esa venta; nulo en el saldo del cuaderno
      */
-    public record DeudaDeLaFicha(UUID id, OrigenDeuda origen, UUID ventaId, Long numeroVenta, LocalDate fecha,
-                                 Dinero monto, Dinero abonado, Dinero pendiente, EstadoDeuda estado, String motivo,
-                                 Persona registradaPor, Instant anuladaEn, List<ParteDeAbono> abonos,
-                                 VentaDeLaDeuda venta) {
+    public record DeudaDeLaFicha(UUID id, OrigenDeuda origen, UUID ventaId, Long numeroVenta, UUID lineaVentaId,
+                                 Integer posicion, String descripcion, LocalDate fecha, Dinero monto, Dinero abonado,
+                                 Dinero pendiente, EstadoDeuda estado, String motivo, Persona registradaPor,
+                                 Instant anuladaEn, List<ParteDeAbono> abonos, VentaDeLaDeuda venta) {
     }
 
     /** Lo que un abono le aplicó a una deuda, visto desde el abono: "a la venta N.º 41". */
@@ -79,7 +82,8 @@ public record FichaCliente(ClienteEncontrado cliente, Dinero debe, Dinero aFavor
         }
         List<DeudaDeLaFicha> fichas = deudas.stream()
                 .sorted(CarteraDelCliente.ORDEN_DE_PAGO.reversed())
-                .map(d -> new DeudaDeLaFicha(d.getId(), d.getOrigen(), d.getVentaId(), d.getNumeroVenta(), d.getFecha(),
+                .map(d -> new DeudaDeLaFicha(d.getId(), d.getOrigen(), d.getVentaId(), d.getNumeroVenta(),
+                        d.getLineaVentaId(), d.getPosicion(), d.getDescripcion(), d.getFecha(),
                         d.getMonto(), d.getAbonado(), d.pendiente(), d.estado(), d.getMotivo(),
                         Persona.de(d.getRegistradaPorId(), nombres), d.getAnuladaEn(),
                         abonos.stream().flatMap(a -> a.getAplicaciones().stream()
@@ -98,7 +102,7 @@ public record FichaCliente(ClienteEncontrado cliente, Dinero debe, Dinero aFavor
                         a.getAplicaciones().stream()
                                 .sorted(Comparator.comparingInt(ap -> ordenDePago.getOrDefault(ap.getDeudaId(), 0)))
                                 .map(ap -> new ParteAplicada(ap.getDeudaId(),
-                                        porId.containsKey(ap.getDeudaId()) ? porId.get(ap.getDeudaId()).nombre() : "—",
+                                        porId.containsKey(ap.getDeudaId()) ? porId.get(ap.getDeudaId()).etiqueta() : "—",
                                         ap.getMonto(), ap.estaVigente()))
                                 .toList()))
                 .toList();

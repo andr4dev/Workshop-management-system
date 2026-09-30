@@ -19,7 +19,7 @@ import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
  *
  * <h2>Por qué restos mayores, y no "el sobrante al más caro"</h2>
  *
- * {@code reportes.dominio.RepartoDeDescuento} le carga todo el sobrante al renglón más caro. En una venta de tres
+ * {@code compartido.dominio.RepartoDeDescuento} le carga todo el sobrante al renglón más caro. En una venta de tres
  * renglones eso es un peso o dos, y está bien. En una factura de 592 son <b>unos 300 pesos sobre un solo
  * repuesto</b> —en la MAG477, justo la bujía iridium—, que quedaría con un costo inflado sin razón.
  *

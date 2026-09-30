@@ -105,7 +105,8 @@ public class ConsultarVentas {
                 : clientes.deIds(clienteIds).stream().collect(Collectors.toMap(Cliente::getId, c -> c));
         List<UUID> fiadas = lista.stream().filter(Venta::tieneFiado).map(Venta::getId).toList();
         Map<UUID, Deuda> porVenta = fiadas.isEmpty() ? Map.of()
-                : deudas.deLasVentas(fiadas).stream().collect(Collectors.toMap(Deuda::getVentaId, d -> d));
+                // Una deuda por producto (spec 0016): todas las de una venta anotaron el mismo "debe después".
+                : deudas.deLasVentas(fiadas).stream().collect(Collectors.toMap(Deuda::getVentaId, d -> d, (a, b) -> a));
         return lista.stream().map(v -> DetalleVenta.de(v, nombres, porCliente, porVenta)).toList();
     }
 }

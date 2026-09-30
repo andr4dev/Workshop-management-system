@@ -1088,8 +1088,8 @@ public final class Falsos {
         }
 
         @Override
-        public Optional<Deuda> deLaVenta(UUID ventaId) {
-            return datos.values().stream().filter(d -> ventaId.equals(d.getVentaId())).findFirst();
+        public List<Deuda> deLaVenta(UUID ventaId) {
+            return datos.values().stream().filter(d -> ventaId.equals(d.getVentaId())).toList();
         }
 
         @Override
@@ -1111,11 +1111,15 @@ public final class Falsos {
 
         @Override
         public Deuda guardar(Deuda deuda) {
+            // Como la V31 (spec 0016): un producto una vez; una venta, o entera una vez o por productos; un cuaderno.
             boolean repetida = datos.values().stream().anyMatch(d -> !d.getId().equals(deuda.getId())
-                    && ((d.getVentaId() != null && d.getVentaId().equals(deuda.getVentaId()))
+                    && ((d.getLineaVentaId() != null && d.getLineaVentaId().equals(deuda.getLineaVentaId()))
+                            || (d.getVentaId() != null && d.getVentaId().equals(deuda.getVentaId())
+                                    && (!d.esDeUnProducto() || !deuda.esDeUnProducto()))
                             || (d.esDelCuaderno() && deuda.esDelCuaderno() && d.getClienteId().equals(deuda.getClienteId()))));
             if (repetida) {
-                throw new IllegalStateException("La base no deja dos deudas de la misma venta ni dos saldos del cuaderno");
+                throw new IllegalStateException("La base no deja dos deudas del mismo producto o de la misma venta entera,"
+                        + " ni dos saldos del cuaderno");
             }
             datos.put(deuda.getId(), deuda);
             return deuda;

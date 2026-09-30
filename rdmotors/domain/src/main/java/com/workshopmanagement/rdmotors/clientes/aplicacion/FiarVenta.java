@@ -2,8 +2,13 @@ package com.workshopmanagement.rdmotors.clientes.aplicacion;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.IntStream;
 import java.util.UUID;
 
+import com.workshopmanagement.rdmotors.clientes.dominio.RepartoDelFiado;
 import com.workshopmanagement.rdmotors.clientes.dominio.CarteraDelCliente;
 import com.workshopmanagement.rdmotors.clientes.dominio.Cliente;
 import com.workshopmanagement.rdmotors.clientes.dominio.Deuda;
@@ -50,19 +55,51 @@ public class FiarVenta {
     }
 
     /**
-     * La deuda de una venta fiada, ya guardada la venta. Si el cliente tenía algo a favor, se le aplica.
+     * Un renglón de la venta fiada, lo que la cartera necesita de él (spec 0016).
      *
-     * @param cliente el de {@link #clienteParaFiar}, bloqueado
-     * @param dia     el día de Colombia en que se cobró
+     * @param total       el del renglón antes del descuento
+     * @param descripcion el nombre del producto
      */
-    public Deuda registrar(Cliente cliente, UUID ventaId, long numeroVenta, LocalDate dia, Dinero fiado,
-                           UUID registradaPorId, Instant cuando) {
+    public record RenglonFiado(UUID lineaVentaId, UUID varianteId, int posicion, String descripcion, Dinero total) {
+    }
+
+    /**
+     * Las deudas de una venta fiada, ya guardada la venta: <b>una por producto</b> con lo que quedó debiendo de él
+     * ({@link RepartoDelFiado}). Un producto que quedó pago no deja deuda. Si el cliente tenía algo a favor, se aplica.
+     *
+     * @param cliente     el de {@link #clienteParaFiar}, bloqueado
+     * @param dia         el día de Colombia en que se cobró
+     * @param renglones   los de la venta, en su orden
+     * @param pagaPrimero los repuestos (por variante) que el cajero marcó como pagados al llevárselos, en su orden
+     */
+    public List<Deuda> registrar(Cliente cliente, UUID ventaId, long numeroVenta, LocalDate dia,
+                                 List<RenglonFiado> renglones, Dinero descuento, Dinero fiado, List<UUID> pagaPrimero,
+                                 UUID registradaPorId, Instant cuando) {
+        List<RenglonFiado> enOrden = renglones.stream().sorted(Comparator.comparingInt(RenglonFiado::posicion)).toList();
+        List<Integer> marcados = new ArrayList<>();
+        for (UUID varianteId : pagaPrimero) {
+            int i = IntStream.range(0, enOrden.size()).filter(k -> enOrden.get(k).varianteId().equals(varianteId))
+                    .findFirst().orElseThrow(() -> new ReglaDeNegocioException(
+                            "Lo que se paga ahora tiene que ser de esta venta"));
+            marcados.add(i);
+        }
+        List<Dinero> fiados = RepartoDelFiado.porRenglon(enOrden.stream().map(RenglonFiado::total).toList(),
+                descuento, fiado, marcados);
+
+        List<Deuda> nuevas = new ArrayList<>();
+        for (int i = 0; i < enOrden.size(); i++) {
+            if (fiados.get(i).esCero()) {
+                continue;
+            }
+            RenglonFiado r = enOrden.get(i);
+            nuevas.add(Deuda.porProducto(cliente.getId(), ventaId, numeroVenta, r.lineaVentaId(), r.posicion(),
+                    r.descripcion(), dia, fiados.get(i), registradaPorId, cuando));
+        }
         CarteraDelCliente cartera = carteraDe(cliente);
-        Deuda deuda = Deuda.porVenta(cliente.getId(), ventaId, numeroVenta, dia, fiado, registradaPorId, cuando);
-        cartera.registrarDeuda(deuda, cuando);
-        Deuda guardada = deudas.guardar(deuda);
+        cartera.registrarDeudas(nuevas, cuando);
+        List<Deuda> guardadas = nuevas.stream().map(deudas::guardar).toList();
         cartera.abonos().forEach(abonos::guardar);
-        return guardada;
+        return guardadas;
     }
 
     /**
@@ -72,12 +109,14 @@ public class FiarVenta {
     public void alAnular(UUID ventaId, UUID clienteId, UUID anuladaPorId, Instant cuando) {
         Cliente cliente = clientes.buscarParaModificar(clienteId)
                 .orElseThrow(() -> new ReglaDeNegocioException("El cliente de esa venta no existe"));
-        Deuda deuda = deudas.deLaVenta(ventaId)
-                .orElseThrow(() -> new IllegalStateException("La venta fiada " + ventaId + " no tiene su deuda"));
+        List<UUID> deLaVenta = deudas.deLaVenta(ventaId).stream().map(Deuda::getId).toList();
+        if (deLaVenta.isEmpty()) {
+            throw new IllegalStateException("La venta fiada " + ventaId + " no tiene su deuda");
+        }
         CarteraDelCliente cartera = carteraDe(cliente);
-        Deuda enLaCartera = cartera.deudas().stream().filter(d -> d.getId().equals(deuda.getId())).findFirst()
-                .orElseThrow();
-        cartera.anularDeuda(enLaCartera, anuladaPorId, cuando);
+        // Todas las de la venta (una por producto, spec 0016), de una vez: ver CarteraDelCliente.anularDeudas.
+        cartera.anularDeudas(cartera.deudas().stream().filter(d -> deLaVenta.contains(d.getId())).toList(),
+                anuladaPorId, cuando);
         cartera.deudas().forEach(deudas::guardar);
         cartera.abonos().forEach(abonos::guardar);
     }

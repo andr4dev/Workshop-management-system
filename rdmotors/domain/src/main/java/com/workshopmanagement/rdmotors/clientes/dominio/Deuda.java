@@ -20,6 +20,10 @@ import lombok.Getter;
  *
  * <p>Una venta anulada anula su deuda: lo que tenía abonado se libera antes (va a las otras deudas o queda a favor),
  * así que una deuda anulada no tiene nada abonado ni pendiente.
+ *
+ * <p><b>Una por producto</b> (spec 0016): desde el 0016 cada producto fiado de una venta es su propia deuda, con el
+ * renglón de la venta y su posición, para poder pagarlo solo. Las de antes que no se pudieron partir siguen siendo de
+ * la venta entera (sin renglón).
  */
 @Entity
 @Table(name = "deuda")
@@ -47,6 +51,18 @@ public class Deuda {
 
     @Column(name = "numero_venta", updatable = false)
     private Long numeroVenta;
+
+    /** El renglón de la venta, si es la deuda de un producto (spec 0016); nulo si es de la venta entera o del cuaderno. */
+    @Column(name = "linea_venta_id", updatable = false)
+    private UUID lineaVentaId;
+
+    /** La posición del producto en la venta: dentro de una venta, se paga en ese orden. */
+    @Column(name = "posicion", updatable = false)
+    private Integer posicion;
+
+    /** El nombre del producto al fiarlo, como una foto: si después se renombra, la deuda dice lo que se llevó. */
+    @Column(name = "descripcion", updatable = false, length = 200)
+    private String descripcion;
 
     /** El día de Colombia en que nació: lo más viejo se paga primero. */
     @Column(name = "fecha", nullable = false, updatable = false)
@@ -119,6 +135,24 @@ public class Deuda {
     }
 
     /**
+     * Lo que quedó fiado de un producto de una venta (spec 0016): la venta, su renglón y en qué posición va.
+     *
+     * @param descripcion el nombre del producto, para la ficha, el recibo y los mensajes
+     */
+    public static Deuda porProducto(UUID clienteId, UUID ventaId, long numeroVenta, UUID lineaVentaId, int posicion,
+                                    String descripcion, LocalDate fecha, Dinero fiado, UUID registradaPorId,
+                                    Instant cuando) {
+        if (lineaVentaId == null || descripcion == null || descripcion.isBlank()) {
+            throw new ReglaDeNegocioException("La deuda de un producto dice cuál renglón y qué producto es");
+        }
+        Deuda deuda = porVenta(clienteId, ventaId, numeroVenta, fecha, fiado, registradaPorId, cuando);
+        deuda.lineaVentaId = lineaVentaId;
+        deuda.posicion = posicion;
+        deuda.descripcion = descripcion.strip();
+        return deuda;
+    }
+
+    /**
      * Lo que el cliente ya debía en el cuaderno antes del sistema (RF-028).
      *
      * @param fecha desde cuándo lo debe, según el cuaderno: no puede ser después de hoy
@@ -157,6 +191,11 @@ public class Deuda {
 
     public boolean esDelCuaderno() {
         return origen == OrigenDeuda.CUADERNO;
+    }
+
+    /** Si es la deuda de un producto (spec 0016), y no de la venta entera ni del cuaderno. */
+    public boolean esDeUnProducto() {
+        return lineaVentaId != null;
     }
 
     // ── Lo que mueve la cartera ──────────────────────────────────────────────
@@ -200,9 +239,19 @@ public class Deuda {
         this.debeDespues = debe;
     }
 
-    /** "la venta N.º 41" o "el saldo del cuaderno", para los mensajes. */
+    /**
+     * Para los mensajes: "la venta N.º 41", "el saldo del cuaderno" o "el repuesto MOTUL 7100 10W30 de la venta N.º 18".
+     * Con "el repuesto" la frase concuerda sea cual sea el producto.
+     */
     public String nombre() {
-        return esDelCuaderno() ? "el saldo del cuaderno" : "la venta N.º " + numeroVenta;
+        if (esDelCuaderno()) return "el saldo del cuaderno";
+        return esDeUnProducto() ? "el repuesto " + descripcion + " de la venta N.º " + numeroVenta
+                : "la venta N.º " + numeroVenta;
+    }
+
+    /** Para el recibo y la ficha, detrás de un monto: "la venta N.º 41" o "MOTUL 7100 10W30 (venta N.º 18)". */
+    public String etiqueta() {
+        return esDeUnProducto() ? descripcion + " (venta N.º " + numeroVenta + ")" : nombre();
     }
 
     private static String conMayuscula(String texto) {

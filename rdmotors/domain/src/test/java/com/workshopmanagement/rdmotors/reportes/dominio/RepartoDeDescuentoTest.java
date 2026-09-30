@@ -10,6 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
+import com.workshopmanagement.rdmotors.compartido.dominio.RepartoDeDescuento;
 
 /** El descuento de una venta repartido entre sus renglones (spec 0007, decisión 3). */
 class RepartoDeDescuentoTest {

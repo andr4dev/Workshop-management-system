@@ -1,11 +1,10 @@
-package com.workshopmanagement.rdmotors.reportes.dominio;
+package com.workshopmanagement.rdmotors.compartido.dominio;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
 
 /**
  * El descuento de una venta repartido entre sus renglones, en proporción a su valor (spec 0007, decisión 3).

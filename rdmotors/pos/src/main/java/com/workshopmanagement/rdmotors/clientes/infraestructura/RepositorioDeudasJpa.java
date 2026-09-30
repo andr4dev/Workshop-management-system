@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -32,7 +31,7 @@ class RepositorioDeudasJpa implements RepositorioDeudas {
     }
 
     @Override
-    public Optional<Deuda> deLaVenta(UUID ventaId) {
+    public List<Deuda> deLaVenta(UUID ventaId) {
         return jpa.findByVentaId(ventaId);
     }
 
@@ -65,7 +64,7 @@ interface DeudasSpringData extends JpaRepository<Deuda, UUID> {
 
     List<Deuda> findByClienteIdOrderByFechaAscRegistradaEnAscIdAsc(UUID clienteId);
 
-    Optional<Deuda> findByVentaId(UUID ventaId);
+    List<Deuda> findByVentaId(UUID ventaId);
 
     List<Deuda> findByVentaIdIn(Collection<UUID> ventaIds);
 

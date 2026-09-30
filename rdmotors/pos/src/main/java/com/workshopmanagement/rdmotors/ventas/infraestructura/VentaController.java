@@ -137,13 +137,16 @@ class VentaController {
     /**
      * @param clienteId a nombre de quién; obligatorio si hay fiado
      * @param fiado     lo que queda debiendo, en pesos; sin decirlo, $0
+     * @param pagaPrimero en un fiado, los repuestos (por variante) que el cajero marcó como pagados al llevárselos
+     *                  (spec 0016)
      */
     record PeticionCobro(@NotNull UUID llave,
                          @NotEmpty List<@Valid @NotNull PeticionRenglon> renglones,
                          @Valid PeticionDescuento descuento,
                          List<@Valid @NotNull PeticionPago> pagos,
                          UUID clienteId,
-                         @PositiveOrZero Long fiado) {
+                         @PositiveOrZero Long fiado,
+                         List<UUID> pagaPrimero) {
 
         ComandoCobrarVenta aComando(Actor actor) {
             return new ComandoCobrarVenta(llave,
@@ -152,7 +155,7 @@ class VentaController {
                             : new ComandoCobrarVenta.ComandoDescuento(descuento.modo(), descuento.valor(), descuento.motivo()),
                     pagos == null ? List.of()
                             : pagos.stream().map(p -> new ComandoCobrarVenta.Pago(p.forma(), p.monto(), p.recibido())).toList(),
-                    clienteId, fiado == null ? 0 : fiado, actor);
+                    clienteId, fiado == null ? 0 : fiado, actor, pagaPrimero);
         }
     }
 

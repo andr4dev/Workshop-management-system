@@ -235,7 +235,7 @@ class ClientesYFiadoIntegracionTest {
 
         Venta venta = cobrarVenta.ejecutar(fiado(filtro, juan, 30_000)).venta();
 
-        Deuda deuda = deudas.deLaVenta(venta.getId()).orElseThrow();
+        Deuda deuda = deudas.deLaVenta(venta.getId()).getFirst();
         assertThat(deuda.getMonto()).isEqualTo(Dinero.de(50_000));
         assertThat(deuda.getDebeDespues()).isEqualTo(Dinero.de(50_000));
         assertThat(deuda.estado()).isEqualTo(EstadoDeuda.PENDIENTE);
@@ -330,7 +330,7 @@ class ClientesYFiadoIntegracionTest {
         assertThat(variantes.buscar(filtro.getId()).orElseThrow().getStock()).isEqualTo(4);
         assertThat(jdbc.queryForObject("select count(*) from venta where cliente_id = ?", Integer.class,
                 soloNombre.getId())).isEqualTo(1);
-        assertThat(deudas.deLaVenta(venta.getId()).orElseThrow().pendiente()).isEqualTo(Dinero.de(20_000));
+        assertThat(deudas.deLaVenta(venta.getId()).getFirst().pendiente()).isEqualTo(Dinero.de(20_000));
         assertThat(jdbc.queryForObject("select documento is null and celular is null from cliente where id = ?",
                 Boolean.class, soloNombre.getId())).isTrue();
     }
@@ -367,7 +367,7 @@ class ClientesYFiadoIntegracionTest {
 
         anularVenta.ejecutar(venta.getId(), "Se equivocó de repuesto", cajero);
 
-        Deuda deuda = deudas.deLaVenta(venta.getId()).orElseThrow();
+        Deuda deuda = deudas.deLaVenta(venta.getId()).getFirst();
         assertThat(deuda.estado()).isEqualTo(EstadoDeuda.ANULADA);
         assertThat(deuda.getAnuladaPorId()).isEqualTo(cajero.id());
         assertThat(deudas.debeDe(List.of(juan.getId()))).isEmpty();
@@ -432,6 +432,60 @@ class ClientesYFiadoIntegracionTest {
             assertThat(r.total()).isEqualTo(Dinero.de(30_000));
             assertThat(r.cambio()).isNull();
         });
+    }
+
+    @Test
+    @DisplayName("SPEC 0016: una venta fiada de dos productos deja dos deudas; Ventas del turno, la ficha y la lista aguantan")
+    void fiadoPorProducto() {
+        Cliente juan = cliente("Juan Pérez", cedulaNueva());
+        Variante a = repuestoConStock(5, 65_000);
+        Variante b = repuestoConStock(5, 11_000);
+        Venta venta = cobrarVenta.ejecutar(new ComandoCobrarVenta(UUID.randomUUID(),
+                List.of(new ComandoCobrarVenta.Renglon(a.getId(), 1, 65_000),
+                        new ComandoCobrarVenta.Renglon(b.getId(), 1, 11_000)),
+                null, List.of(new ComandoCobrarVenta.Pago(FormaPago.EFECTIVO, 11_000, null)), juan.getId(), 65_000,
+                cajero, List.of(b.getId()))).venta();
+
+        // Pagó el segundo al llevárselo: solo queda el primero, con su precio.
+        assertThat(deudas.deLaVenta(venta.getId())).singleElement().satisfies(d -> {
+            assertThat(d.getMonto()).isEqualTo(Dinero.de(65_000));
+            assertThat(d.getDescripcion()).isEqualTo("REPUESTO " + a.getCodigo());
+            assertThat(d.getLineaVentaId()).isEqualTo(venta.getLineas().getFirst().getId());
+        });
+
+        Venta dosFiados = cobrarVenta.ejecutar(new ComandoCobrarVenta(UUID.randomUUID(),
+                List.of(new ComandoCobrarVenta.Renglon(a.getId(), 1, 65_000),
+                        new ComandoCobrarVenta.Renglon(b.getId(), 1, 11_000)),
+                null, List.of(), juan.getId(), 76_000, cajero)).venta();
+        assertThat(deudas.deLaVenta(dosFiados.getId())).hasSize(2);
+
+        // Ventas del turno y el detalle: con dos deudas de la misma venta no revientan, y dicen cuánto debía después.
+        assertThat(consultarVentas.delTurnoAbierto(cajero)).anySatisfy(d -> {
+            assertThat(d.id()).isEqualTo(dosFiados.getId());
+            assertThat(d.debeDespues()).isEqualTo(Dinero.de(65_000 + 76_000));
+        });
+        assertThat(consultarVentas.detalle(dosFiados.getId(), cajero)).isPresent();
+
+        // La ficha: cada producto con su renglón; la lista cuenta ventas, no productos.
+        FichaCliente ficha = consultarCartera.ficha(juan.getId()).orElseThrow();
+        assertThat(ficha.deudas()).hasSize(3).allSatisfy(d -> assertThat(d.venta().renglones())
+                .anyMatch(r -> r.lineaId().equals(d.lineaVentaId())));
+        assertThat(consultarCartera.lista(new FiltroCartera(FiltroCartera.Vista.HISTORIAL, juan.getDocumento()))
+                .clientes()).singleElement().satisfies(r -> assertThat(r.pendientes()).isEqualTo(2));
+
+        // Abonar el segundo producto de la segunda venta, marcándolo: queda pagado y lo demás igual.
+        FichaCliente.DeudaDeLaFicha filtroFiado = ficha.deudas().stream()
+                .filter(d -> d.ventaId().equals(dosFiados.getId()) && d.posicion() == 1).findFirst().orElseThrow();
+        registrarAbono.ejecutar(UUID.randomUUID(), juan.getId(), Dinero.de(11_000), FormaPago.EFECTIVO, null, null,
+                List.of(filtroFiado.id()), cajero);
+        assertThat(consultarCartera.ficha(juan.getId()).orElseThrow().deudas())
+                .filteredOn(d -> d.id().equals(filtroFiado.id())).singleElement()
+                .satisfies(d -> assertThat(d.estado()).isEqualTo(EstadoDeuda.PAGADA));
+        assertThat(consultarCartera.ficha(juan.getId()).orElseThrow().debe()).isEqualTo(Dinero.de(130_000));
+
+        // Anular la venta de dos productos anula los dos.
+        anularVenta.ejecutar(dosFiados.getId(), "Se equivocó de cliente", cajero);
+        assertThat(deudas.deLaVenta(dosFiados.getId())).hasSize(2).allMatch(d -> d.estaAnulada());
     }
 
     @Test
@@ -530,15 +584,18 @@ class ClientesYFiadoIntegracionTest {
         Abono abono = registrarAbono.ejecutar(UUID.randomUUID(), juan.getId(), Dinero.de(60_000), FormaPago.EFECTIVO,
                 null, "Abona el viernes", null, cajero);
 
-        assertThat(deudas.deLaVenta(la41.getId()).orElseThrow().estado()).isEqualTo(EstadoDeuda.PAGADA);
-        assertThat(deudas.deLaVenta(la57.getId()).orElseThrow().pendiente()).isEqualTo(Dinero.de(20_000));
+        assertThat(deudas.deLaVenta(la41.getId()).getFirst().estado()).isEqualTo(EstadoDeuda.PAGADA);
+        assertThat(deudas.deLaVenta(la57.getId()).getFirst().pendiente()).isEqualTo(Dinero.de(20_000));
         assertThat(abono.getDebeDespues()).isEqualTo(Dinero.de(20_000));
         assertThat(esperado()).isEqualTo(esperadoAntes.mas(Dinero.de(60_000)));
 
         var recibo = consultarCartera.recibo(abono.getId()).orElseThrow();
         assertThat(recibo.debeAhora()).isEqualTo(Dinero.de(20_000));
+        // Desde el 0016 cada parte dice el producto y su venta.
         assertThat(recibo.abono().aplicaciones()).extracting(FichaCliente.ParteAplicada::deuda)
-                .containsExactly("la venta N.º " + la41.getNumero(), "la venta N.º " + la57.getNumero());
+                .containsExactly(
+                        la41.getLineas().getFirst().getVariante().getProducto().getNombre() + " (venta N.º " + la41.getNumero() + ")",
+                        la57.getLineas().getFirst().getVariante().getProducto().getNombre() + " (venta N.º " + la57.getNumero() + ")");
         // Lo abonado de cada deuda es la suma de las aplicaciones vigentes: la base y el dominio dicen lo mismo.
         assertThat(jdbc.queryForObject("""
                 select sum(ap.monto) from aplicacion_abono ap join deuda d on d.id = ap.deuda_id
@@ -558,7 +615,7 @@ class ClientesYFiadoIntegracionTest {
         anularAbono.ejecutar(abono.getId(), "Se registró dos veces", personas.administrador());
 
         assertThat(esperado()).isEqualTo(conElAbono.menos(Dinero.de(40_000)));
-        assertThat(deudas.deLaVenta(venta.getId()).orElseThrow().estado()).isEqualTo(EstadoDeuda.PENDIENTE);
+        assertThat(deudas.deLaVenta(venta.getId()).getFirst().estado()).isEqualTo(EstadoDeuda.PENDIENTE);
         assertThat(deudas.debeDe(List.of(juan.getId()))).containsEntry(juan.getId(), Dinero.de(40_000));
     }
 

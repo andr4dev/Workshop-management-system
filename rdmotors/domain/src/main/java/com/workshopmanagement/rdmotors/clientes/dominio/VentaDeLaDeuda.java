@@ -17,10 +17,11 @@ public record VentaDeLaDeuda(UUID ventaId, List<Renglon> renglones, Dinero subto
                              String motivoDescuento, Dinero total) {
 
     /**
-     * @param cambio en un aceite que paga comisión, lo que se escogió al vender ({@code SE_CAMBIA} o
-     *               {@code NO_SE_CAMBIA}, spec 0015); nulo en los demás y en los de antes
+     * @param lineaId el renglón de la venta: con él la deuda de un producto (spec 0016) encuentra su renglón
+     * @param cambio  en un aceite que paga comisión, lo que se escogió al vender ({@code SE_CAMBIA} o
+     *                {@code NO_SE_CAMBIA}, spec 0015); nulo en los demás y en los de antes
      */
-    public record Renglon(String codigo, String nombre, String marca, int cantidad, Dinero precioUnitario, Dinero total,
-                          String cambio) {
+    public record Renglon(UUID lineaId, String codigo, String nombre, String marca, int cantidad, Dinero precioUnitario,
+                          Dinero total, String cambio) {
     }
 }

@@ -41,7 +41,9 @@ class ConsultasDeCarteraJdbc implements ConsultasDeCartera {
                 with d as (
                     select cliente_id,
                            coalesce(sum(monto - abonado) filter (where anulada_en is null), 0) as debe,
-                           count(*) filter (where anulada_en is null and monto > abonado) as pendientes,
+                           -- Ventas, no productos (spec 0016): los productos de una venta cuentan una vez.
+                           count(distinct coalesce(venta_id, id)) filter (where anulada_en is null and monto > abonado)
+                               as pendientes,
                            min(fecha) filter (where anulada_en is null and monto > abonado) as desde,
                            coalesce(sum(monto) filter (where anulada_en is null), 0) as fiado_total,
                            max(registrada_en) as ultima_deuda
@@ -138,7 +140,7 @@ class ConsultasDeCarteraJdbc implements ConsultasDeCartera {
         Map<UUID, VentaDeLaDeuda> porVenta = new LinkedHashMap<>();
         String marcas = String.join(", ", Collections.nCopies(ventaIds.size(), "?"));
         jdbc.query("""
-                select v.id, v.subtotal, v.descuento_monto, v.descuento_motivo, v.total,
+                select v.id, v.subtotal, v.descuento_monto, v.descuento_motivo, v.total, l.id as linea_id,
                        va.codigo, p.nombre, va.marca_repuesto, l.cantidad, l.precio_unitario, l.total as total_renglon,
                        l.cambio
                 from venta v
@@ -149,7 +151,8 @@ class ConsultasDeCarteraJdbc implements ConsultasDeCartera {
                 order by v.id, l.posicion
                 """.formatted(marcas), rs -> {
             UUID ventaId = rs.getObject("id", UUID.class);
-            VentaDeLaDeuda.Renglon renglon = new VentaDeLaDeuda.Renglon(rs.getString("codigo"), rs.getString("nombre"),
+            VentaDeLaDeuda.Renglon renglon = new VentaDeLaDeuda.Renglon(rs.getObject("linea_id", UUID.class),
+                    rs.getString("codigo"), rs.getString("nombre"),
                     rs.getString("marca_repuesto"), rs.getInt("cantidad"), Dinero.de(rs.getBigDecimal("precio_unitario")),
                     Dinero.de(rs.getBigDecimal("total_renglon")), rs.getString("cambio"));
             VentaDeLaDeuda antes = porVenta.get(ventaId);

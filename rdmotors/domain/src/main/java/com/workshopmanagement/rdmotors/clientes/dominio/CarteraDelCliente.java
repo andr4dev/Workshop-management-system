@@ -21,8 +21,9 @@ import com.workshopmanagement.rdmotors.compartido.dominio.ReglaDeNegocioExceptio
  *   <li><b>Lo que debe</b> es la suma de lo pendiente de sus deudas. <b>Lo que tiene a favor</b>, lo que sus abonos
  *       no le aplicaron a ninguna. Nunca las dos a la vez: si tiene a favor y aparece algo que pagar, se paga.</li>
  *   <li><b>Un abono se reparte de la deuda más vieja a la más nueva</b> (por su fecha y, en el mismo día, por cuál
- *       se registró antes), o primero a la que el cliente escoja. A una deuda nunca se le aplica más de lo que le
- *       falta; lo que sobra pasa a la siguiente. Las partes suman el abono al peso.</li>
+ *       se registró antes; los productos de una misma venta, en su orden), o primero a las que el cliente escoja. A
+ *       una deuda nunca se le aplica más de lo que le falta; lo que sobra pasa a la siguiente. Las partes suman el
+ *       abono al peso.</li>
  *   <li><b>No se recibe más de lo que debe</b> (RF-015).</li>
  *   <li><b>Anular una venta fiada</b> libera lo que se le había abonado: va a las otras deudas, o queda a favor.</li>
  *   <li><b>Anular un abono</b> devuelve lo que pagó: esas deudas vuelven a deberlo.</li>
@@ -30,9 +31,13 @@ import com.workshopmanagement.rdmotors.compartido.dominio.ReglaDeNegocioExceptio
  */
 public final class CarteraDelCliente {
 
-    /** Lo más viejo primero; en el mismo día, lo que se registró antes. */
+    /**
+     * Lo más viejo primero; en el mismo día, lo que se registró antes; y los productos de una venta, que nacen en el
+     * mismo instante, en el orden de la venta (spec 0016). Sin la posición quedarían en el orden de su id: al azar.
+     */
     public static final Comparator<Deuda> ORDEN_DE_PAGO = Comparator.comparing(Deuda::getFecha)
             .thenComparing(Deuda::getRegistradaEn)
+            .thenComparing(Deuda::getPosicion, Comparator.nullsFirst(Comparator.naturalOrder()))
             .thenComparing(Deuda::getId);
 
     private static final Comparator<Abono> ORDEN_DE_LLEGADA = Comparator.comparing(Abono::getRecibidoEn)
@@ -97,26 +102,42 @@ public final class CarteraDelCliente {
      * Queda anotado cuánto debe en total después, para el comprobante.
      */
     public void registrarDeuda(Deuda nueva, Instant cuando) {
-        exigirDelCliente(nueva.getClienteId());
-        if (nueva.esDelCuaderno() && deudas.stream().anyMatch(Deuda::esDelCuaderno)) {
-            throw new ReglaDeNegocioException("A " + cliente.getNombre() + " ya se le cargó el saldo del cuaderno");
+        registrarDeudas(List.of(nueva), cuando);
+    }
+
+    /**
+     * Las deudas de una venta fiada, una por producto (spec 0016): entran todas juntas, lo que haya a favor se aplica
+     * una sola vez, y todas anotan el mismo "debe después", el del comprobante de la venta.
+     */
+    public void registrarDeudas(List<Deuda> nuevas, Instant cuando) {
+        if (nuevas.isEmpty()) {
+            throw new IllegalArgumentException("No hay deudas que registrar");
         }
-        deudas.add(nueva);
+        for (Deuda nueva : nuevas) {
+            exigirDelCliente(nueva.getClienteId());
+            if (nueva.esDelCuaderno() && deudas.stream().anyMatch(Deuda::esDelCuaderno)) {
+                throw new ReglaDeNegocioException("A " + cliente.getNombre() + " ya se le cargó el saldo del cuaderno");
+            }
+            deudas.add(nueva);
+        }
         deudas.sort(ORDEN_DE_PAGO);
         aplicarLoQueHayAFavor(cuando);
-        nueva.anotarDebeDespues(debe());
+        Dinero debe = debe();
+        nuevas.forEach(n -> n.anotarDebeDespues(debe));
     }
 
     // ── Abonar ───────────────────────────────────────────────────────────────
 
     /**
-     * Recibe un abono y lo reparte (RF-012).
+     * Recibe un abono y lo reparte (RF-012; spec 0016, RF-005): primero a las deudas que el cliente dijo que paga, en
+     * ese orden ("esto es de la factura 57", "le pago el aceite y el filtro"), a cada una lo que le falta mientras
+     * alcance; lo que sobre, a lo más viejo.
      *
-     * @param primeroA la deuda que el cliente dijo que paga ("esto es de la factura 57"), o {@code null}: a lo más
-     *                 viejo. Lo que le sobre a esa, sigue a lo más viejo
+     * @param primero las deudas escogidas, en el orden en que se pagan; vacía o nula: a lo más viejo
      */
-    public void abonar(Abono abono, UUID primeroA, Instant cuando) {
+    public void abonar(Abono abono, List<UUID> primero, Instant cuando) {
         exigirDelCliente(abono.getClienteId());
+        primero = primero == null ? List.of() : primero;
         if (abonos.contains(abono) || !abono.aplicado().esCero()) {
             throw new IllegalStateException("El abono N.º " + abono.getNumero() + " ya se había repartido");
         }
@@ -128,15 +149,27 @@ public final class CarteraDelCliente {
             throw new ReglaDeNegocioException(cliente.getNombre() + " debe " + debe.enPesos()
                     + ": no se le puede recibir más");
         }
-        Deuda escogida = primeroA == null ? null : deudas.stream().filter(d -> d.getId().equals(primeroA)).findFirst()
-                .orElseThrow(() -> new ReglaDeNegocioException("Esa venta no es una deuda de " + cliente.getNombre()));
-        if (escogida != null && !escogida.tienePendiente()) {
-            throw new ReglaDeNegocioException(conMayuscula(escogida.nombre())
-                    + (escogida.estaAnulada() ? " se anuló: ya no se debe" : " ya está pagada"));
+        List<Deuda> escogidas = new ArrayList<>();
+        for (UUID id : primero) {
+            Deuda escogida = deudas.stream().filter(d -> d.getId().equals(id)).findFirst()
+                    .orElseThrow(() -> new ReglaDeNegocioException("Eso no es una deuda de " + cliente.getNombre()));
+            if (!escogida.tienePendiente()) {
+                throw new ReglaDeNegocioException(conMayuscula(escogida.nombre()) + (escogida.estaAnulada()
+                        ? " se anuló: ya no se debe"
+                        : escogida.esDelCuaderno() || escogida.esDeUnProducto() ? " ya está pagado" : " ya está pagada"));
+            }
+            if (escogidas.contains(escogida)) {
+                throw new ReglaDeNegocioException(conMayuscula(escogida.nombre()) + " está escogido dos veces");
+            }
+            escogidas.add(escogida);
         }
         abonos.add(abono);
-        if (escogida != null) {
-            abono.aplicarA(escogida, menor(abono.getMonto(), escogida.pendiente()), cuando);
+        for (Deuda escogida : escogidas) {
+            Dinero queda = abono.sinAplicar();
+            if (queda.esCero()) {
+                break;
+            }
+            abono.aplicarA(escogida, menor(queda, escogida.pendiente()), cuando);
         }
         repartir(abono, cuando);
         abono.anotarDebeDespues(debe());
@@ -149,14 +182,29 @@ public final class CarteraDelCliente {
      * del cliente, de la más vieja a la más nueva. Si no hay otra, queda a favor (decisión 6).
      */
     public void anularDeuda(Deuda deuda, UUID anuladaPorId, Instant cuando) {
-        exigirDelCliente(deuda.getClienteId());
-        if (!deudas.contains(deuda)) {
-            throw new IllegalStateException("Esa deuda no está en la cartera de " + cliente.getNombre());
+        anularDeudas(List.of(deuda), anuladaPorId, cuando);
+    }
+
+    /**
+     * Todas las deudas de una venta que se anuló (spec 0016: una por producto). Se libera lo abonado de todas antes de
+     * anular y se reparte una sola vez: de a una, lo liberado de un producto iría a parar al otro de la misma venta,
+     * que se anula enseguida.
+     */
+    public void anularDeudas(List<Deuda> aAnular, UUID anuladaPorId, Instant cuando) {
+        for (Deuda deuda : aAnular) {
+            exigirDelCliente(deuda.getClienteId());
+            if (!deudas.contains(deuda)) {
+                throw new IllegalStateException("Esa deuda no está en la cartera de " + cliente.getNombre());
+            }
         }
-        for (Abono abono : abonos) {
-            abono.liberarDe(deuda, cuando);
+        for (Deuda deuda : aAnular) {
+            for (Abono abono : abonos) {
+                abono.liberarDe(deuda, cuando);
+            }
         }
-        deuda.anular(anuladaPorId, cuando);
+        for (Deuda deuda : aAnular) {
+            deuda.anular(anuladaPorId, cuando);
+        }
         aplicarLoQueHayAFavor(cuando);
     }
 

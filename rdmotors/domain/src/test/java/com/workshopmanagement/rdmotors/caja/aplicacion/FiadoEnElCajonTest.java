@@ -40,7 +40,7 @@ class FiadoEnElCajonTest {
         assertThat(venta.getFiado()).isEqualTo(Dinero.de(50_000));
         assertThat(venta.getClienteId()).isEqualTo(juan.getId());
         assertThat(venta.getLineas().getFirst().getVariante().getStock()).isEqualTo(99);
-        Deuda deuda = tienda.deudas.deLaVenta(venta.getId()).orElseThrow();
+        Deuda deuda = tienda.deudas.deLaVenta(venta.getId()).getFirst();
         assertThat(deuda.getMonto()).isEqualTo(Dinero.de(50_000));
         assertThat(deuda.getNumeroVenta()).isEqualTo(venta.getNumero());
         assertThat(deuda.getDebeDespues()).isEqualTo(Dinero.de(50_000));
@@ -132,7 +132,7 @@ class FiadoEnElCajonTest {
 
         tienda.anular(venta);
 
-        Deuda deuda = tienda.deudas.deLaVenta(venta.getId()).orElseThrow();
+        Deuda deuda = tienda.deudas.deLaVenta(venta.getId()).getFirst();
         assertThat(deuda.estado()).isEqualTo(EstadoDeuda.ANULADA);
         assertThat(tienda.deudas.debeDe(List.of(juan.getId()))).isEmpty();
         assertThat(venta.getLineas().getFirst().getVariante().getStock()).isEqualTo(100);

@@ -3,7 +3,6 @@ package com.workshopmanagement.rdmotors.clientes.dominio.puerto;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import com.workshopmanagement.rdmotors.clientes.dominio.Deuda;
@@ -15,7 +14,8 @@ public interface RepositorioDeudas {
     /** Todas las del cliente, anuladas incluidas. */
     List<Deuda> delCliente(UUID clienteId);
 
-    Optional<Deuda> deLaVenta(UUID ventaId);
+    /** Las de esa venta: una por producto (spec 0016), o una sola si es de antes y no se partió. */
+    List<Deuda> deLaVenta(UUID ventaId);
 
     /** Las de esas ventas: el comprobante dice cuánto quedó debiendo el cliente después de cada una. */
     List<Deuda> deLasVentas(Collection<UUID> ventaIds);
