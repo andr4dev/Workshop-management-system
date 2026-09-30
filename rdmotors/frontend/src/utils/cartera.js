@@ -63,6 +63,70 @@ export function resumenDeLaCartera({ deben, porCobrar, clientes }, vista) {
 export const nombreDeLaDeuda = (d) => (d.origen === 'CUADERNO' ? 'Saldo del cuaderno' : `Venta N.º ${d.numeroVenta}`)
 
 /**
+ * Las deudas de la ficha juntas por venta (spec 0016: una por producto). En el orden en que vienen (la venta más
+ * reciente primero), y los productos de cada venta en su orden. El saldo del cuaderno y una venta *por venta* (de
+ * antes, que no se partió) son un grupo de una sola deuda.
+ *
+ * Cada grupo trae sus cifras (`monto`, `abonado`, `pendiente`, sin lo anulado) y su estado.
+ */
+export function agruparPorVenta(deudas) {
+  const grupos = []
+  const porClave = new Map()
+  for (const d of deudas) {
+    const clave = d.ventaId ?? d.id
+    if (!porClave.has(clave)) {
+      const grupo = { clave, deudas: [] }
+      porClave.set(clave, grupo)
+      grupos.push(grupo)
+    }
+    porClave.get(clave).deudas.push(d)
+  }
+  return grupos.map(({ clave, deudas: suyas }) => {
+    const productos = [...suyas].sort((a, b) => (a.posicion ?? 0) - (b.posicion ?? 0))
+    const vigentes = productos.filter((d) => d.estado !== 'ANULADA')
+    const suma = (campo) => vigentes.reduce((s, d) => s + d[campo], 0)
+    const primera = productos[0]
+    const monto = vigentes.length ? suma('monto') : productos.reduce((s, d) => s + d.monto, 0)
+    const abonado = suma('abonado')
+    const pendiente = suma('pendiente')
+    const estado = vigentes.length === 0 ? 'ANULADA'
+      : pendiente === 0 ? 'PAGADA' : abonado === 0 ? 'PENDIENTE' : 'ABONADA'
+    return {
+      clave, origen: primera.origen, ventaId: primera.ventaId, numeroVenta: primera.numeroVenta, fecha: primera.fecha,
+      motivo: primera.motivo, venta: primera.venta ?? null, porProducto: productos.some((d) => d.lineaVentaId),
+      productos, monto, abonado, pendiente, estado,
+    }
+  })
+}
+
+/**
+ * Los renglones de una venta fiada por producto, cada uno con su deuda; el que no tiene deuda se pagó al llevárselo.
+ * Sin lo que se llevó (no vino), solo las deudas.
+ */
+export function renglonesDelGrupo(grupo) {
+  if (!grupo.venta) return grupo.productos.map((d) => ({ renglon: null, deuda: d }))
+  return grupo.venta.renglones.map((r) => ({ renglon: r, deuda: grupo.productos.find((d) => d.lineaVentaId === r.lineaId) ?? null }))
+}
+
+/**
+ * Lo que se puede marcar al abonar (spec 0016): los grupos con algo pendiente, **del más viejo al más nuevo** (el orden
+ * en que se paga), y en cada uno sus deudas pendientes en el orden de la venta.
+ */
+export function paraAbonar(deudas) {
+  return agruparPorVenta(deudas).filter((g) => g.pendiente > 0).reverse()
+    .map((g) => ({ ...g, productos: g.productos.filter((d) => d.pendiente > 0) }))
+}
+
+/** Los ids marcados en el orden de la lista, y lo que falta de todos ellos. */
+export function loMarcado(grupos, marcados) {
+  const enOrden = grupos.flatMap((g) => g.productos).filter((d) => marcados.includes(d.id))
+  return { ids: enOrden.map((d) => d.id), monto: enOrden.reduce((s, d) => s + d.pendiente, 0) }
+}
+
+/** "MOTUL 7100 10W30" o, si la deuda es de la venta entera, "Venta N.º 41". */
+export const nombreDelProducto = (d) => d.descripcion ?? nombreDeLaDeuda(d)
+
+/**
  * Qué se llevó en una venta fiada, en renglones para leer: "2 × MOTUL 7100 10W30" con su valor, y abajo lo que la
  * baja hasta lo fiado: el descuento y lo que pagó al llevárselo. Los renglones menos esas dos cosas suman `monto`.
  * `null` si la deuda no tiene venta (el saldo del cuaderno).

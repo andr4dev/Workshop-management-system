@@ -197,6 +197,8 @@ export function desgloseDelCobro(venta, personas = []) {
       .filter(Boolean).join(' · ')
     return { varianteId: r.varianteId, cantidad: r.cantidad, nombre: r.nombre, detalle, total: precio * r.cantidad }
   })
+  // Lo que vale cada renglón con el descuento: lo que cuesta pagarlo al llevárselo en un fiado (spec 0016).
+  repartirDescuento(renglones.map((r) => r.total), descuento).forEach((neto, i) => { renglones[i].neto = neto })
   const d = venta.descuento
   return {
     renglones,
@@ -208,6 +210,28 @@ export function desgloseDelCobro(venta, personas = []) {
     } : null,
     total,
   }
+}
+
+/**
+ * El descuento repartido entre los renglones, en proporción a su valor: cada parte hacia abajo, y el peso que sobre al
+ * más caro (el primero, si empatan). Es `RepartoDeDescuento` del servidor, al peso: devuelve lo que vale cada renglón.
+ */
+export function repartirDescuento(totales, descuento) {
+  if (!descuento) return [...totales]
+  const subtotal = totales.reduce((s, t) => s + t, 0)
+  const partes = totales.map((t) => Math.floor((descuento * t) / subtotal))
+  let masCaro = 0
+  totales.forEach((t, i) => { if (t > totales[masCaro]) masCaro = i })
+  partes[masCaro] += descuento - partes.reduce((s, p) => s + p, 0)
+  return totales.map((t, i) => t - partes[i])
+}
+
+/**
+ * Cuánto se paga ahora si se marcan esos repuestos en un fiado (spec 0016): lo que vale cada uno, con el descuento
+ * ya repartido.
+ */
+export function pagaAhoraDeLoMarcado(desglose, marcados) {
+  return desglose.renglones.filter((r) => marcados.includes(r.varianteId)).reduce((s, r) => s + r.neto, 0)
 }
 
 /** Lo que impide cobrar, en frases. Vacío si se puede. */
@@ -362,6 +386,10 @@ export function comandoDeCobro(venta, cobro) {
     pagos: pagosDelCobro(cobro, total),
     clienteId: cobro.cliente?.id ?? null,
     fiado: fiadoDelCobro(cobro, total),
+    // Spec 0016: en un fiado, lo que el cajero marcó como pagado al llevárselo, en el orden de la venta.
+    pagaPrimero: fiadoDelCobro(cobro, total) > 0
+      ? venta.renglones.map((r) => r.varianteId).filter((id) => (cobro.pagaPrimero ?? []).includes(id))
+      : [],
   }
 }
 

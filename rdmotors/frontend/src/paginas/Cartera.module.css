@@ -336,3 +336,18 @@
 .atajo { background: var(--surface); color: var(--text-muted); }
 .atajo:hover { background: var(--surface-hover); color: var(--text); }
 .atajoActivo { background: var(--graphite); color: #fff; border-color: var(--graphite); }
+
+/* Una venta fiada por producto (spec 0016): cada producto con lo que se debe de él. */
+.productosFiados {
+  margin: var(--esp-2) 0 0;
+  padding: var(--esp-2) 0 0;
+  border-top: 1px dashed var(--border);
+  list-style: none;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.productoFiado + .productoFiado { margin-top: var(--esp-2); }
+.productoFila { display: flex; justify-content: space-between; align-items: baseline; gap: var(--esp-3); flex-wrap: wrap; }
+.productoCuenta { display: inline-flex; align-items: baseline; gap: var(--esp-2); }
+.productoPagado { color: var(--success); font-size: 13px; font-weight: 600; }
+

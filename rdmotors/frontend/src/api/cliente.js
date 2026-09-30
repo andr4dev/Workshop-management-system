@@ -296,8 +296,8 @@ export const carteraApi = {
 /** Los abonos de los clientes (spec 0008, H4). */
 export const abonosApi = {
   /**
-   * Con la misma llave, repetirlo devuelve el mismo abono: es seguro reintentar tras un corte. `primeroA` es la deuda
-   * que el cliente dijo que paga; sin ella, a lo más viejo.
+   * Con la misma llave, repetirlo devuelve el mismo abono: es seguro reintentar tras un corte. `primero` son las deudas
+   * (productos, spec 0016) que el cliente dijo que paga, en ese orden; vacía, a lo más viejo.
    */
   registrar: (datos) => api.post('/api/abonos', datos),
   /** Para reimprimir el recibo. */

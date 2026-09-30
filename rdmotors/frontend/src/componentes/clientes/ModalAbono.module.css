@@ -88,3 +88,32 @@
 }
 .error { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
 .sinConexion { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+
+/* Qué paga (spec 0016): cada venta pendiente con sus productos, para marcar lo que el cliente dice que paga. */
+.queSePaga {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  max-height: min(40vh, 300px);
+  margin: 0 0 var(--esp-3);
+  padding: var(--esp-2) var(--esp-3);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+}
+.queSePaga legend { padding: 0 var(--esp-1); }
+.ventaPendiente + .ventaPendiente { padding-top: var(--esp-2); border-top: 1px dashed var(--border); }
+.ventaMarca, .productoMarca {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  min-height: 32px;
+  cursor: pointer;
+}
+.ventaMarca { font-weight: 700; }
+.ventaMarca input, .productoMarca input { width: 18px; height: 18px; flex: none; accent-color: var(--brand); }
+.faltan { margin-left: auto; color: var(--text-muted); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.productos { margin: 0; padding: 0 0 0 var(--esp-5); list-style: none; font-size: 13.5px; }
+.marcado { margin: 0; font-size: 13px; color: var(--text-muted); }
+.marcado strong { color: var(--text); }
+

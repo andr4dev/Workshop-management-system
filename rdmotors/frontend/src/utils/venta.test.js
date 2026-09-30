@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  desgloseDelCobro, escogerCambio, escogerQuien, loEscogidoDe, precioDelRenglon, preguntaElCambio,
+  desgloseDelCobro, pagaAhoraDeLoMarcado, repartirDescuento, escogerCambio, escogerQuien, loEscogidoDe, precioDelRenglon, preguntaElCambio,
   agregarRenglon, aplicarProblemas, billetesSugeridos, cambiarCantidad, cambioDelCobro, claveDelBorrador,
   comandoDeCobro, consultaDePerdida, llaveNueva, montoDescuento, pagosDelCobro, porcentajeDesdeTexto, problemaDelCobro,
   problemaParaAgregar, problemasDeLaVenta, quitarRenglon, refrescarRenglon, refrescarRenglones, restaurarVenta,
@@ -354,3 +354,36 @@ test('al servidor va el precio que se ve y lo que se escogió; el filtro no mand
   ])
   assert.deepEqual(consultaDePerdida(venta).renglones[0].precioVisto, 62000)
 })
+
+// ── Fiar por producto (spec 0016) ─────────────────────────────────────────────
+
+test('el descuento repartido da lo mismo que el servidor: piso, y el peso de más al más caro', () => {
+  assert.deepEqual(repartirDescuento([65000, 11000], 3000), [62434, 10566], 'el mismo caso que RepartoDelFiadoTest')
+  assert.deepEqual(repartirDescuento([24000, 12000], 3600), [21600, 10800], 'el caso del spec 0007')
+  assert.deepEqual(repartirDescuento([5000, 5000, 5000], 1000), [4666, 4667, 4667], 'empate: el peso de más al primero')
+  for (const descuento of [0, 1, 999, 3000, 7777]) {
+    const netos = repartirDescuento([65000, 11000, 8000], descuento)
+    assert.equal(netos.reduce((s, n) => s + n, 0), 84000 - descuento, `suman el total con ${descuento}`)
+  }
+  assert.deepEqual(repartirDescuento([65000, 11000], 0), [65000, 11000])
+})
+
+test('marcar lo que paga ahora en un fiado: vale lo de cada producto con el descuento, y va en el orden de la venta', () => {
+  const filtro = { ...MOTUL, id: 'v-filtro', nombre: 'FILTRO DE ACEITE', comisionCambio: null, precio: 11000 }
+  let renglones = agregarRenglon([], MOTUL, { cambio: 'SE_CAMBIA', cambioPorId: 'u-ruben' })
+  renglones = agregarRenglon(renglones, filtro)
+  const venta = { ...ventaNueva('llave'), renglones, descuento: { modo: 'MONTO', valor: 3000, motivo: 'x' } }
+  const desglose = desgloseDelCobro(venta)
+  assert.deepEqual(desglose.renglones.map((r) => r.neto), [62434, 10566])
+  assert.equal(pagaAhoraDeLoMarcado(desglose, ['v-filtro']), 10566)
+  assert.equal(pagaAhoraDeLoMarcado(desglose, ['v-filtro', 'v-motul']), 73000)
+
+  const cliente = { id: 'c-juan', nombre: 'Juan', debe: 0 }
+  const fiando = { forma: 'FIADO', cliente, pagaAhora: '10566', pagaPrimero: ['v-filtro', 'v-otro'] }
+  const comando = comandoDeCobro(venta, fiando)
+  assert.deepEqual(comando.pagaPrimero, ['v-filtro'], 'solo lo que está en la venta')
+  assert.equal(comando.fiado, 62434)
+  assert.deepEqual(comandoDeCobro(venta, { forma: 'EFECTIVO', recibido: '', pagaPrimero: ['v-filtro'] }).pagaPrimero, [],
+    'sin fiar no se manda')
+})
+

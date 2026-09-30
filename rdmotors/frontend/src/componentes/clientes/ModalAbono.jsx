@@ -4,7 +4,7 @@ import Boton from '../Boton'
 import { abonosApi } from '../../api/cliente'
 import { formatoCOP, idLocal, soloDigitos } from '../../utils/formato'
 import { llaveNueva } from '../../utils/venta'
-import { nombreDeLaDeuda } from '../../utils/cartera'
+import { loMarcado, nombreDeLaDeuda, nombreDelProducto, paraAbonar } from '../../utils/cartera'
 import estilos from './ModalAbono.module.css'
 
 const FORMAS = [['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia']]
@@ -13,7 +13,9 @@ const FORMAS = [['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia']]
  * El cliente abona lo que trae (spec 0008, H4 y RF-011 a RF-013).
  *
  *   - Cualquier monto hasta lo que debe. El efectivo entra al cajón del turno; la transferencia, no.
- *   - Se aplica **a lo más viejo primero**, o a la venta que el cliente diga.
+ *   - Se aplica **a lo más viejo primero**, o primero a los productos que el cliente diga que paga (spec 0016): cada
+ *     venta pendiente se ve con sus productos y lo que falta de cada uno; marcarlos llena el monto, que se puede
+ *     cambiar. Si alcanza para menos, el último marcado queda a medias; si sobra, va a lo más viejo.
  *   - Lleva llave: un doble clic no abona dos veces, y si la red se cae se reintenta el mismo abono.
  *
  * @param ficha la del cliente, como la devuelve el servidor
@@ -24,12 +26,22 @@ export default function ModalAbono({ ficha, onAbonado, onCerrar }) {
   const [forma, setForma] = useState('EFECTIVO')
   const [referencia, setReferencia] = useState('')
   const [nota, setNota] = useState('')
-  const [primeroA, setPrimeroA] = useState('')
+  const [marcados, setMarcados] = useState([])
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
   const idSelector = idLocal()
 
-  const pendientes = ficha.deudas.filter((d) => d.pendiente > 0)
+  const grupos = paraAbonar(ficha.deudas)
+  const marcado = loMarcado(grupos, marcados)
+
+  // Marcar llena el monto con lo que falta de lo marcado; sin nada marcado, lo deja en blanco para escribirlo.
+  function marcar(ids, si) {
+    const nuevos = si ? [...new Set([...marcados, ...ids])] : marcados.filter((id) => !ids.includes(id))
+    setMarcados(nuevos)
+    const suma = loMarcado(grupos, nuevos).monto
+    setMonto(suma > 0 ? String(suma) : '')
+    setError(null)
+  }
   const valor = Number(soloDigitos(monto)) || 0
   const problema = valor <= 0 ? 'Escribe cuánto abona'
     : valor > ficha.debe ? `${ficha.cliente.nombre} debe ${formatoCOP(ficha.debe)}: no se le puede recibir más`
@@ -47,7 +59,7 @@ export default function ModalAbono({ ficha, onAbonado, onCerrar }) {
         forma,
         referencia: forma === 'TRANSFERENCIA' && referencia.trim() ? referencia.trim() : null,
         nota: nota.trim() || null,
-        primeroA: primeroA || null,
+        primero: marcado.ids,
       }))
     } catch (e) {
       setError(e)
@@ -117,19 +129,44 @@ export default function ModalAbono({ ficha, onAbonado, onCerrar }) {
         </div>
       )}
 
-      {pendientes.length > 1 && (
-        <div className={estilos.campo}>
-          <label className={estilos.etiqueta} htmlFor={`abono-deuda-${idSelector}`}>A cuál se aplica</label>
-          <select id={`abono-deuda-${idSelector}`} className={estilos.entrada} value={primeroA}
-            onChange={(e) => setPrimeroA(e.target.value)} disabled={enviando}>
-            <option value="">A lo más viejo primero</option>
-            {pendientes.map((d) => (
-              <option key={d.id} value={d.id}>
-                {nombreDeLaDeuda(d)} · faltan {formatoCOP(d.pendiente)}
-              </option>
-            ))}
-          </select>
-        </div>
+      {grupos.length > 0 && (
+        <fieldset className={estilos.queSePaga} disabled={enviando}>
+          <legend className={estilos.etiqueta}>Qué paga (opcional: sin marcar, a lo más viejo)</legend>
+          {grupos.map((g) => {
+            const ids = g.productos.map((d) => d.id)
+            const todos = ids.every((id) => marcados.includes(id))
+            return (
+              <div key={g.clave} className={estilos.ventaPendiente}>
+                <label className={estilos.ventaMarca}>
+                  <input type="checkbox" checked={todos} onChange={(e) => marcar(ids, e.target.checked)} />
+                  <span>{nombreDeLaDeuda(g)}</span>
+                  <span className={estilos.faltan}>faltan {formatoCOP(g.pendiente)}</span>
+                </label>
+                {g.porProducto && g.productos.length > 0 && (
+                  <ul className={estilos.productos}>
+                    {g.productos.map((d) => (
+                      <li key={d.id}>
+                        <label className={estilos.productoMarca}>
+                          <input type="checkbox" checked={marcados.includes(d.id)}
+                            onChange={(e) => marcar([d.id], e.target.checked)} />
+                          <span>{nombreDelProducto(d)}</span>
+                          <span className={estilos.faltan}>{formatoCOP(d.pendiente)}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )
+          })}
+          {marcado.ids.length > 0 && (
+            <p className={estilos.marcado}>
+              Lo marcado: <strong>{formatoCOP(marcado.monto)}</strong>
+              {valor > 0 && valor < marcado.monto && ' · abona menos: el último queda a medias'}
+              {valor > marcado.monto && ' · lo que sobra va a lo más viejo'}
+            </p>
+          )}
+        </fieldset>
       )}
 
       <div className={estilos.campo}>

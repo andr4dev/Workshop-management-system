@@ -4,7 +4,7 @@ import Boton from '../Boton'
 import SelectorCliente from '../clientes/SelectorCliente'
 import { formatoCOP, soloDigitos } from '../../utils/formato'
 import {
-  billetesSugeridos, cambioDelCobro, fiadoDelCobro, pagosDelCobro, problemaDelCobro,
+  billetesSugeridos, cambioDelCobro, fiadoDelCobro, pagaAhoraDeLoMarcado, pagosDelCobro, problemaDelCobro,
 } from '../../utils/venta'
 import estilos from './ModalCobro.module.css'
 
@@ -29,6 +29,10 @@ const FORMAS = [
  * cursor pasa a *Fiar*: Enter lo cierra.
  *
  * Arriba, el pedido renglón por renglón: el cajero lo repasa con el cliente antes de recibir la plata.
+ *
+ * En un fiado de varios productos, el cajero marca **qué paga ahora** (spec 0016): *Paga ahora* se llena con lo que
+ * vale cada uno (con el descuento repartido) y lo pagado cubre esos productos; el resto queda fiado, producto por
+ * producto.
  *
  * @param cobroAnterior  el cobro de un intento que quedó sin respuesta: se reintenta exactamente ese
  * @param desglose       el pedido (`desgloseDelCobro`); sus partes suman `total`
@@ -192,6 +196,28 @@ export default function ModalCobro({ total, desglose, cobroAnterior, onCobrar, o
                   </div>
                 </div>
               </div>
+
+              {desglose && desglose.renglones.length > 1 && (
+                <fieldset className={estilos.queSePaga} disabled={bloqueado}>
+                  <legend className={estilos.etiqueta}>Qué paga ahora (opcional)</legend>
+                  {desglose.renglones.map((r) => {
+                    const marcados = cobro.pagaPrimero ?? []
+                    return (
+                      <label key={r.varianteId} className={estilos.productoMarca}>
+                        <input type="checkbox" checked={marcados.includes(r.varianteId)}
+                          onChange={(e) => {
+                            const nuevos = e.target.checked ? [...marcados, r.varianteId]
+                              : marcados.filter((id) => id !== r.varianteId)
+                            const paga = pagaAhoraDeLoMarcado(desglose, nuevos)
+                            cambiar({ pagaPrimero: nuevos, pagaAhora: paga > 0 ? String(paga) : '' })
+                          }} />
+                        <span>{r.cantidad} × {r.nombre}</span>
+                        <span className={estilos.productoValor}>{formatoCOP(r.neto)}</span>
+                      </label>
+                    )
+                  })}
+                </fieldset>
+              )}
 
               <p className={estilos.fiado} aria-live="polite">
                 <span>Queda fiado</span>

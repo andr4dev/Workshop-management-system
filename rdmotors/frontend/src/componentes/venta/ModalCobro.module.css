@@ -211,3 +211,27 @@
 .aNombreDeEnlace { margin-bottom: var(--esp-3); align-self: flex-start; }
 .aNombreDeEnlace:hover:not(:disabled),
 .quitarCliente:hover:not(:disabled) { color: var(--text); }
+
+/* Fiado por producto (spec 0016): qué paga ahora, para que lo fiado quede en cifras redondas. */
+.queSePaga {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 var(--esp-3);
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+}
+.queSePaga legend { padding: 0 var(--esp-1); }
+.productoMarca {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  min-height: 32px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+.productoMarca input { width: 18px; height: 18px; flex: none; accent-color: var(--brand); }
+.productoMarca .productoValor { margin-left: auto; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+

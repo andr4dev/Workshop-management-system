@@ -16,7 +16,8 @@ import { armarRecibo, htmlDelRecibo, problemasDelRecibo } from '../utils/reciboA
 import { esAdministrador } from '../utils/permisos'
 import { hoyEnColombia } from '../utils/periodo'
 import {
-  desdeCuandoEnPalabras, ESTADOS, fechaCorta, FORMAS, loQueSeLlevo, nombreDeLaDeuda, problemasDeLaFicha,
+  agruparPorVenta, desdeCuandoEnPalabras, ESTADOS, fechaCorta, FORMAS, loQueSeLlevo, nombreDeLaDeuda,
+  problemasDeLaFicha, renglonesDelGrupo,
 } from '../utils/cartera'
 import comun from './Listado.module.css'
 import estilos from './Cartera.module.css'
@@ -254,37 +255,20 @@ export default function FichaCliente() {
         <p className={comun.tenue}>Todavía no se le ha fiado nada.</p>
       ) : (
         <ul className={estilos.deudas}>
-          {ficha.deudas.map((d) => (
-            <li key={d.id} className={`${estilos.deuda} ${d.estado === 'ANULADA' ? estilos.deudaAnulada : ''}`}>
+          {agruparPorVenta(ficha.deudas).map((g) => (
+            <li key={g.clave} className={`${estilos.deuda} ${g.estado === 'ANULADA' ? estilos.deudaAnulada : ''}`}>
               <div className={estilos.deudaCabecera}>
                 <span className={estilos.deudaNombre}>
-                  {d.ventaId ? <Link to={`/vender/ventas/${d.ventaId}`} className={comun.enlace}>{nombreDeLaDeuda(d)}</Link>
-                    : nombreDeLaDeuda(d)}
+                  {g.ventaId ? <Link to={`/vender/ventas/${g.ventaId}`} className={comun.enlace}>{nombreDeLaDeuda(g)}</Link>
+                    : nombreDeLaDeuda(g)}
                 </span>
-                <span className={comun.tenue}>{fechaCorta(d.fecha)}</span>
-                <span className={`${estilos.estado} ${estilos[CLASE_ESTADO[d.estado]]}`}>{ESTADOS[d.estado]}</span>
-                <span className={`${estilos.deudaMonto} ${d.estado === 'ANULADA' ? comun.tachado : ''}`}>
-                  {formatoCOP(d.monto)}
+                <span className={comun.tenue}>{fechaCorta(g.fecha)}</span>
+                <span className={`${estilos.estado} ${estilos[CLASE_ESTADO[g.estado]]}`}>{ESTADOS[g.estado]}</span>
+                <span className={`${estilos.deudaMonto} ${g.estado === 'ANULADA' ? comun.tachado : ''}`}>
+                  {formatoCOP(g.monto)}
                 </span>
               </div>
-              <LoQueSeLlevo deuda={d} />
-              {d.estado !== 'ANULADA' && (
-                <p className={estilos.deudaPartes}>
-                  Abonado {formatoCOP(d.abonado)} · Pendiente <strong>{formatoCOP(d.pendiente)}</strong>
-                  {d.motivo && ` · ${d.motivo}`}
-                </p>
-              )}
-              {d.estado === 'ANULADA' && <p className={estilos.deudaPartes}>Se anuló la venta: ya no se debe.</p>}
-              {d.abonos.length > 0 && (
-                <ul className={estilos.abonosDeLaDeuda}>
-                  {d.abonos.map((p, i) => (
-                    <li key={`${p.abonoId}-${i}`} className={p.vigente ? undefined : estilos.movido}>
-                      <span>Abono N.º {p.numero} · {fechaHora(p.recibidoEn)} · {FORMAS[p.forma]}</span>
-                      <strong>{formatoCOP(p.monto)}</strong>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {g.porProducto ? <ProductosFiados grupo={g} /> : <DeudaEntera deuda={g.productos[0]} />}
             </li>
           ))}
         </ul>
@@ -479,5 +463,94 @@ function LoQueSeLlevo({ deuda }) {
         </li>
       )}
     </ul>
+  )
+}
+
+/** Los abonos que le aplicaron a una deuda; tachados los que se anularon o se movieron. */
+function AbonosDeLaDeuda({ deuda }) {
+  if (deuda.abonos.length === 0) return null
+  return (
+    <ul className={estilos.abonosDeLaDeuda}>
+      {deuda.abonos.map((p, i) => (
+        <li key={`${p.abonoId}-${i}`} className={p.vigente ? undefined : estilos.movido}>
+          <span>Abono N.º {p.numero} · {fechaHora(p.recibidoEn)} · {FORMAS[p.forma]}</span>
+          <strong>{formatoCOP(p.monto)}</strong>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Una venta fiada de antes que no se partió por producto, o el saldo del cuaderno: como siempre. */
+function DeudaEntera({ deuda }) {
+  return (
+    <>
+      <LoQueSeLlevo deuda={deuda} />
+      {deuda.estado !== 'ANULADA' && (
+        <p className={estilos.deudaPartes}>
+          Abonado {formatoCOP(deuda.abonado)} · Pendiente <strong>{formatoCOP(deuda.pendiente)}</strong>
+          {deuda.motivo && ` · ${deuda.motivo}`}
+        </p>
+      )}
+      {deuda.estado === 'ANULADA' && <p className={estilos.deudaPartes}>Se anuló la venta: ya no se debe.</p>}
+      <AbonosDeLaDeuda deuda={deuda} />
+    </>
+  )
+}
+
+/**
+ * Una venta fiada por producto (spec 0016): cada producto con lo que se debe de él, su estado y sus abonos. El que no
+ * tiene deuda se pagó al llevárselo.
+ */
+function ProductosFiados({ grupo }) {
+  const anulada = grupo.estado === 'ANULADA'
+  return (
+    <>
+      <ul className={estilos.productosFiados} aria-label={`Los productos de la ${nombreDeLaDeuda(grupo).toLowerCase()}`}>
+        {renglonesDelGrupo(grupo).map(({ renglon, deuda }, i) => (
+          <li key={renglon?.lineaId ?? deuda.id ?? i} className={estilos.productoFiado}>
+            <div className={estilos.productoFila}>
+              <span>
+                {renglon ? `${renglon.cantidad} × ${renglon.nombre}` : deuda.descripcion}
+                {renglon && renglon.cantidad > 1 && (
+                  <span className={estilos.productoDetalle}> · {formatoCOP(renglon.precioUnitario)} c/u</span>
+                )}
+                {renglon?.cambio === 'NO_SE_CAMBIA' && <span className={estilos.productoDetalle}> · sin cambio</span>}
+              </span>
+              {deuda ? (
+                <span className={estilos.productoCuenta}>
+                  {!anulada && (
+                    <span className={`${estilos.estado} ${estilos[CLASE_ESTADO[deuda.estado]]}`}>{ESTADOS[deuda.estado]}</span>
+                  )}
+                  <span className={estilos.productoValor}>
+                    {deuda.estado === 'PAGADA' || anulada ? formatoCOP(deuda.monto) : `Debe ${formatoCOP(deuda.pendiente)}`}
+                  </span>
+                </span>
+              ) : (
+                <span className={estilos.productoPagado}>Pagado al llevárselo</span>
+              )}
+            </div>
+            {deuda && deuda.estado === 'ABONADA' && (
+              <p className={estilos.deudaPartes}>
+                Fiado {formatoCOP(deuda.monto)} · abonado {formatoCOP(deuda.abonado)}
+              </p>
+            )}
+            {deuda && <AbonosDeLaDeuda deuda={deuda} />}
+          </li>
+        ))}
+      </ul>
+      {grupo.venta?.descuento > 0 && (
+        <p className={estilos.deudaPartes}>
+          Con {formatoCOP(grupo.venta.descuento)} de descuento{grupo.venta.motivoDescuento && ` (${grupo.venta.motivoDescuento})`},
+          repartido entre los productos.
+        </p>
+      )}
+      {anulada && <p className={estilos.deudaPartes}>Se anuló la venta: ya no se debe.</p>}
+      {!anulada && (
+        <p className={estilos.deudaPartes}>
+          Abonado {formatoCOP(grupo.abonado)} · Pendiente <strong>{formatoCOP(grupo.pendiente)}</strong>
+        </p>
+      )}
+    </>
   )
 }

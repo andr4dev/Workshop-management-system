@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  desdeCuandoEnPalabras, esDeudaVieja, fechaCorta, loQueSeLlevo, nombreDeLaDeuda, problemasDeLaFicha,
+  agruparPorVenta, desdeCuandoEnPalabras, esDeudaVieja, fechaCorta, loMarcado, loQueSeLlevo, paraAbonar,
+  renglonesDelGrupo, nombreDeLaDeuda, problemasDeLaFicha,
   resumenDeLaCartera, textoPendientes,
 } from './cartera.js'
 import { formatoCOP } from './formato.js'
@@ -81,3 +82,53 @@ test('qué se llevó en una venta fiada: cada repuesto con su valor, y lo que la
   assert.equal(todoFiado.pagoAlLlevarselo, 0)
   assert.equal(loQueSeLlevo({ origen: 'CUADERNO', monto: 20_000, venta: null }), null, 'el cuaderno no tiene venta')
 })
+
+// ── Por producto (spec 0016) ──────────────────────────────────────────────────
+
+const producto = (id, ventaId, numeroVenta, posicion, descripcion, monto, abonado, estado = null, lineaVentaId = `l-${id}`) => ({
+  id, origen: 'VENTA', ventaId, numeroVenta, lineaVentaId, posicion, descripcion, fecha: '2026-09-28', monto, abonado,
+  pendiente: estado === 'ANULADA' ? 0 : monto - abonado,
+  estado: estado ?? (abonado === 0 ? 'PENDIENTE' : abonado === monto ? 'PAGADA' : 'ABONADA'), abonos: [], venta: null,
+})
+
+// Como las manda el servidor: la más reciente primero, y dentro de una venta, el último producto primero.
+const DEUDAS = [
+  producto('d-filtro18', 'v18', 18, 1, 'FILTRO DE ACEITE', 11000, 11000),
+  producto('d-motul18', 'v18', 18, 0, 'MOTUL 7100 10W30', 65000, 0),
+  { ...producto('d-10', 'v10', 10, null, null, 90000, 20000, null, null) },
+  { id: 'd-cuaderno', origen: 'CUADERNO', ventaId: null, numeroVenta: null, lineaVentaId: null, posicion: null,
+    descripcion: null, fecha: '2026-07-01', monto: 20000, abonado: 0, pendiente: 20000, estado: 'PENDIENTE',
+    motivo: 'Lo del cuaderno', abonos: [], venta: null },
+]
+
+test('la ficha junta los productos de una venta, en su orden, con las cifras y el estado de la venta', () => {
+  const grupos = agruparPorVenta(DEUDAS)
+  assert.deepEqual(grupos.map((g) => g.clave), ['v18', 'v10', 'd-cuaderno'])
+  const v18 = grupos[0]
+  assert.deepEqual(v18.productos.map((d) => d.descripcion), ['MOTUL 7100 10W30', 'FILTRO DE ACEITE'])
+  assert.equal(v18.porProducto, true)
+  assert.deepEqual([v18.monto, v18.abonado, v18.pendiente, v18.estado], [76000, 11000, 65000, 'ABONADA'])
+  assert.equal(grupos[1].porProducto, false, 'la de antes que no se partió')
+  assert.equal(grupos[2].estado, 'PENDIENTE')
+
+  const anulada = agruparPorVenta([producto('a1', 'v6', 6, 0, 'X', 1000, 0, 'ANULADA'),
+    producto('a2', 'v6', 6, 1, 'Y', 2000, 0, 'ANULADA')])[0]
+  assert.deepEqual([anulada.estado, anulada.monto], ['ANULADA', 3000], 'anulada: lo que era, para verlo tachado')
+})
+
+test('cada renglón con su deuda; el que no tiene deuda se pagó al llevárselo', () => {
+  const venta = { renglones: [{ lineaId: 'l-d-motul18', nombre: 'MOTUL 7100 10W30', cantidad: 1, total: 65000 },
+    { lineaId: 'l-pagado', nombre: 'FILTRO DE ACEITE', cantidad: 1, total: 11000 }] }
+  const grupo = agruparPorVenta([{ ...producto('d-motul18', 'v18', 18, 0, 'MOTUL 7100 10W30', 65000, 0), venta }])[0]
+  assert.deepEqual(renglonesDelGrupo(grupo).map((r) => [r.renglon.nombre, r.deuda?.id ?? null]),
+    [['MOTUL 7100 10W30', 'd-motul18'], ['FILTRO DE ACEITE', null]])
+})
+
+test('para abonar: lo pendiente, de lo más viejo a lo más nuevo, y lo marcado en el orden de la lista con lo que falta', () => {
+  const grupos = paraAbonar(DEUDAS)
+  assert.deepEqual(grupos.map((g) => g.clave), ['d-cuaderno', 'v10', 'v18'])
+  assert.deepEqual(grupos[2].productos.map((d) => d.id), ['d-motul18'], 'el filtro ya está pagado')
+  assert.deepEqual(loMarcado(grupos, ['d-motul18', 'd-cuaderno']), { ids: ['d-cuaderno', 'd-motul18'], monto: 85000 })
+  assert.deepEqual(loMarcado(grupos, []), { ids: [], monto: 0 })
+})
+
