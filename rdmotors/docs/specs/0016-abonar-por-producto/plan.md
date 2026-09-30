@@ -131,3 +131,10 @@ cuidado que el 0015: nada a producción sin la orden del dueño.
 | Fecha | Fase | Decisión | Por qué |
 |---|---|---|---|
 | 2026-09-30 | — | **El cajero escoge qué cubre lo que se paga al llevárselo**; sin marcar, en el orden de la venta | Aclaración del usuario a la decisión 2 del spec: cifras redondas en lugar del reparto en proporción |
+| 2026-09-30 | 1 | **Una venta tiene o una deuda entera o una por producto**; la base cuida lo primero (`ux_deuda_venta_entera`, `ux_deuda_linea`) y el dominio que no se mezclen | Un índice que prohíba mezclarlas necesita un trigger; fiar nunca crea las dos |
+| 2026-09-30 | 1 | **Para los mensajes, "el repuesto X de la venta N.º 18"; para el recibo y la ficha, "X (venta N.º 18)"** (`Deuda.nombre()` y `etiqueta()`) | Con "el repuesto" la frase concuerda con cualquier producto ("ya está pagado"); detrás de un monto se lee mejor sin artículo |
+| 2026-09-30 | 1 | `RepartoDeDescuento` se mudó a `compartido/dominio`; su prueba se quedó en `reportes/dominio` | Lo usan reportes y la cartera; la prueba usa las ayudas de los reportes |
+| 2026-09-30 | 1 | Rotas a propósito: sin la posición en el orden de pago (falla `sinMarcarYYaPagado`) y anulando de a una (falla `anularLaVenta`, después de fortalecerla: al principio abonaba al segundo producto y no lo veía) | — |
+| 2026-09-30 | 4 | **Punta a punta por HTTP** (`FiadoPorProductoIntegracionTest`, Postgres 18): cajón 122.000, ventas netas 22.000, costo 13.026, Juan debe 54.000, escritas a mano; pasó al primer intento | — |
+| 2026-09-30 | 4 | **Ensayo sobre una copia de producción** (22 ventas, 11 deudas, 4 abonos): V30 + V31 en 101 ms; **34 vistas y todas las fichas iguales** (por cliente, por venta y cada abono); la N.º 18 en dos productos (GUAYA 26.120 + MOTUL 62.880, con el descuento repartido); un abono marcando la guaya y un fiado nuevo pagando la guaya cuadraron en el cajón. La copia se borró | Es lo que pasará al desplegar |
+

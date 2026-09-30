@@ -1,7 +1,7 @@
 # Spec 0016 · Abonar por producto
 
-**Estado:** con [plan](plan.md), 2026-09-30 · se hace **solo en local** (rama `spec-0015-comisiones`) hasta la orden
-del dueño
+**Estado:** **implementado en local**, 2026-09-30 (rama `spec-0015-comisiones`) · [plan](plan.md) · sin desplegar:
+nada sube a producción sin la orden del dueño
 
 **Aclaración del usuario (2026-09-30), decisión 2:** *el cajero escoge qué pagó* al llevárselo, no se reparte en
 proporción.
