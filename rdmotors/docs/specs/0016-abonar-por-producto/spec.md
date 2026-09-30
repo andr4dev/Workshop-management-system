@@ -1,6 +1,10 @@
 # Spec 0016 · Abonar por producto
 
-**Estado:** borrador para revisar, 2026-09-30 · sin plan todavía · se hará **solo en local** hasta la orden del dueño
+**Estado:** con [plan](plan.md), 2026-09-30 · se hace **solo en local** (rama `spec-0015-comisiones`) hasta la orden
+del dueño
+
+**Aclaración del usuario (2026-09-30), decisión 2:** *el cajero escoge qué pagó* al llevárselo, no se reparte en
+proporción.
 
 **Pedido del usuario (2026-09-30):** *«cuando se fía y se va a hacer un abono/pago, que se muestre la compra y los
 productos, y poder abonar por productos y no solo por compra»*.
@@ -53,18 +57,20 @@ después la ficha diga **qué productos están pagados y cuáles se deben**.
 **Recomendación: A.** El cuaderno de la tienda ya funciona así (*"le debe el aceite"*), y en la app reusa reglas que
 tienen meses de pruebas en lugar de escribir otras. Lo que cambia se ve en la pantalla, no en las cuentas.
 
-### Decisión 2 · Cuánto se debe de cada producto si hubo descuento o pagó una parte al llevárselo
+### Decisión 2 · Cuánto se debe de cada producto si hubo descuento o pagó una parte al llevárselo — **decidida**
 
-Lo fiado se reparte entre los productos **en proporción a su valor** (ya con el descuento), y el peso que sobre al
-redondear va al más caro: la misma regla del descuento y de los reportes. Las partes suman lo fiado, al peso.
+**Lo que paga al llevárselo lo escoge el cajero** (aclaración del usuario). En *Cobrar › Fiado*, debajo de *Paga
+ahora*, cada producto tiene *"lo paga ahora"*; marcarlo llena *Paga ahora* con su valor. Lo pagado cubre primero los
+productos marcados, en su orden, y si sobra, los demás en el orden de la venta. **Sin marcar nada**, lo pagado cubre
+los productos en el orden de la venta (no en proporción). Así las cifras quedan redondas: MOTUL $65.000 + filtro
+$11.000, marca el filtro y paga $11.000 → el MOTUL queda debiendo $65.000.
+
+**El descuento** sí se reparte **en proporción al valor de cada producto** (piso, y el peso que sobre al más caro): no
+hay qué escoger, y es la misma regla del comprobante y de los reportes. Con descuento, lo que vale cada producto puede no
+ser redondo.
 
 - Sin descuento ni pago al llevárselo (casi siempre, en producción): cada producto debe **su precio × cantidad**.
-- Con algo pagado al llevárselo, las cifras no son redondas: MOTUL $65.000 + filtro $11.000, paga $20.000 y fía
-  $56.000 → el MOTUL debe $47.895 y el filtro $8.105.
-
-La alternativa sería preguntar en el cobro qué cubre lo que paga de una vez: es un paso más en el mostrador, para un
-caso raro. **Recomendación: en proporción.**
-[NECESITA ACLARACIÓN: ¿le sirve así, o prefiere que en ese caso el cajero diga qué producto pagó al llevárselo?]
+- Un producto que quede en $0 (lo cubrió todo lo pagado) no queda como deuda.
 
 ### Decisión 3 · A qué se va un abono sin marcar productos
 
@@ -93,6 +99,8 @@ repartiéndolo en proporción entre sus renglones. Pagar un producto no cambia l
 
 - **RF-001** Al fiar, cada producto de la venta queda como su propia deuda, con cuánto debe (decisión 2). La venta, su
   comprobante y lo que dice *"quedó debiendo"* no cambian.
+- **RF-014** En *Cobrar › Fiado*, el cajero puede marcar qué productos paga ahora; *Paga ahora* se llena con su valor
+  (con el descuento ya repartido) y se puede cambiar. Lo pagado cubre lo marcado primero (decisión 2).
 - **RF-002** La ficha del cliente agrupa por venta: la venta (número, fecha, lo fiado en total, su estado) y debajo
   cada producto con lo que debe, lo abonado, lo pendiente, su estado y los abonos que le aplicaron.
 - **RF-003** El modal de abono muestra las ventas con algo pendiente, cada una con sus productos y lo que falta de cada
@@ -120,6 +128,7 @@ repartiéndolo en proporción entre sus renglones. Pagar un producto no cambia l
 | Dos cajeros le abonan a la vez al mismo cliente | Como hoy: el cliente se bloquea y los abonos van en fila. |
 | El abono se manda dos veces (doble clic o corte de red) | Como hoy: con la misma llave es el mismo abono. |
 | Se marca un producto de otro cliente | No se recibe: *"Ese producto no es una deuda de Juan"*. |
+| En el cobro se marca como pagado un producto que no está en la venta, o se marca sin fiar | No se cobra: *"Lo que se paga ahora tiene que ser de esta venta"* / *"Solo se escoge qué se paga cuando se fía"*. |
 
 ## 7. Requisitos no funcionales
 
@@ -133,6 +142,7 @@ repartiéndolo en proporción entre sus renglones. Pagar un producto no cambia l
 ## 8. Criterios de aceptación
 
 - [ ] Fiar una venta de dos productos crea dos deudas que suman lo fiado, al peso, aun con descuento y pago parcial.
+- [ ] En el cobro fiado, marcar el filtro como pagado deja el MOTUL debiendo su precio exacto.
 - [ ] El modal de abono muestra los productos pendientes con lo que falta de cada uno.
 - [ ] Marcar un producto llena el monto con lo que falta de él; al recibirlo, ese producto queda *Pagado* y el otro no.
 - [ ] Un abono sin marcar paga lo más viejo, en el orden de los productos de la venta.
