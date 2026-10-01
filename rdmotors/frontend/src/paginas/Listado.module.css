@@ -196,7 +196,10 @@
 
 @media (max-width: 640px) {
   .encabezado { flex-direction: column; }
-  .filtros { flex-direction: column; align-items: stretch; }
+  /* De a dos: las fechas Desde y Hasta lado a lado, como se leen. Una búsqueda escrita va a todo el ancho. */
+  .filtros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-2) var(--esp-3); }
+  .filtro:has(input[type="search"]) { grid-column: 1 / -1; }
+  .filtros > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 
 /* Un enlace dentro de una celda: la fila entera abre, el enlace es para el teclado. */

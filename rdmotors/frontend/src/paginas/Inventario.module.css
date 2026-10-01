@@ -285,8 +285,10 @@
 
 @media (max-width: 640px) {
   .encabezado { flex-direction: column; }
-  .filtros { flex-direction: column; align-items: stretch; }
-  .buscador { max-width: none; }
+  /* El buscador en su línea y los filtros debajo, en fila: tres botones a todo el ancho se comían la pantalla. */
+  .filtros { flex-wrap: wrap; gap: var(--esp-2); }
+  .buscador { flex: 1 0 100%; max-width: none; }
+  .chip { padding: 6px 10px; font-size: 12.5px; }
 }
 
 /* Spec 0015: el aceite que paga comisión por cambio, marcado en la lista. */

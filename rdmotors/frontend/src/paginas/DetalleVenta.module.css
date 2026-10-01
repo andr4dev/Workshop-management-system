@@ -135,5 +135,7 @@ table.tablaRenglones { min-width: 520px; }
 }
 
 @media (max-width: 640px) {
-  .cifras { grid-template-columns: minmax(0, 1fr); }
+  .cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* En el celular, de a dos: una por renglón ocupaba media pantalla. La que sobra va a todo el ancho. */
+  .cifras > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 }

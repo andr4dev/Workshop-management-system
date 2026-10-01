@@ -163,6 +163,69 @@ button, input, select, textarea {
 /* Contenido ancho: scrollea en su propio contenedor. El body nunca en horizontal. */
 .scroll-x { overflow-x: auto; }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tablas en el celular: cada renglón es una tarjeta.
+   En una pantalla angosta una tabla de seis columnas se desliza de lado y lo que más importa (el total, el monto, el
+   precio) queda escondido a la derecha. Aquí cada renglón muestra arriba lo que es (data-principal) y debajo los
+   demás datos de a dos, cada uno con el nombre de su columna (data-etiqueta, ver utils/tablasEnElCelular.js).
+   Solo las tablas con encabezados: las de "etiqueta → valor" (el producido, el arqueo) ya se leen bien.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  table:has(> thead) {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+  }
+  table:has(> thead) > thead { display: none; }
+  table:has(> thead) > tbody,
+  table:has(> thead) > tfoot { display: block; }
+  table:has(> thead) > tbody > tr,
+  table:has(> thead) > tfoot > tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 16px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  table:has(> thead) > tbody > tr:last-child { border-bottom: none; }
+  table:has(> thead) > tfoot > tr { border-top: 1px solid var(--border); }
+  table:has(> thead) > tbody > tr > td,
+  table:has(> thead) > tfoot > tr > td,
+  table:has(> thead) > tbody > tr > th,
+  table:has(> thead) > tfoot > tr > th {
+    display: block;
+    min-width: 0;
+    padding: 0 !important;
+    border: none !important;
+    text-align: left !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+  table:has(> thead) td[data-etiqueta]:not([data-etiqueta=""])::before,
+  table:has(> thead) th[data-etiqueta]:not([data-etiqueta=""])::before {
+    content: attr(data-etiqueta);
+    display: block;
+    margin-bottom: 1px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  /* Lo que es el renglón: arriba, a todo el ancho, más grande y sin etiqueta. */
+  table:has(> thead) [data-principal] {
+    grid-column: 1 / -1;
+    order: -1;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  table:has(> thead) [data-principal]::before { display: none !important; }
+  /* Una celda vacía (una acción que no aplica) no deja un hueco con su nombre. */
+  table:has(> thead) td:empty { display: none; }
+  /* Lo que en el celular sobra (la pantalla lo marca con data-solo-escritorio). */
+  table:has(> thead) [data-solo-escritorio] { display: none !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .01ms !important;

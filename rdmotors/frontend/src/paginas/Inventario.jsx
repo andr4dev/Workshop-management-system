@@ -279,12 +279,12 @@ function Listado({ conCostos, puedeComprar, datos, cargando, texto, soloBajo, si
             <tr>
               <th>Código</th>
               <th>Repuesto</th>
-              <th>Categoría</th>
+              <th data-solo-escritorio="">Categoría</th>
               <th className="cifra">Stock</th>
               {conCostos && <th className="cifra">Costo promedio</th>}
               <th className="cifra">Precio venta</th>
               {conCostos && <th className="cifra">Margen</th>}
-              {conCostos && <th className="cifra">Valor</th>}
+              {conCostos && <th className="cifra" data-solo-escritorio="">Valor</th>}
             </tr>
           </thead>
           <tbody>
@@ -315,7 +315,8 @@ function Listado({ conCostos, puedeComprar, datos, cargando, texto, soloBajo, si
                       {rep.marca}{rep.aplicacion && ` · ${rep.aplicacion}`}
                     </span>
                   </td>
-                  <td className={estilos.categoria}>{rep.categoria ?? 'Sin categoría'}</td>
+                  {/* En el celular no: la categoría ya está en los filtros, y la tarjeta tiene que leerse de un vistazo. */}
+                  <td className={estilos.categoria} data-solo-escritorio="">{rep.categoria ?? 'Sin categoría'}</td>
                   <td className="cifra">
                     <span className={estilos.stock}>
                       <strong>{rep.stock}</strong>
@@ -329,7 +330,7 @@ function Listado({ conCostos, puedeComprar, datos, cargando, texto, soloBajo, si
                       {m ? `${m.utilidad < 0 ? '⚠ ' : ''}${m.porcentaje.toFixed(0)}%` : GUION}
                     </td>
                   )}
-                  {conCostos && <td className="cifra">{rep.valor == null ? GUION : formatoCOP(rep.valor)}</td>}
+                  {conCostos && <td className="cifra" data-solo-escritorio="">{rep.valor == null ? GUION : formatoCOP(rep.valor)}</td>}
                 </tr>
               )
             })}

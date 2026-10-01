@@ -431,8 +431,11 @@
 }
 
 @media (max-width: 480px) {
-  .franja, .importantes { grid-template-columns: minmax(0, 1fr); }
-  .valor { font-size: 24px; }
+  /* Siguen de a dos (en una columna, las tres cifras grandes ocupaban la pantalla entera). */
+  .importantes > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  /* Las que traen una lista (el fiado, cómo pagaron) a todo el ancho: en media pantalla cada renglón se partía. */
+  .importantes > .tarjeta:has(> dl) { grid-column: 1 / -1; }
+  .valor { font-size: 22px; }
   .selector { padding: var(--esp-3); }
 }
 

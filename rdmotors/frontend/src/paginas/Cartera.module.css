@@ -277,6 +277,10 @@
 }
 
 @media (max-width: 640px) {
+  /* Lo que debe, lo fiado y lo pagado: de a dos, y lo que debe a todo el ancho arriba. */
+  .cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-2); }
+  .cifras > :first-child { grid-column: 1 / -1; }
+  .cifraValor { font-size: 20px; }
   .tarjeta { flex-direction: column; align-items: flex-start; gap: var(--esp-1); }
   /* En el celular el buscador va en su propia línea: con `flex: 1` la base 0 gana y se quedaba estrujado. */
   .buscar { min-width: 0; flex: 1 0 100%; }

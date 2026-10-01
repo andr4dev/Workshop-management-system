@@ -246,7 +246,7 @@ export default function DetalleCompra() {
                 <th>Código</th>
                 <th>Repuesto</th>
                 <th className="cifra">Cant.</th>
-                <th>Costo capturado</th>
+                <th data-solo-escritorio="">Costo capturado</th>
                 <th className="cifra">Costo c/u</th>
                 <th className="cifra">Total pagado</th>
                 <th className="cifra"><PrecioFijado conHoy /></th>
@@ -276,7 +276,7 @@ export default function DetalleCompra() {
                     )}
                   </td>
                   <td className="cifra">{r.cantidad}</td>
-                  <td className={comun.tenue}>{MODO[r.modoCaptura] ?? r.modoCaptura}</td>
+                  <td className={comun.tenue} data-solo-escritorio="">{MODO[r.modoCaptura] ?? r.modoCaptura}</td>
                   <td className="cifra">{formatoCosto(r.costoUnitario)}</td>
                   <td className="cifra"><strong>{formatoCOP(r.costoTotal)}</strong></td>
                   <td className="cifra">

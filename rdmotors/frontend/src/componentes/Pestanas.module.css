@@ -3,10 +3,16 @@
   gap: var(--esp-1);
   margin-bottom: var(--esp-4);
   border-bottom: 1px solid var(--border);
+  /* En el celular no caben todas: se deslizan de lado, sin ensanchar la página ni partir los nombres. */
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.pestanas::-webkit-scrollbar { display: none; }
 
 .pestana,
 .activa {
+  flex: none;
+  white-space: nowrap;
   margin-bottom: -1px;
   padding: var(--esp-2) var(--esp-4);
   border-bottom: 2px solid transparent;
