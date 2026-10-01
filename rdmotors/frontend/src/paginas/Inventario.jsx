@@ -32,6 +32,8 @@ export default function Inventario() {
   const soloBajo = params.get('bajo') === '1'
   // Spec 0005, RF-012: los repuestos de antes de que la categoría fuera obligatoria, para corregirlos.
   const sinCategoria = params.get('sin') === '1'
+  // Spec 0015: los que pagan comisión por cambio de aceite, para revisar cuáles están marcados.
+  const conComision = params.get('cambio') === '1'
   const pagina = paginaDeLaUrl(params.get('p'))
 
   // Lo tecleado va aparte de la URL: la URL cambia con una pausa, para no pedir una página por
@@ -41,7 +43,7 @@ export default function Inventario() {
 
   // Cada respuesta recuerda para qué filtros llegó. "Cargando" se DERIVA de comparar esa clave
   // con la actual, en vez de prenderse y apagarse con setState dentro del efecto.
-  const clave = JSON.stringify([texto, soloBajo, sinCategoria, pagina, intento])
+  const clave = JSON.stringify([texto, soloBajo, sinCategoria, conComision, pagina, intento])
   const [listado, setListado] = useState({ clave: null, datos: null, error: null })
   const [resumen, setResumen] = useState({ datos: null, error: null })
 
@@ -62,13 +64,13 @@ export default function Inventario() {
 
   useEffect(() => {
     let vigente = true
-    inventarioApi.listar({ texto, soloStockBajo: soloBajo, sinCategoria, pagina, tamano: TAMANO })
+    inventarioApi.listar({ texto, soloStockBajo: soloBajo, sinCategoria, soloConComision: conComision, pagina, tamano: TAMANO })
       .then((datos) => { if (vigente) setListado({ clave, datos, error: null }) })
       // Si falla, se conservan los datos anteriores: mejor verlos atenuados que una pantalla vacía.
       .catch((error) => { if (vigente) setListado((l) => ({ clave, datos: l.datos, error })) })
     // Una respuesta que llega tarde, de una búsqueda que ya se cambió, no pisa la actual.
     return () => { vigente = false }
-  }, [clave, texto, soloBajo, sinCategoria, pagina])
+  }, [clave, texto, soloBajo, sinCategoria, conComision, pagina])
 
   useEffect(() => {
     let vigente = true
@@ -172,6 +174,15 @@ export default function Inventario() {
           onClick={() => cambiarParametro('sin', sinCategoria ? null : '1')}
         >
           Sin categoría
+        </button>
+        <button
+          type="button"
+          className={`${estilos.chip} ${conComision ? estilos.chipActivo : ''}`}
+          aria-pressed={conComision}
+          title="Los aceites que preguntan «¿Se cambia aquí?» al venderlos. Se marcan en la ficha de cada uno."
+          onClick={() => cambiarParametro('cambio', conComision ? null : '1')}
+        >
+          Pagan comisión por cambio
         </button>
       </section>
 
@@ -295,6 +306,11 @@ function Listado({ conCostos, puedeComprar, datos, cargando, texto, soloBajo, si
                     >
                       {rep.nombre}
                     </Link>
+                    {rep.comisionCambio != null && (
+                      <span className={estilos.comision} title="Paga comisión por cambio de aceite: al venderlo se pregunta si se cambia aquí">
+                        Cambio {formatoCOP(rep.comisionCambio)}
+                      </span>
+                    )}
                     <span className={estilos.detalle}>
                       {rep.marca}{rep.aplicacion && ` · ${rep.aplicacion}`}
                     </span>

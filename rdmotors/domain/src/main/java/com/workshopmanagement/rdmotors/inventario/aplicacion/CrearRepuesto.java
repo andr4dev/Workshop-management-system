@@ -54,6 +54,10 @@ public class CrearRepuesto {
 
         Variante variante = Variante.nueva(concepto, codigo, comando.marcaRepuesto(),
                 comando.precio(), comando.stockMinimo());
+        // Un aceite nuevo puede nacer pagando su comisión por cambio (spec 0015): sin tener que ir después a su ficha.
+        if (comando.comisionCambio() != null) {
+            variante.cambiarComisionDeCambio(comando.comisionCambio());
+        }
 
         return variantes.guardar(variante);
     }

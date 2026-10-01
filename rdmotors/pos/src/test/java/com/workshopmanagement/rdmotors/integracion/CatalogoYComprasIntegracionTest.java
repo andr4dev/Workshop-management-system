@@ -432,6 +432,29 @@ class CatalogoYComprasIntegracionTest {
     }
 
     @Test
+    @DisplayName("SPEC 0015 · un aceite nace en una compra con su comisión por cambio, y el inventario filtra los que pagan")
+    void comisionDesdeLaCompraYFiltro() {
+        String s = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        UUID filtros = categorias.activas().getFirst().getId();
+        ComandoCrearRepuesto aceite = new ComandoCrearRepuesto(null, "ACEITE PRUEBA " + s, filtros, null, "AC-" + s,
+                "MOTUL", Dinero.de(65_000), 1, Dinero.de(3_000));
+        Variante otro = crearRepuesto.ejecutar(ComandoCrearRepuesto.conConceptoNuevo("ACEITE SIN COMISION " + s, filtros,
+                null, "SC-" + s, "MOTUL", Dinero.de(30_000), 1), personas.administrador());
+        registrarCompra.ejecutar(new ComandoRegistrarCompra(jotapartes().getId(), LocalDate.of(2026, 9, 30),
+                "FV-AC-" + s, FormaPago.EFECTIVO, null, personas.administrador(),
+                List.of(ComandoRegistrarCompra.Linea.porTotalCreando(aceite, 6, Dinero.de(240_000)))));
+
+        Variante creado = variantes.buscarPorCodigo("AC-" + s).orElseThrow();
+        assertThat(creado.getComisionCambio()).isEqualTo(Dinero.de(3_000));
+        var soloConComision = new ConsultaInventario(s.toLowerCase(), false, FiltroCategoria.todas(), false, true);
+        assertThat(buscarRepuestos.inventario(soloConComision, 0, 25).elementos())
+                .extracting(RepuestoEncontrado::id).containsExactly(creado.getId());
+        assertThat(buscarRepuestos.inventario(new ConsultaInventario(s.toLowerCase(), false, FiltroCategoria.todas(), false),
+                0, 25).total()).as("sin el filtro salen los dos").isEqualTo(2);
+        assertThat(otro.pagaComisionDeCambio()).isFalse();
+    }
+
+    @Test
     @DisplayName("solo stock bajo filtra en la base comparando stock contra el minimo de cada uno")
     void inventarioSoloStockBajo() {
         String codigo = codigoUnico("BAJO");

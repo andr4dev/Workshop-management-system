@@ -3,7 +3,8 @@ import Modal from '../Modal'
 import Boton from '../Boton'
 import Campo from '../Campo'
 import { catalogoApi, repuestosApi } from '../../api/cliente'
-import { formatoCosto, GUION, soloDigitos } from '../../utils/formato'
+import { formatoCOP, formatoCosto, GUION, soloDigitos } from '../../utils/formato'
+import { COMISION_DE_ENTRADA, problemaDeComision } from '../../utils/inventario'
 import estilos from './ModalRepuestoNuevo.module.css'
 
 /**
@@ -59,6 +60,10 @@ export default function ModalRepuestoNuevo({
   const [marca, setMarca] = useState(
     existente?.marca ?? datosPrevios?.marcaRepuesto ?? '')
   const [stockMinimo, setStockMinimo] = useState(String(partida?.stockMinimo ?? '5'))
+  // Spec 0015: un aceite nuevo puede nacer pagando su comisión por cambio. Al corregir uno que ya existe se cambia en
+  // su ficha, como siempre.
+  const [pagaComision, setPagaComision] = useState(datosPrevios?.comisionCambio != null)
+  const [comision, setComision] = useState(String(datosPrevios?.comisionCambio ?? COMISION_DE_ENTRADA))
   const [errores, setErrores] = useState({})
   const [guardando, setGuardando] = useState(false)
 
@@ -90,6 +95,7 @@ export default function ModalRepuestoNuevo({
     if (!conceptoElegido && !nombre.trim()) e.nombre = 'Escribe qué repuesto es'
     if (!conceptoElegido && !categoriaId) e.categoria = 'Escoge la categoría: es como se encuentra en el catálogo del mostrador'
     if (!marca.trim()) e.marca = 'Falta la marca'
+    if (!editando && pagaComision && problemaDeComision(comision)) e.comision = problemaDeComision(comision)
     setErrores(e)
     return Object.keys(e).length === 0
   }
@@ -126,6 +132,7 @@ export default function ModalRepuestoNuevo({
       codigo: codigoEditable.trim().toUpperCase(),
       marcaRepuesto: marca.trim(),
       stockMinimo: Number(soloDigitos(stockMinimo)) || 0,
+      comisionCambio: pagaComision ? Number(soloDigitos(comision)) : null,
       nombreConcepto: conceptoElegido?.nombre ?? nombre.trim(),
     })
   }
@@ -264,6 +271,30 @@ export default function ModalRepuestoNuevo({
           inputMode="numeric"
         />
       </div>
+
+      {!editando && (
+        <div className={estilos.comision}>
+          <label className={estilos.comisionMarca}>
+            <input type="checkbox" checked={pagaComision} onChange={(e) => setPagaComision(e.target.checked)} />
+            <span>Es un aceite que paga comisión por cambio</span>
+          </label>
+          {pagaComision && (
+            <Campo
+              etiqueta="Para quien lo cambia, por cada uno"
+              value={comision}
+              onChange={(e) => setComision(soloDigitos(e.target.value))}
+              inputMode="numeric"
+              error={errores.comision}
+              autoComplete="off"
+            />
+          )}
+          <p className={estilos.pista}>
+            {pagaComision
+              ? `Al venderlo se pregunta si se cambia aquí: si sí, ${formatoCOP(Number(soloDigitos(comision)) || 0)} salen del cajón para quien lo cambió; si no, el precio baja eso.`
+              : 'Márcalo solo en los aceites que se cambian en la tienda. Se puede cambiar después en su ficha.'}
+          </p>
+        </div>
+      )}
 
       {/* Este modal es IDENTIDAD: qué repuesto es y cómo se llama. El precio es una decisión
           comercial y vive donde están el costo y el margen — en el renglón. Un solo campo en

@@ -288,3 +288,18 @@
   .filtros { flex-direction: column; align-items: stretch; }
   .buscador { max-width: none; }
 }
+
+/* Spec 0015: el aceite que paga comisión por cambio, marcado en la lista. */
+.comision {
+  display: inline-block;
+  margin-left: var(--esp-2);
+  padding: 0 7px;
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+

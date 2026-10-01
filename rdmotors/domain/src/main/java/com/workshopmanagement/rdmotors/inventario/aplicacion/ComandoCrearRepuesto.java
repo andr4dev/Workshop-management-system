@@ -12,6 +12,8 @@ import com.workshopmanagement.rdmotors.compartido.dominio.ReglaDeNegocioExceptio
  * (lo normal cuando es una marca nueva de algo que ya se vende), <b>o</b> el nombre para crearlo.
  * Esa bifurcación es la decisión §4 del spec 0001 puesta en el tipo: quien construya este comando
  * tiene que haber decidido antes si reutiliza o crea.
+ *
+ * @param comisionCambio si paga comisión por cambio de aceite, cuánto (spec 0015); nulo si no
  */
 public record ComandoCrearRepuesto(
         UUID productoId,
@@ -21,7 +23,15 @@ public record ComandoCrearRepuesto(
         String codigo,
         String marcaRepuesto,
         Dinero precio,
-        int stockMinimo) {
+        int stockMinimo,
+        Dinero comisionCambio) {
+
+    /** Sin comisión por cambio de aceite: lo de antes del spec 0015. */
+    public ComandoCrearRepuesto(UUID productoId, String nombreProducto, UUID categoriaId, String aplicacionOriginal,
+                                String codigo, String marcaRepuesto, Dinero precio, int stockMinimo) {
+        this(productoId, nombreProducto, categoriaId, aplicacionOriginal, codigo, marcaRepuesto, precio, stockMinimo,
+                null);
+    }
 
     public ComandoCrearRepuesto {
         boolean reutiliza = productoId != null;

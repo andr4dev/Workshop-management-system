@@ -180,3 +180,14 @@
 @media (max-width: 640px) {
   .fila, .fila3, .inventario { grid-template-columns: 1fr; }
 }
+
+/* Spec 0015: si es un aceite que paga comisión por cambio. */
+.comision {
+  margin-top: var(--esp-3);
+  padding: var(--esp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+}
+.comisionMarca { display: flex; align-items: center; gap: var(--esp-2); font-weight: 600; cursor: pointer; }
+.comisionMarca input { width: 18px; height: 18px; flex: none; accent-color: var(--brand); }
+

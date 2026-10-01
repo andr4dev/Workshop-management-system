@@ -273,11 +273,14 @@ class CompraController {
             @NotBlank String codigo,
             @NotBlank String marcaRepuesto,
             @PositiveOrZero long precio,
-            @PositiveOrZero int stockMinimo) {
+            @PositiveOrZero int stockMinimo,
+            Long comisionCambio) {
 
+        /** {@code comisionCambio}: si es un aceite que paga comisión por cambio (spec 0015); sin decirlo, no paga. */
         ComandoCrearRepuesto aComando() {
             return new ComandoCrearRepuesto(productoId, nombreProducto, categoriaId,
-                    aplicacionOriginal, codigo, marcaRepuesto, Dinero.de(precio), stockMinimo);
+                    aplicacionOriginal, codigo, marcaRepuesto, Dinero.de(precio), stockMinimo,
+                    comisionCambio == null ? null : Dinero.de(comisionCambio));
         }
     }
 

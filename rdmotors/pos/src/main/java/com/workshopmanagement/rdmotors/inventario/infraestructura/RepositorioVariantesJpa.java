@@ -80,7 +80,7 @@ class RepositorioVariantesJpa implements RepositorioVariantes {
         FiltroCategoria categoria = consulta.categoria();
         Page<Variante> p = jpa.listar(TextoDeBusqueda.normalizar(consulta.texto()), consulta.soloStockBajo(),
                 categoria.modo().name(), categoria.categoriaId() == null ? SIN_ID : categoria.categoriaId(),
-                consulta.conStockPrimero(), PageRequest.of(pagina, tamano));
+                consulta.conStockPrimero(), consulta.soloConComision(), PageRequest.of(pagina, tamano));
         return new Pagina<>(p.getContent(), p.getTotalElements(), pagina, tamano);
     }
 
@@ -176,6 +176,7 @@ interface VariantesSpringData extends JpaRepository<Variante, UUID> {
             left join fetch p.categoria c
             where v.activa
               and (:soloStockBajo = false or v.stock <= v.stockMinimo)
+              and (:soloConComision = false or v.comisionCambio.monto is not null)
               and """ + CONDICION_TEXTO + " and " + CONDICION_CATEGORIA + """
             order by case when :conStockPrimero = true and v.stock <= 0 then 1 else 0 end,
                      p.nombre, v.marcaRepuesto, v.codigo
@@ -186,12 +187,14 @@ interface VariantesSpringData extends JpaRepository<Variante, UUID> {
             left join p.categoria c
             where v.activa
               and (:soloStockBajo = false or v.stock <= v.stockMinimo)
+              and (:soloConComision = false or v.comisionCambio.monto is not null)
               and """ + CONDICION_TEXTO + " and " + CONDICION_CATEGORIA)
     Page<Variante> listar(@Param("texto") String texto,
                           @Param("soloStockBajo") boolean soloStockBajo,
                           @Param("modoCategoria") String modoCategoria,
                           @Param("categoriaId") UUID categoriaId,
                           @Param("conStockPrimero") boolean conStockPrimero,
+                          @Param("soloConComision") boolean soloConComision,
                           Pageable pagina);
 
     /**

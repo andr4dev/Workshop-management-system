@@ -10,9 +10,16 @@ package com.workshopmanagement.rdmotors.inventario.dominio;
  * @param categoria       nunca {@code null}: sin filtro es {@link FiltroCategoria#todas()}
  * @param conStockPrimero primero los que hay, al final los agotados. Es el orden del catálogo: lo que se
  *                        puede vender va arriba, y lo que no hay se ve igual, para decir "no, pero tengo"
+ * @param soloConComision solo los que pagan comisión por cambio de aceite (spec 0015): para revisar cuáles están
+ *                        marcados
  */
 public record ConsultaInventario(String texto, boolean soloStockBajo, FiltroCategoria categoria,
-                                 boolean conStockPrimero) {
+                                 boolean conStockPrimero, boolean soloConComision) {
+
+    /** Sin el filtro de la comisión: lo de antes del spec 0015. */
+    public ConsultaInventario(String texto, boolean soloStockBajo, FiltroCategoria categoria, boolean conStockPrimero) {
+        this(texto, soloStockBajo, categoria, conStockPrimero, false);
+    }
 
     public ConsultaInventario {
         texto = texto == null ? "" : texto.trim();

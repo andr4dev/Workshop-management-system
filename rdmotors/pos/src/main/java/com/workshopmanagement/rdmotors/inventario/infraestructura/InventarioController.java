@@ -42,6 +42,7 @@ class InventarioController {
      * @param categoriaId     solo los de esa categoría (spec 0005)
      * @param sinCategoria    solo los que no tienen categoría; no se combina con {@code categoriaId}
      * @param conStockPrimero el orden del catálogo del mostrador: los agotados al final
+     * @param soloConComision solo los que pagan comisión por cambio de aceite (spec 0015)
      */
     @GetMapping
     RespuestaPagina listar(@RequestParam(defaultValue = "") String q,
@@ -49,11 +50,12 @@ class InventarioController {
                            @RequestParam(required = false) UUID categoriaId,
                            @RequestParam(defaultValue = "false") boolean sinCategoria,
                            @RequestParam(defaultValue = "false") boolean conStockPrimero,
+                           @RequestParam(defaultValue = "false") boolean soloConComision,
                            @RequestParam(defaultValue = "0") int pagina,
                            @RequestParam(defaultValue = "25") int tamano,
                            @ActorActual Actor actor) {
         var consulta = new ConsultaInventario(q, soloStockBajo, FiltroCategoria.desde(categoriaId, sinCategoria),
-                conStockPrimero);
+                conStockPrimero, soloConComision);
         Pagina<Object> p = buscarRepuestos.inventario(consulta, pagina, tamano)
                 .mapear(r -> RespuestaRepuesto.de(r).para(actor));
         return new RespuestaPagina(p.elementos(), p.total(), p.numero(), p.tamano(), p.totalPaginas());

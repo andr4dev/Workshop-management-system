@@ -173,8 +173,9 @@ export const inventarioApi = {
    * @param conStockPrimero el orden del catálogo del mostrador: los agotados al final (spec 0005)
    */
   listar: ({ texto = '', soloStockBajo = false, categoriaId = '', sinCategoria = false, conStockPrimero = false,
-    pagina = 0, tamano = 25 } = {}) =>
+    soloConComision = false, pagina = 0, tamano = 25 } = {}) =>
     api.get(`/api/inventario?q=${q(texto)}&soloStockBajo=${soloStockBajo}`
+      + (soloConComision ? '&soloConComision=true' : '')
       + (categoriaId ? `&categoriaId=${categoriaId}` : '')
       + (sinCategoria ? '&sinCategoria=true' : '')
       + (conStockPrimero ? '&conStockPrimero=true' : '')

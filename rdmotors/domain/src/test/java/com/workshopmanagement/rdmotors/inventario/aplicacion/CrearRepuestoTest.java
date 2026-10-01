@@ -65,6 +65,22 @@ class CrearRepuestoTest {
     }
 
     @Test
+    @DisplayName("SPEC 0015: un aceite puede nacer pagando su comisión por cambio; sin decirlo, no paga; $0 no es una comisión")
+    void naceConComision() {
+        Variante aceite = crearRepuesto.ejecutar(new ComandoCrearRepuesto(null, "MOTUL 7100 10W30", filtros.getId(), null,
+                "104089", "MOTUL", Dinero.de(65_000), 2, Dinero.de(3_000)), admin);
+        Variante filtro = crearRepuesto.ejecutar(ComandoCrearRepuesto.conConceptoNuevo(
+                "FILTRO ACEITE", filtros.getId(), null, "352B59K", "INOKI", Dinero.de(6_000), 5), admin);
+
+        assertThat(aceite.getComisionCambio()).isEqualTo(Dinero.de(3_000));
+        assertThat(aceite.pagaComisionDeCambio()).isTrue();
+        assertThat(filtro.pagaComisionDeCambio()).isFalse();
+        assertThatThrownBy(() -> crearRepuesto.ejecutar(new ComandoCrearRepuesto(null, "MOTUL 5100", filtros.getId(), null,
+                "104081", "MOTUL", Dinero.de(45_000), 2, Dinero.CERO), admin))
+                .hasMessageContaining("tiene que ser mayor a $0");
+    }
+
+    @Test
     @DisplayName("nace sin stock y SIN costo — null, nunca cero")
     void naceSinStockNiCosto() {
         Variante creada = crearRepuesto.ejecutar(ComandoCrearRepuesto.conConceptoNuevo(

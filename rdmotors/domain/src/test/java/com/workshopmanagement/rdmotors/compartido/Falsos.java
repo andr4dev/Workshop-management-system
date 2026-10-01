@@ -229,6 +229,7 @@ public final class Falsos {
                                        int pagina, int tamano) {
             List<Variante> todas = coincidenConTexto(consulta.texto())
                     .filter(v -> !consulta.soloStockBajo() || v.tieneStockBajo())
+                    .filter(v -> !consulta.soloConComision() || v.pagaComisionDeCambio())
                     .filter(v -> consulta.categoria().admite(v.getProducto().getCategoria()))
                     .sorted(Comparator.comparing((Variante v) -> consulta.conStockPrimero() && v.getStock() <= 0)
                             .thenComparing(v -> v.getProducto().getNombre())
