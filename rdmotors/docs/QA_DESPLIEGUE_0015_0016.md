@@ -15,9 +15,10 @@ misma imagen de Docker que construye Render**.
 | Volver a la versión anterior **sin** restaurar la base | Arranca, pero el detalle de la venta N.º 18 da **error 500** → si hubiera que volver, se restaura la copia de la base (paso 2 del despliegue) |
 | Suite completa | 622 de lógica y 233 del servidor, sin fallas; 327 de pantalla |
 
-**Encontrado de paso, de antes de esto (no lo cambia este despliegue):** en *Reportes*, un día con un abono a una venta
-que tuvo descuento muestra *"Descuentos $1.011 · No se dieron descuentos"*. Es la parte del descuento que le toca a ese
-abono (spec 0014); el texto se contradice. Se puede arreglar aparte.
+**Encontrado de paso y arreglado en este despliegue:** en *Reportes*, un día con un abono a una venta fiada que tuvo
+descuento mostraba *"Descuentos $1.011 · No se dieron descuentos"*: el monto llevaba la parte del descuento de ese abono
+(spec 0014), pero las ventas con descuento solo contaban las que se terminaron de pagar. Ahora cuentan las mismas ventas
+cuyo descuento se suma (*"En 1 venta"*). Las cifras en plata no cambian.
 
 ## 2. Qué cambia para quien usa la app
 

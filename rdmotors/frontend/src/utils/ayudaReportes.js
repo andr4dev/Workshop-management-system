@@ -37,7 +37,7 @@ export const AYUDA = {
   descuentos: {
     titulo: 'Descuentos',
     que: 'Lo que se regaló en descuentos, y en cuántas ventas.',
-    formula: 'La suma de los descuentos de las ventas cobradas. El porcentaje es sobre los renglones vendidos: renglones − descuentos = ventas netas.',
+    formula: 'La suma de los descuentos de las ventas cobradas; de una fiada, la parte que va con cada abono (y la venta cuenta). El porcentaje es sobre los renglones vendidos: renglones − descuentos = ventas netas.',
   },
   pagos: {
     titulo: 'Cómo pagaron',

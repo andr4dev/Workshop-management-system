@@ -73,12 +73,17 @@ public class DatosDeReporte {
 
     /** Una venta con una parte fiada (spec 0008): lo pagado en efectivo más lo fiado suman el total. */
     public VentaCobrada ventaFiada(LocalDate dia, long efectivo, long fiado, Renglon... deLaVenta) {
+        return ventaFiada(dia, 0, efectivo, fiado, deLaVenta);
+    }
+
+    /** Una venta fiada con descuento: lo pagado más lo fiado suman el total, ya sin el descuento. */
+    public VentaCobrada ventaFiada(LocalDate dia, long descuento, long efectivo, long fiado, Renglon... deLaVenta) {
         long subtotal = Stream.of(deLaVenta).mapToLong(Renglon::total).sum();
-        if (efectivo + fiado != subtotal) {
+        if (efectivo + fiado != subtotal - descuento) {
             throw new IllegalArgumentException("Lo pagado y lo fiado no suman el total de la venta");
         }
-        VentaCobrada venta = new VentaCobrada(UUID.randomUUID(), dia, Dinero.de(subtotal), Dinero.CERO,
-                Dinero.de(efectivo), Dinero.CERO, Dinero.de(fiado));
+        VentaCobrada venta = new VentaCobrada(UUID.randomUUID(), dia, Dinero.de(subtotal - descuento),
+                Dinero.de(descuento), Dinero.de(efectivo), Dinero.CERO, Dinero.de(fiado));
         ventas.add(venta);
         alCobrar(venta, efectivo, 0);
         for (int i = 0; i < deLaVenta.length; i++) {

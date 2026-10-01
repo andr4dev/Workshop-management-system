@@ -136,6 +136,21 @@ class LoCobradoTest {
     }
 
     @Test
+    @DisplayName("un abono a una fiada con descuento: su parte del descuento cuenta, y la venta con él (no 'ningún descuento')")
+    void abonoAUnaFiadaConDescuento() {
+        DatosDeReporte datos = new DatosDeReporte();
+        VentaCobrada fiada = datos.ventaFiada(DIA_26, 10_000, 0, 90_000, conCosto("M", 1, 100_000, 60_000));
+        datos.abono(fiada, DIA_28, 45_000);
+
+        Cifras c = datos.calcular(DIA_28, DIA_28, HOY).cifras();
+
+        assertThat(c.ventas()).as("no se ha terminado de pagar").isZero();
+        assertThat(c.descuentos()).as("la mitad del descuento, con la mitad de lo fiado").isEqualTo(Dinero.de(5_000));
+        assertThat(c.ventasConDescuento()).as("la venta de ese descuento").isEqualTo(1);
+        assertThat(c.renglones().menos(c.descuentos())).isEqualTo(c.ventasNetas());
+    }
+
+    @Test
     @DisplayName("una venta de $0 (regalada con el descuento) se completa al cobrarse, con todo su costo")
     void ventaDeCero() {
         DatosDeReporte datos = new DatosDeReporte();

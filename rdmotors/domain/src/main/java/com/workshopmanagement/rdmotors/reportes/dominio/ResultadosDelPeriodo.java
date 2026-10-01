@@ -61,6 +61,8 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
      * @param ventas las que se completaron en el período: de contado, o fiadas que se terminaron de pagar
      * @param unidades las de esas ventas
      * @param renglones lo cobrado de los renglones antes del descuento
+     * @param ventasConDescuento las ventas cuyo descuento está en {@code descuentos}: también una fiada con descuento de
+     *                           la que solo entró un abono, que lleva su parte
      * @param ticketPromedio el total de las ventas que se completaron ÷ cuántas, redondeado al peso; {@code null} sin
      *                       ventas
      * @param efectivo lo cobrado en efectivo: de contado y en abonos
@@ -187,7 +189,8 @@ public record ResultadosDelPeriodo(Periodo periodo, Agrupacion agrupacion, Cifra
                 vendidos.stream().filter(Vendido::completa).mapToInt(v -> v.renglon().cantidad()).sum(),
                 suma(cobrados, LoCobrado.Cobrado::bruto),
                 suma(cobrados, LoCobrado.Cobrado::descuento),
-                (int) completas.stream().filter(c -> !c.venta().descuento().esCero()).count(),
+                // Las mismas ventas cuyo descuento se sumó: un abono a una fiada con descuento lleva su parte.
+                (int) cobrados.stream().filter(c -> !c.descuento().esCero()).map(c -> c.venta().id()).distinct().count(),
                 ventasNetas,
                 completas.isEmpty() ? null
                         : Dinero.de(totalDeLasCompletas.valor()
