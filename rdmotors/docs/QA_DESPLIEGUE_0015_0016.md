@@ -24,7 +24,8 @@ abono (spec 0014); el texto se contradice. Se puede arreglar aparte.
 - **Vender**: cada aceite marcado pregunta *¿Se cambia aquí?* al agregarlo (en el catálogo, en su misma fila). *Sí* →
   se escoge quién lo cambió y al cobrar salen $3.000 del cajón a su nombre. *No* → el precio baja $3.000. Sin escoger
   no se cobra, y debajo de *Cobrar* dice qué falta. En el catálogo, tocar la fila ya no agrega: se agrega con **+**.
-- **Cobrar**: arriba del total se ve el pedido renglón por renglón. En *Fiado*, se marca *qué paga ahora*.
+- **Cobrar**: arriba del total se ve el pedido renglón por renglón, y *Corregir el pedido* deja cambiar cuántos, quitar
+  uno o arreglar lo del aceite sin cancelar el cobro. En *Fiado*, se marca *qué paga ahora*.
 - **Cartera › ficha**: cada venta fiada muestra sus productos, cuál está pagado, abonado o pendiente.
 - **Abonar**: en vez de *"A cuál se aplica"*, las ventas con sus productos y una casilla en cada uno.
 - **Caja y Reportes**: las comisiones son gastos de costo *"venta N.º 23 · MOTUL 7100 10W30 · Deibis"*; restan de la
@@ -60,6 +61,9 @@ Marque cada casilla; si algo no da lo esperado, anótelo con la hora.
 ### B. Cobrar
 - [ ] Con dos o tres productos y un descuento, abrir *Cobrar*: el pedido arriba suma el total; el cursor sigue en
       *Con cuánto paga*.
+- [ ] En *Cobrar* › **Corregir el pedido**: subir un filtro a 2, cambiar quién cambió el aceite y pasarlo a *No*: el
+      total y el botón cambian en el acto. *Sí* sin escoger quién: sale *⚠ Di quién…* y *Cobrar* se apaga. *Listo*
+      vuelve al pedido. *Quitar* todo cierra *Cobrar* y deja la venta vacía.
 
 ### C. Fiado por producto
 - [ ] Venta de **MOTUL + filtro**, *Cobrar* › *Fiado* › escoger cliente › marcar **el filtro** en *Qué paga ahora*:

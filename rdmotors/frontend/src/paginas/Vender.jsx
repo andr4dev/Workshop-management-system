@@ -267,6 +267,18 @@ export default function Vender() {
     if (turno && !ajeno && venta.renglones.length > 0 && !bloqueada) setDescontando(true)
   }, [turno, ajeno, venta.renglones.length, bloqueada])
   const cerrarCobro = useCallback(() => { if (!enviando) setCobrando(false) }, [enviando])
+
+  // Corregir desde Cobrar (por si se ve un error al repasar el pedido): lo mismo que cada renglón de la venta.
+  const correccionesDelCobro = {
+    cantidad: (varianteId, n) => setVenta((v) => ({ ...v, renglones: cambiarCantidad(v.renglones, varianteId, String(n)) })),
+    quitar: (varianteId) => setVenta((v) => ({ ...v, renglones: quitarRenglon(v.renglones, varianteId) })),
+    cambio: (varianteId, cambio) => setVenta((v) => ({ ...v, renglones: escogerCambio(v.renglones, varianteId, cambio, usuario.id) })),
+    quien: (varianteId, id) => setVenta((v) => ({ ...v, renglones: escogerQuien(v.renglones, varianteId, id) })),
+  }
+  // Si al corregir se quitó todo, no queda nada que cobrar.
+  useEffect(() => {
+    if (cobrando && venta.renglones.length === 0) setCobrando(false)
+  }, [cobrando, venta.renglones.length])
   const cerrarDescuento = useCallback(() => setDescontando(false), [])
 
   // Atajos visibles en pantalla (skill frontend): F2 catálogo, F4 descuento, F9 cobrar. F4 y F9 abren su
@@ -509,6 +521,10 @@ export default function Vender() {
         <ModalCobro
           total={totales.total}
           desglose={desgloseDelCobro(venta, personas)}
+          renglones={venta.renglones}
+          personas={personas}
+          problemaVenta={problemas[0] ?? null}
+          correcciones={correccionesDelCobro}
           cobroAnterior={venta.cobro}
           enviando={enviando}
           error={errorCobro}

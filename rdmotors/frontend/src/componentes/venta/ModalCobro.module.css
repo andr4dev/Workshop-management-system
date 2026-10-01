@@ -4,6 +4,21 @@
   padding-bottom: var(--esp-3);
   border-bottom: 1px solid var(--border);
 }
+.pedidoCabecera { display: flex; justify-content: flex-end; margin: 0 0 4px; }
+/* Corregir el pedido: discreto, para no tapar el cobro; a la mano si hay un error. */
+.corregir {
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.corregir[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
+.pedidoProblema { margin: var(--esp-2) 0 0; font-size: 13px; font-weight: 600; color: var(--danger); }
 .pedidoLista {
   max-height: min(34vh, 260px);
   margin: 0;

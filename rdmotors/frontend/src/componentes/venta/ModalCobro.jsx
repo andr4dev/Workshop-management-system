@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Modal from '../Modal'
 import Boton from '../Boton'
 import SelectorCliente from '../clientes/SelectorCliente'
+import CorregirPedido from './CorregirPedido'
 import { formatoCOP, soloDigitos } from '../../utils/formato'
 import {
   billetesSugeridos, cambioDelCobro, fiadoDelCobro, pagaAhoraDeLoMarcado, pagosDelCobro, problemaDelCobro,
@@ -34,23 +35,36 @@ const FORMAS = [
  * vale cada uno (con el descuento repartido) y lo pagado cubre esos productos; el resto queda fiado, producto por
  * producto.
  *
+ * *Corregir el pedido* deja arreglar ahí mismo un error que se ve al repasarlo con el cliente (cuántos, quitar uno, si
+ * el aceite se cambia aquí y quién): las mismas correcciones de la venta. No con un cobro sin respuesta: ese se reintenta
+ * tal cual.
+ *
  * @param cobroAnterior  el cobro de un intento que quedó sin respuesta: se reintenta exactamente ese
  * @param desglose       el pedido (`desgloseDelCobro`); sus partes suman `total`
+ * @param renglones      los de la venta, para corregirlos
+ * @param correcciones   las funciones de la venta que los corrigen (ver `CorregirPedido`)
+ * @param problemaVenta  lo que impide cobrar la venta tal como quedó, o `null`
  */
-export default function ModalCobro({ total, desglose, cobroAnterior, onCobrar, onCerrar, enviando, error, sinRespuesta }) {
+export default function ModalCobro({
+  total, desglose, cobroAnterior, onCobrar, onCerrar, enviando, error, sinRespuesta,
+  renglones = [], personas = [], correcciones = null, problemaVenta = null,
+}) {
   const [cobro, setCobro] = useState(cobroAnterior
     ?? { forma: 'EFECTIVO', recibido: '', efectivo: '', cliente: null, pagaAhora: '', formaPagaAhora: 'EFECTIVO' })
   const [mostrandoCliente, setMostrandoCliente] = useState(false)
+  const [corrigiendo, setCorrigiendo] = useState(false)
   const recibidoRef = useRef(null)
   const efectivoRef = useRef(null)
   const cobrarRef = useRef(null)
 
-  const problema = problemaDelCobro(cobro, total)
+  // Lo que impide cobrar: primero la venta (si al corregirla quedó algo por escoger), después el cobro.
+  const problema = problemaVenta ?? problemaDelCobro(cobro, total)
   const cambio = cambioDelCobro(cobro, total)
   const pagos = pagosDelCobro(cobro, total)
   const fiado = fiadoDelCobro(cobro, total)
   const fia = cobro.forma === 'FIADO'
   const bloqueado = enviando || sinRespuesta
+
 
   // El Modal enfoca el primer botón; aquí se lleva el cursor a donde se escribe. Corre después del
   // efecto del Modal porque el Modal es hijo de este componente.
@@ -112,6 +126,17 @@ export default function ModalCobro({ total, desglose, cobroAnterior, onCobrar, o
     >
       {desglose && desglose.renglones.length > 0 && (
         <section className={estilos.pedido} aria-label="El pedido">
+          {correcciones && !bloqueado && (
+            <div className={estilos.pedidoCabecera}>
+              <button type="button" className={estilos.corregir} aria-pressed={corrigiendo}
+                onClick={() => setCorrigiendo((c) => !c)}>
+                {corrigiendo ? 'Listo' : 'Corregir el pedido'}
+              </button>
+            </div>
+          )}
+          {corrigiendo && !bloqueado ? (
+            <CorregirPedido renglones={renglones} personas={personas} correcciones={correcciones} bloqueado={bloqueado} />
+          ) : (
           <ul className={estilos.pedidoLista}>
             {desglose.renglones.map((r) => (
               <li key={r.varianteId} className={estilos.pedidoRenglon}>
@@ -125,6 +150,8 @@ export default function ModalCobro({ total, desglose, cobroAnterior, onCobrar, o
               </li>
             ))}
           </ul>
+          )}
+          {problemaVenta && <p className={estilos.pedidoProblema} role="alert"><span aria-hidden>⚠</span> {problemaVenta}</p>}
           {desglose.descuento && (
             <dl className={estilos.pedidoCifras}>
               <div><dt>Subtotal</dt><dd>{formatoCOP(desglose.subtotal)}</dd></div>

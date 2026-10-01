@@ -1,0 +1,80 @@
+/* Corregir el pedido dentro de Cobrar: cada renglón con sus controles, en poco espacio y con el dedo. */
+.lista {
+  margin: 0;
+  padding: 0;
+  max-height: min(42vh, 320px);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.renglon { padding: var(--esp-2) 0; }
+.renglon + .renglon { border-top: 1px dashed var(--border-subtle, var(--border)); }
+
+.fila { display: flex; justify-content: space-between; align-items: baseline; gap: var(--esp-3); }
+.nombre { font-size: 14px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.valor { font-size: 14px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.controles { display: flex; align-items: center; justify-content: space-between; gap: var(--esp-2); margin-top: 6px; }
+
+.cantidad {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: var(--radio);
+  overflow: hidden;
+}
+.paso {
+  width: 36px;
+  height: 34px;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.paso:disabled { opacity: .4; cursor: default; }
+.numero { min-width: 36px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.quitar {
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radio);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.quitar:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); }
+
+.problema { margin: 4px 0 0; font-size: 12.5px; font-weight: 600; color: var(--danger); }
+
+.cambio { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--esp-2); margin-top: 8px; }
+.pregunta { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.opcion,
+.opcionActiva {
+  min-height: 30px;
+  padding: 3px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+/* Invertido, como en la venta: se distingue cuál está escogido en claro y en oscuro. */
+.opcionActiva { background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 700; }
+.quien { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; }
+.quien select {
+  min-width: 150px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: var(--radio, 6px);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
