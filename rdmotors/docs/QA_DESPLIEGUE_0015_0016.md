@@ -31,6 +31,11 @@ abono (spec 0014); el texto se contradice. Se puede arreglar aparte.
   utilidad bruta.
 - **Lo de antes no cambia de valor**: ninguna venta vieja paga comisión; los fiados viejos se ven por producto con las
   mismas cifras.
+- **Compras › Repuesto nuevo**: la casilla *"Es un aceite que paga comisión por cambio"* con su monto. **Inventario**:
+  cada aceite que paga dice *"Cambio $3.000"*, y el filtro *Pagan comisión por cambio* los lista.
+- **En el celular** (toda la app): cada renglón de una tabla es una tarjeta con sus datos a la vista (antes el monto, el
+  total o el precio quedaban escondidos a la derecha); las cifras grandes van de a dos; los filtros y las pestañas caben.
+  En el computador nada cambia.
 
 ## 3. QA manual en local (antes de desplegar)
 
@@ -69,9 +74,17 @@ Marque cada casilla; si algo no da lo esperado, anótelo con la hora.
       a favor.
 - [ ] **Cartera** (la lista): el cliente dice cuántas **ventas** debe, no cuántos productos.
 
-### D. En el celular
+### D. Repuesto nuevo con comisión
+- [ ] **Compras › Registrar** › un código nuevo › *Repuesto nuevo*: marcar *"Es un aceite que paga comisión por cambio"*
+      ($3.000). Registrar la compra. En **Inventario** sale con *"Cambio $3.000"* y aparece en el filtro *Pagan comisión
+      por cambio*; al venderlo pregunta *¿Se cambia aquí?*.
+
+### E. En el celular
 - [ ] Repetir *A* (agregar un aceite con **+** y escoger quién) y *C* (abonar marcando un producto) en el celular, en
       modo oscuro: todo se lee y se toca con el dedo.
+- [ ] **Caja**: en *Lo que salió del cajón* se ve el monto de cada gasto. **Ventas del turno**: el total de cada venta.
+      **Inventario**: el stock y el precio de cada repuesto. Nada se desliza de lado.
+- [ ] **Ajustes** (Datos de la tienda, Usuarios…): las pestañas se deslizan y la página no se sale de la pantalla.
 
 ## 4. Desplegar (solo con la orden del dueño)
 
