@@ -5,7 +5,7 @@ import SelectorCliente from '../clientes/SelectorCliente'
 import CorregirPedido from './CorregirPedido'
 import { formatoCOP, soloDigitos } from '../../utils/formato'
 import {
-  billetesSugeridos, cambioDelCobro, fiadoDelCobro, pagaAhoraDeLoMarcado, pagosDelCobro, problemaDelCobro,
+  billetesSugeridos, cambioDelCobro, cobroConLoMarcado, fiadoDelCobro, pagosDelCobro, problemaDelCobro,
 } from '../../utils/venta'
 import estilos from './ModalCobro.module.css'
 
@@ -33,7 +33,7 @@ const FORMAS = [
  *
  * En un fiado de varios productos, el cajero marca **qué paga ahora** (spec 0016): *Paga ahora* se llena con lo que
  * vale cada uno (con el descuento repartido) y lo pagado cubre esos productos; el resto queda fiado, producto por
- * producto.
+ * producto. Si se corrige el pedido, *Paga ahora* sigue a lo marcado, hasta que el cajero escriba otro monto.
  *
  * *Corregir el pedido* deja arreglar ahí mismo un error que se ve al repasarlo con el cliente (cuántos, quitar uno, si
  * el aceite se cambia aquí y quién): las mismas correcciones de la venta. No con un cobro sin respuesta: ese se reintenta
@@ -49,8 +49,9 @@ export default function ModalCobro({
   total, desglose, cobroAnterior, onCobrar, onCerrar, enviando, error, sinRespuesta,
   renglones = [], personas = [], correcciones = null, problemaVenta = null,
 }) {
-  const [cobro, setCobro] = useState(cobroAnterior
+  const [cobroEscrito, setCobro] = useState(cobroAnterior
     ?? { forma: 'EFECTIVO', recibido: '', efectivo: '', cliente: null, pagaAhora: '', formaPagaAhora: 'EFECTIVO' })
+  const cobro = cobroConLoMarcado(cobroEscrito, desglose)
   const [mostrandoCliente, setMostrandoCliente] = useState(false)
   const [corrigiendo, setCorrigiendo] = useState(false)
   const recibidoRef = useRef(null)
@@ -64,7 +65,6 @@ export default function ModalCobro({
   const fiado = fiadoDelCobro(cobro, total)
   const fia = cobro.forma === 'FIADO'
   const bloqueado = enviando || sinRespuesta
-
 
   // El Modal enfoca el primer botón; aquí se lleva el cursor a donde se escribe. Corre después del
   // efecto del Modal porque el Modal es hijo de este componente.
@@ -210,8 +210,8 @@ export default function ModalCobro({
                 <label className={estilos.etiqueta} htmlFor="paga-ahora">Paga ahora (opcional)</label>
                 <div className={estilos.pagaAhora}>
                   <input id="paga-ahora" className={estilos.entrada} inputMode="numeric" value={cobro.pagaAhora ?? ''}
-                    onChange={(e) => cambiar({ pagaAhora: soloDigitos(e.target.value) })} onKeyDown={alTeclear}
-                    placeholder="0" autoComplete="off" disabled={bloqueado} />
+                    onChange={(e) => cambiar({ pagaAhora: soloDigitos(e.target.value), sigueLoMarcado: false })}
+                    onKeyDown={alTeclear} placeholder="0" autoComplete="off" disabled={bloqueado} />
                   <div className={estilos.segmentoChico} role="group" aria-label="Cómo paga lo de ahora">
                     {[['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia']].map(([valor, texto]) => (
                       <button key={valor} type="button" aria-pressed={(cobro.formaPagaAhora ?? 'EFECTIVO') === valor}
@@ -235,8 +235,7 @@ export default function ModalCobro({
                           onChange={(e) => {
                             const nuevos = e.target.checked ? [...marcados, r.varianteId]
                               : marcados.filter((id) => id !== r.varianteId)
-                            const paga = pagaAhoraDeLoMarcado(desglose, nuevos)
-                            cambiar({ pagaPrimero: nuevos, pagaAhora: paga > 0 ? String(paga) : '' })
+                            cambiar({ pagaPrimero: nuevos, sigueLoMarcado: true })
                           }} />
                         <span>{r.cantidad} × {r.nombre}</span>
                         <span className={estilos.productoValor}>{formatoCOP(r.neto)}</span>

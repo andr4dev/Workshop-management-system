@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  desgloseDelCobro, pagaAhoraDeLoMarcado, repartirDescuento, escogerCambio, escogerQuien, loEscogidoDe, precioDelRenglon, preguntaElCambio,
+  cobroConLoMarcado, desgloseDelCobro, pagaAhoraDeLoMarcado, repartirDescuento, escogerCambio, escogerQuien, loEscogidoDe, precioDelRenglon, preguntaElCambio,
   agregarRenglon, aplicarProblemas, billetesSugeridos, cambiarCantidad, cambioDelCobro, claveDelBorrador,
   comandoDeCobro, consultaDePerdida, llaveNueva, montoDescuento, pagosDelCobro, porcentajeDesdeTexto, problemaDelCobro,
   problemaParaAgregar, problemasDeLaVenta, quitarRenglon, refrescarRenglon, refrescarRenglones, restaurarVenta,
@@ -385,5 +385,20 @@ test('marcar lo que paga ahora en un fiado: vale lo de cada producto con el desc
   assert.equal(comando.fiado, 62434)
   assert.deepEqual(comandoDeCobro(venta, { forma: 'EFECTIVO', recibido: '', pagaPrimero: ['v-filtro'] }).pagaPrimero, [],
     'sin fiar no se manda')
+})
+
+test('Paga ahora sigue a lo marcado si se corrige el pedido, hasta que el cajero escriba otro monto', () => {
+  let venta = ventaDe38()
+  const marcado = { forma: 'FIADO', cliente: juan, pagaAhora: '', pagaPrimero: ['v-filtro'], sigueLoMarcado: true }
+  assert.equal(cobroConLoMarcado(marcado, desgloseDelCobro(venta)).pagaAhora, '26000', 'los dos filtros')
+
+  venta = { ...venta, renglones: cambiarCantidad(venta.renglones, 'v-filtro', '1') }
+  assert.equal(cobroConLoMarcado(marcado, desgloseDelCobro(venta)).pagaAhora, '13000', 'quedó uno: paga uno')
+
+  venta = { ...venta, renglones: quitarRenglon(venta.renglones, 'v-filtro') }
+  assert.equal(cobroConLoMarcado(marcado, desgloseDelCobro(venta)).pagaAhora, '', 'se quitó: no paga nada')
+
+  const escrito = { ...marcado, pagaAhora: '5000', sigueLoMarcado: false }
+  assert.equal(cobroConLoMarcado(escrito, desgloseDelCobro(ventaDe38())).pagaAhora, '5000', 'el monto escrito se queda')
 })
 

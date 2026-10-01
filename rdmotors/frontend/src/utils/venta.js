@@ -234,6 +234,17 @@ export function pagaAhoraDeLoMarcado(desglose, marcados) {
   return desglose.renglones.filter((r) => marcados.includes(r.varianteId)).reduce((s, r) => s + r.neto, 0)
 }
 
+/**
+ * El cobro con *Paga ahora* al día (spec 0016): mientras sale de los productos marcados (`sigueLoMarcado`), vale lo que
+ * valen ahora, y sigue al pedido si se corrige (otra cantidad, uno quitado). Si el cajero escribe otro monto, queda el
+ * suyo.
+ */
+export function cobroConLoMarcado(cobro, desglose) {
+  if (!cobro.sigueLoMarcado || !desglose) return cobro
+  const paga = pagaAhoraDeLoMarcado(desglose, cobro.pagaPrimero ?? [])
+  return { ...cobro, pagaAhora: paga > 0 ? String(paga) : '' }
+}
+
 /** Lo que impide cobrar, en frases. Vacío si se puede. */
 export function problemasDeLaVenta(venta) {
   const problemas = []
