@@ -7,7 +7,7 @@ import {
 } from './correccion.js'
 
 const renglonVacio = () => ({
-  id: 'x', codigo: '', repuesto: null, repuestoNuevo: null, cantidad: '', modo: 'TOTAL',
+  id: 'x', codigo: '', repuesto: null, repuestoNuevo: null, cantidad: '', modo: 'UNITARIO',
   costoTotal: '', costoUnitario: '', precioVenta: '', codigoBuscado: null,
 })
 
@@ -45,12 +45,35 @@ test('un unitario con decimales intacto viaja con sus decimales, no redondeado',
   assert.equal(lineaParaCorregir(r).costoUnitario, 14200.4567, 'lo que viaja es el exacto')
 })
 
-test('cambiar la cantidad deja de ser la misma entrada y manda lo escrito', () => {
+test('cambiar la cantidad deja de ser la misma entrada y manda lo escrito, por unidad', () => {
   const [filtro] = renglonesDesdeDetalle(detalle, renglonVacio)
-  const corregido = { ...filtro, cantidad: '10', costoTotal: '133333' }
+  const corregido = { ...filtro, cantidad: '10', costoUnitario: '13333' }
   assert.equal(mismaEntrada(corregido), false)
-  assert.equal(lineaParaCorregir(corregido).cantidad, 10)
-  assert.equal(lineaParaCorregir(corregido).costoTotal, 133333)
+  assert.deepEqual(
+    (({ cantidad, modo, costoTotal, costoUnitario }) => ({ cantidad, modo, costoTotal, costoUnitario }))(
+      lineaParaCorregir(corregido)),
+    { cantidad: 10, modo: 'UNITARIO', costoTotal: null, costoUnitario: 13333 })
+})
+
+test('un renglón que se guardó por total se muestra con su costo por unidad', () => {
+  const [filtro] = renglonesDesdeDetalle(detalle, renglonVacio)
+  assert.equal(filtro.modo, 'UNITARIO')
+  assert.equal(filtro.costoUnitario, '13333', '$200.000 ÷ 15, redondeado al peso')
+  assert.equal(filtro.costoTotal, '')
+  assert.equal(mismaEntrada(filtro), true, 'mostrarlo por unidad no lo cambia')
+})
+
+test('corregir el costo de un renglón guardado por total: el de una unidad escrito como total', () => {
+  // El caso del Bajaj Dorado: 10 unidades a $32.000, con "32000" escrito en el campo del total.
+  const malEscrito = { ...detalle, renglones: [{ ...detalle.renglones[0], cantidad: 10, costoTotal: 32000,
+    costoUnitario: 3200, costoPromedioActual: 3200 }] }
+  const [dorado] = renglonesDesdeDetalle(malEscrito, renglonVacio)
+  assert.equal(dorado.costoUnitario, '3200')
+  const linea = lineaParaCorregir({ ...dorado, costoUnitario: '32000' })
+  assert.equal(linea.modo, 'UNITARIO')
+  assert.equal(linea.costoUnitario, 32000)
+  assert.equal(linea.costoTotal, null)
+  assert.equal(totalDeLinea(linea), 320000)
 })
 
 test('precio: dejarlo como venía es no cambiarlo; escribir otro es cambiarlo', () => {
@@ -86,7 +109,7 @@ test('las fotos dicen en palabras qué cambió', () => {
   const despues = fotografiaDelFormulario({
     estado: 'VIGENTE', proveedor: 'Jotapartes', fechaDocumento: '2026-09-01', numeroFactura: 'FV-1',
     formaPago: 'TRANSFERENCIA', cuenta: 'Nequi del dueño',
-    renglones: [{ ...filtro, cantidad: '10', costoTotal: '133333' }],   // pastillas se quitó
+    renglones: [{ ...filtro, cantidad: '10', costoUnitario: '13333' }],   // pastillas se quitó
   })
   const d = desgloseDeCambios(fotografiaDelDetalle(detalle), despues)
 

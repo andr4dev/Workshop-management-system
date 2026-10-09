@@ -28,17 +28,12 @@ export default function Renglon({
   const repuesto = renglon.repuesto
   const enganchado = repuesto != null || esNuevo
 
-  // El costo que el usuario NO escribió: el sistema lo deduce. Es todo el punto del modo lote.
-  const costoTotal = Number(soloDigitos(renglon.costoTotal)) || 0
+  // El costo se escribe siempre por unidad (2026-10-09): con "Total" se escribía el costo de una unidad
+  // donde iba el de todo el renglón, y el repuesto quedaba con un costo diez veces menor. El total lo
+  // deduce el sistema.
   const costoUnitarioEscrito = Number(soloDigitos(renglon.costoUnitario)) || 0
-
-  const unitarioCalculado =
-    renglon.modo === 'TOTAL'
-      ? (cantidad > 0 ? costoTotal / cantidad : null)
-      : (costoUnitarioEscrito || null)
-
-  const totalCalculado =
-    renglon.modo === 'TOTAL' ? costoTotal : costoUnitarioEscrito * cantidad
+  const unitarioCalculado = costoUnitarioEscrito || null
+  const totalCalculado = costoUnitarioEscrito * cantidad
 
   // EL PRECIO VIVE AQUÍ. Un solo campo, esté el repuesto creado o por crear: es donde están el
   // costo y el margen, que es con lo que se decide. Tenerlo también en el modal hacía que las
@@ -50,7 +45,7 @@ export default function Renglon({
 
   // El costo vino de la última compra y nadie lo ha tocado: se ve distinto para que no se
   // registre sin compararlo con la factura.
-  const costoSugerido = renglon.costoSugerido && renglon.modo === 'UNITARIO'
+  const costoSugerido = renglon.costoSugerido
 
   function alTeclearCodigo(e) {
     if (e.key === 'Enter') {
@@ -150,50 +145,21 @@ export default function Renglon({
         disabled={!enganchado}
       />
 
-      {/* ── Modo de captura: por renglón, no por factura ───────────────────── */}
-      <div className={estilos.modo} role="group" aria-label="Cómo viene el costo">
-        <button
-          type="button"
-          className={renglon.modo === 'TOTAL' ? estilos.modoActivo : estilos.modoOpcion}
-          onClick={() => onCambiar({ ...renglon, modo: 'TOTAL' })}
-          disabled={!enganchado}
-        >
-          Total
-        </button>
-        <button
-          type="button"
-          className={renglon.modo === 'UNITARIO' ? estilos.modoActivo : estilos.modoOpcion}
-          onClick={() => onCambiar({ ...renglon, modo: 'UNITARIO' })}
-          disabled={!enganchado}
-        >
-          C/u
-        </button>
-      </div>
-
-      {/* ── Costo de COMPRA ───────────────────────────────────────────────── */}
+      {/* ── Costo de COMPRA, siempre por unidad ───────────────────────────── */}
       <div className={estilos.celdaCosto}>
         <input
           className={`${estilos.entrada} ${estilos.cifra} ${costoSugerido ? estilos.sugerido : ''}`}
-          value={renglon.modo === 'TOTAL' ? renglon.costoTotal : renglon.costoUnitario}
-          onChange={(e) => onCambiar({
-            ...renglon,
-            [renglon.modo === 'TOTAL' ? 'costoTotal' : 'costoUnitario']: e.target.value,
-            costoSugerido: false,
-          })}
+          value={renglon.costoUnitario}
+          onChange={(e) => onCambiar({ ...renglon, costoUnitario: e.target.value, costoSugerido: false })}
           title={costoSugerido ? 'Costo de la última compra: revísalo contra la factura' : undefined}
-          placeholder={renglon.modo === 'TOTAL' ? 'Pagué' : 'C/u'}
-          aria-label={renglon.modo === 'TOTAL' ? 'Total pagado, con IVA' : 'Costo por unidad, con IVA'}
+          placeholder="C/u"
+          aria-label="Costo por unidad, con IVA"
           inputMode="numeric"
           disabled={!enganchado}
         />
-        {/* La cifra deducida. Con 2 decimales a propósito: "me sale a $13.333,33 c/u" es
-            exactamente lo que el usuario quiere ver, y ocultarlo escondería de dónde salió. */}
+        {/* El total del renglón, para compararlo con la factura. */}
         {cantidad > 0 && unitarioCalculado != null && (
-          <span className={estilos.deducido}>
-            {renglon.modo === 'TOTAL'
-              ? `→ ${formatoCosto(unitarioCalculado)} c/u`
-              : `→ ${formatoCOP(totalCalculado)} total`}
-          </span>
+          <span className={estilos.deducido}>→ {formatoCOP(totalCalculado)} total</span>
         )}
       </div>
 

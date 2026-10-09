@@ -29,10 +29,12 @@ export function renglonesDesdeDetalle(detalle, renglonVacio) {
       costoPromedio: r.costoPromedioActual,
     },
     cantidad: String(r.cantidad),
-    modo: r.modoCaptura,
-    costoTotal: r.modoCaptura === 'TOTAL' ? String(r.costoTotal) : '',
+    // La pantalla ya solo captura por unidad (2026-10-09): un renglón que se guardó "por total" se
+    // muestra con su costo por unidad. Cómo se guardó de verdad queda en `original`.
+    modo: 'UNITARIO',
+    costoTotal: '',
     // El campo solo acepta dígitos; el valor exacto queda en `original`.
-    costoUnitario: r.modoCaptura === 'UNITARIO' ? String(Math.round(Number(r.costoUnitario))) : '',
+    costoUnitario: String(Math.round(Number(r.costoUnitario))),
     precioVenta: String(r.precioVenta ?? r.precioActual),
     original: {
       varianteId: r.varianteId,
@@ -45,14 +47,15 @@ export function renglonesDesdeDetalle(detalle, renglonVacio) {
   }))
 }
 
-/** ¿El renglón mete al inventario lo mismo que el original? El precio no cuenta. */
+/**
+ * ¿El renglón mete al inventario lo mismo que el original? El precio no cuenta. Se compara el costo
+ * por unidad que muestra la pantalla, también en un renglón que se guardó "por total".
+ */
 export function mismaEntrada(r) {
   const o = r.original
   if (!o || r.repuestoNuevo || r.repuesto?.id !== o.varianteId) return false
-  if (Number(r.cantidad) !== Number(o.cantidad) || r.modo !== o.modo) return false
-  return r.modo === 'TOTAL'
-    ? Number(soloDigitos(r.costoTotal)) === Number(o.costoTotal)
-    : Number(soloDigitos(r.costoUnitario)) === Math.round(Number(o.costoUnitario))
+  if (Number(r.cantidad) !== Number(o.cantidad)) return false
+  return Number(soloDigitos(r.costoUnitario)) === Math.round(Number(o.costoUnitario))
 }
 
 /**
@@ -87,11 +90,13 @@ export function lineaParaCorregir(r) {
     varianteId: esNuevo ? null : r.repuesto.id,
     repuestoNuevo: esNuevo ? { ...nuevo, precio: Number(soloDigitos(r.precioVenta)) } : null,
     cantidad: Number(r.cantidad),
-    modo: r.modo,
-    costoTotal: r.modo !== 'TOTAL' ? null : intacto ? o.costoTotal : Number(soloDigitos(r.costoTotal)),
-    // Intacto: el unitario exacto, con sus decimales. Si no, lo que se escribió.
-    costoUnitario: r.modo !== 'UNITARIO' ? null
-      : intacto ? o.costoUnitario : Number(soloDigitos(r.costoUnitario)),
+    // Intacto: exactamente como se guardó, también si fue "por total", con el unitario de decimales.
+    // Si no, por unidad, con lo que se escribió.
+    modo: intacto ? o.modo : 'UNITARIO',
+    costoTotal: intacto && o.modo === 'TOTAL' ? o.costoTotal : null,
+    costoUnitario: intacto
+      ? (o.modo === 'UNITARIO' ? o.costoUnitario : null)
+      : Number(soloDigitos(r.costoUnitario)),
     precioVenta: esNuevo ? null : precioParaCorreccion(r),
   }
 }

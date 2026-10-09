@@ -112,7 +112,7 @@
 
 .encabezados {
   display: grid;
-  grid-template-columns: 126px minmax(170px, 1fr) 68px 94px 140px 126px 152px 36px;
+  grid-template-columns: 126px minmax(170px, 1fr) 68px 140px 126px 152px 36px;
   gap: var(--esp-2);
   padding: 0 var(--esp-3) var(--esp-2);
   font-size: 11px;

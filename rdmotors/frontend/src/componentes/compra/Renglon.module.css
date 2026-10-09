@@ -1,6 +1,6 @@
 .renglon {
   display: grid;
-  grid-template-columns: 126px minmax(170px, 1fr) 68px 94px 140px 126px 152px 36px;
+  grid-template-columns: 126px minmax(170px, 1fr) 68px 140px 126px 152px 36px;
   gap: var(--esp-2);
   align-items: start;
   padding: var(--esp-3);
@@ -85,29 +85,6 @@
 
 .cifra { font-variant-numeric: tabular-nums; text-align: right; }
 
-/* ── Modo de captura ─────────────────────────────────────────────────────── */
-
-.modo {
-  display: flex;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radio-sm);
-  overflow: hidden;
-}
-
-.modoOpcion, .modoActivo {
-  flex: 1;
-  padding: 9px 4px;
-  border: none;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.modoOpcion { background: var(--surface); color: var(--text-muted); }
-.modoOpcion:hover { background: var(--surface-hover); }
-
-.modoActivo { background: var(--graphite); color: #fff; }
-
 /* ── Costo ───────────────────────────────────────────────────────────────── */
 
 .celdaCosto { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -165,6 +142,7 @@
     row-gap: var(--esp-3);
   }
   .celdaRepuesto { grid-column: 1 / -1; order: -1; }
+  .celdaCosto    { grid-column: 1 / -1; }
   .celdaPrecio   { grid-column: 1 / -1; }
   .celdaMargen   { grid-column: 1 / -1; }
   .celdaAcciones { position: absolute; right: var(--esp-3); }
@@ -265,4 +243,3 @@
   font-variant-numeric: tabular-nums;
 }
 
-.modoOpcion:disabled, .modoActivo:disabled { opacity: .45; cursor: not-allowed; }

@@ -31,7 +31,8 @@ const renglonVacio = () => ({
   repuesto: null,
   repuestoNuevo: null,
   cantidad: '',
-  modo: 'TOTAL',
+  // Siempre por unidad (2026-10-09). El backend sigue aceptando "por total": lo usa la carga de facturas.
+  modo: 'UNITARIO',
   costoTotal: '',
   costoUnitario: '',
   precioVenta: '',
@@ -329,9 +330,7 @@ export default function Compra({ correccion = null }) {
     // Un renglón de la compra que nadie tocó suma lo que se pagó de verdad, no el unitario redondeado.
     if (r.original && mismaEntrada(r)) return suma + Number(r.original.costoTotal)
     const cantidad = Number(r.cantidad) || 0
-    return suma + (r.modo === 'TOTAL'
-      ? Number(soloDigitos(r.costoTotal)) || 0
-      : (Number(soloDigitos(r.costoUnitario)) || 0) * cantidad)
+    return suma + (Number(soloDigitos(r.costoUnitario)) || 0) * cantidad
   }, 0)
 
   // Renglones ya enganchados que repiten repuesto (por ejemplo, armados antes de este aviso).
@@ -406,9 +405,9 @@ export default function Compra({ correccion = null }) {
               ? { ...nuevo, precio: Number(soloDigitos(r.precioVenta)) }
               : null,
             cantidad,
-            modo: r.modo,
-            costoTotal: r.modo === 'TOTAL' ? Number(soloDigitos(r.costoTotal)) : null,
-            costoUnitario: r.modo === 'UNITARIO' ? Number(soloDigitos(r.costoUnitario)) : null,
+            modo: 'UNITARIO',
+            costoTotal: null,
+            costoUnitario: Number(soloDigitos(r.costoUnitario)),
             // El precio de un repuesto nuevo va en sus datos de creación, no aquí.
             precioVenta: esNuevo ? null : precioParaEnviar(r.precioVenta, r.repuesto.precio),
           }
@@ -703,7 +702,7 @@ export default function Compra({ correccion = null }) {
       <section className={estilos.renglones}>
         <div className={estilos.encabezados}>
           <span>Código</span><span>Repuesto</span><span>Cant.</span>
-          <span>Costo viene por</span><span>Costo con IVA</span><span>Precio venta</span>
+          <span>Costo c/u con IVA</span><span>Precio venta</span>
           <span>Margen</span><span />
         </div>
 
