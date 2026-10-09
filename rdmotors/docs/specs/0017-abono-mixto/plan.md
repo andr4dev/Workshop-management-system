@@ -189,3 +189,7 @@ sesión. **Salió a producción el 2026-10-09 a las 14:07**, mientras se impleme
   no en el orden en que se aplicó: es el mismo que tiene el recibo de un abono de una forma.
 - 2026-10-09 — El botón dice *Recibir $70.000*, sin las dos cifras: la división se ve justo arriba (*Por
   transferencia*), y así cabe a 390 px.
+- 2026-10-09 — **Después de desplegar**, la comparación de producción (140 vistas, antes y después) encontró una sola
+  diferencia: el recibo del abono N.º 3, de antes, juntaba en un renglón ($90.000) lo que se le aplicó en dos veces a
+  la misma venta ($46.000 y $44.000, al anularse la venta 6). Un recibo de una forma vuelve a ir aplicación por
+  aplicación, como siempre; solo el mixto suma por producto (`AbonoController.lineasDelRecibo`, `ReciboDelAbonoTest`).

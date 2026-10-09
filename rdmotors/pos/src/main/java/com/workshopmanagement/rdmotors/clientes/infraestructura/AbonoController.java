@@ -144,16 +144,6 @@ class AbonoController {
         static RespuestaAbono de(ConsultarCartera.ReciboDeAbono r) {
             List<FichaCliente.AbonoDeLaFicha> partes = r.partes();
             FichaCliente.AbonoDeLaFicha a = partes.getFirst();
-            // Lo aplicado por las partes, sumado por deuda, en el orden de la ficha: el de pago de las deudas.
-            Map<UUID, RespuestaAplicacion> aplicado = new LinkedHashMap<>();
-            for (FichaCliente.AbonoDeLaFicha parte : partes) {
-                for (FichaCliente.ParteAplicada p : parte.aplicaciones()) {
-                    if (p.vigente()) {
-                        aplicado.merge(p.deudaId(), new RespuestaAplicacion(p.deudaId(), p.deuda(), pesos(p.monto())),
-                                (x, y) -> new RespuestaAplicacion(x.deudaId(), x.deuda(), x.monto() + y.monto()));
-                    }
-                }
-            }
             return new RespuestaAbono(a.id(), a.numero(), RespuestaCliente.de(r.cliente()),
                     partes.stream().mapToLong(p -> pesos(p.monto())).sum(),
                     partes.size() > 1 ? "MIXTO" : a.forma().name(),
@@ -162,11 +152,33 @@ class AbonoController {
                     a.nota(), a.turnoId(), a.recibidoEn(), a.recibidoPor(),
                     pesos(partes.getLast().debeDespues()), pesos(r.debeAhora()),
                     partes.stream().mapToLong(p -> pesos(p.sinAplicar())).sum(),
-                    List.copyOf(aplicado.values()),
+                    lineasDelRecibo(partes),
                     a.anuladoEn(), a.anuladoPor(), a.motivoAnulacion(), a.pagoId(),
                     partes.stream().map(p -> new RespuestaParte(p.id(), p.numero(), p.forma(), pesos(p.monto()),
                             p.referencia())).toList());
         }
+    }
+
+    /**
+     * Lo aplicado, como lo dice el recibo. Un abono de una forma, cada aplicación como se hizo: igual que siempre, y un
+     * recibo de antes se reimprime idéntico. Un mixto, lo de sus dos partes sumado por deuda, en el orden de la ficha
+     * (el de pago de las deudas): el cliente pagó una vez cada producto.
+     */
+    static List<RespuestaAplicacion> lineasDelRecibo(List<FichaCliente.AbonoDeLaFicha> partes) {
+        if (partes.size() == 1) {
+            return partes.getFirst().aplicaciones().stream().filter(FichaCliente.ParteAplicada::vigente)
+                    .map(p -> new RespuestaAplicacion(p.deudaId(), p.deuda(), pesos(p.monto()))).toList();
+        }
+        Map<UUID, RespuestaAplicacion> aplicado = new LinkedHashMap<>();
+        for (FichaCliente.AbonoDeLaFicha parte : partes) {
+            for (FichaCliente.ParteAplicada p : parte.aplicaciones()) {
+                if (p.vigente()) {
+                    aplicado.merge(p.deudaId(), new RespuestaAplicacion(p.deudaId(), p.deuda(), pesos(p.monto())),
+                            (x, y) -> new RespuestaAplicacion(x.deudaId(), x.deuda(), x.monto() + y.monto()));
+                }
+            }
+        }
+        return List.copyOf(aplicado.values());
     }
 
     /** Una parte del pago: en un mixto, la de efectivo o la de transferencia, cada una con su número. */
