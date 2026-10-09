@@ -1,6 +1,8 @@
 package com.workshopmanagement.rdmotors.clientes.aplicacion;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,6 +29,9 @@ import com.workshopmanagement.rdmotors.compartido.dominio.puerto.RepositorioAudi
  *
  * <p>Es del <b>administrador</b> (decisión 5). Si entró en efectivo, solo mientras su turno siga abierto: ese cajón ya
  * se contó y se firmó, como un gasto (spec 0006). Por transferencia no tocó ningún cajón, así que se puede después.
+ *
+ * <p><b>Un abono mixto se anula entero</b> (spec 0017): pedido por cualquiera de sus dos partes, se anulan las dos, con
+ * el mismo motivo. Como tiene una parte en efectivo, solo mientras su turno siga abierto.
  */
 @Transactional
 public class AnularAbono {
@@ -58,8 +63,14 @@ public class AnularAbono {
         actor.exigirAdministrador();
         Abono abono = abonos.buscar(abonoId)
                 .orElseThrow(() -> new ReglaDeNegocioException("Ese abono no existe"));
-        if (abono.entraAlCajon()) {
-            TurnoCaja turnoAbierto = turnos.abiertoParaMover().orElse(null);
+        if (abono.estaAnulado()) {
+            throw new ReglaDeNegocioException("Este abono ya fue anulado");
+        }
+        // El turno antes que el cliente, en el mismo orden en que se bloquean al abonar. Un mixto tiene una parte en
+        // efectivo, y sus dos partes son del mismo turno: pedido por la transferencia también lo necesita abierto.
+        TurnoCaja turnoAbierto = null;
+        if (abono.entraAlCajon() || abono.esParteDeUnPago()) {
+            turnoAbierto = turnos.abiertoParaMover().orElse(null);
             if (turnoAbierto == null || !turnoAbierto.getId().equals(abono.getTurnoId())) {
                 throw new ReglaDeNegocioException(TURNO_CERRADO);
             }
@@ -70,12 +81,25 @@ public class AnularAbono {
         CarteraDelCliente cartera = new CarteraDelCliente(cliente, deudas.delCliente(cliente.getId()),
                 abonos.delCliente(cliente.getId()));
         Abono enLaCartera = cartera.abonos().stream().filter(a -> a.getId().equals(abonoId)).findFirst().orElseThrow();
-        Map<String, Object> antes = enLaCartera.fotografia();
+        // Un mixto, entero: las partes vigentes de su pago.
+        List<Abono> partes = enLaCartera.esParteDeUnPago()
+                ? cartera.abonos().stream()
+                        .filter(a -> enLaCartera.getPagoId().equals(a.getPagoId()) && !a.estaAnulado())
+                        .toList()
+                : List.of(enLaCartera);
+        for (Abono parte : partes) {
+            if (parte.entraAlCajon() && (turnoAbierto == null || !turnoAbierto.getId().equals(parte.getTurnoId()))) {
+                throw new ReglaDeNegocioException(TURNO_CERRADO);
+            }
+        }
+        Map<Abono, Map<String, Object>> antes = new LinkedHashMap<>();
+        partes.forEach(parte -> antes.put(parte, parte.fotografia()));
         Instant ahora = reloj.ahora();
-        cartera.anularAbono(enLaCartera, motivoLimpio, actor.id(), ahora);
+        cartera.anularAbonos(partes, motivoLimpio, actor.id(), ahora);
 
-        auditoria.registrar(EventoAuditoria.nuevo(ahora, actor.id(), AccionAuditada.ANULAR_ABONO, Abono.TIPO_AUDITORIA,
-                abonoId, antes, enLaCartera.fotografia(), motivoLimpio));
+        antes.forEach((parte, foto) -> auditoria.registrar(EventoAuditoria.nuevo(ahora, actor.id(),
+                AccionAuditada.ANULAR_ABONO, Abono.TIPO_AUDITORIA, parte.getId(), foto, parte.fotografia(),
+                motivoLimpio)));
         cartera.deudas().forEach(deudas::guardar);
         cartera.abonos().forEach(abonos::guardar);
         return enLaCartera;

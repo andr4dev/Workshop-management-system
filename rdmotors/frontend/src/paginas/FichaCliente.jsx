@@ -16,7 +16,8 @@ import { armarRecibo, htmlDelRecibo, problemasDelRecibo } from '../utils/reciboA
 import { esAdministrador } from '../utils/permisos'
 import { hoyEnColombia } from '../utils/periodo'
 import {
-  agruparPorVenta, desdeCuandoEnPalabras, ESTADOS, fechaCorta, FORMAS, loQueSeLlevo, nombreDeLaDeuda,
+  agruparPorVenta, desdeCuandoEnPalabras, ESTADOS, fechaCorta, formaDelPago, FORMAS, loQueSeLlevo, nombreDeLaDeuda,
+  pagosDeLaFicha,
   problemasDeLaFicha, renglonesDelGrupo,
 } from '../utils/cartera'
 import comun from './Listado.module.css'
@@ -312,10 +313,10 @@ export default function FichaCliente() {
         <p className={comun.tenue}>Todavía no ha abonado.</p>
       ) : (
         <ol className={estilos.linea}>
-          {ficha.abonos.map((a) => (
+          {pagosDeLaFicha(ficha.abonos).map((a) => (
             <li key={a.id} className={`${estilos.abono} ${a.anuladoEn ? estilos.abonoAnulado : ''}`}>
               <span>
-                <strong>Abono N.º {a.numero}</strong> · {fechaHora(a.recibidoEn)} · {FORMAS[a.forma]}
+                <strong>Abono N.º {a.numero}</strong> · {fechaHora(a.recibidoEn)} · {formaDelPago(a)}
                 {a.recibidoPor && <span className={comun.tenue}> · lo recibió {a.recibidoPor.nombre}</span>}
                 {admin && !a.anuladoEn && (
                   <button type="button" className={estilos.anular}
@@ -365,9 +366,12 @@ export default function FichaCliente() {
       {anulandoAbono && (
         <ModalMotivo
           titulo={`Anular el abono N.º ${anulandoAbono.numero}`}
-          descripcion={<>Los <strong>{formatoCOP(anulandoAbono.monto)}</strong> vuelven a deberse
-            {anulandoAbono.forma === 'EFECTIVO' && ' y salen del cajón de su turno'}. Queda tachado, con tu motivo, en
-            el registro de auditoría.</>}
+          descripcion={<>{anulandoAbono.partes?.length > 1 && <>Es un abono mixto: se anulan sus dos partes
+            ({formaDelPago(anulandoAbono).replace('Mixto: ', '')}). </>}
+            Los <strong>{formatoCOP(anulandoAbono.monto)}</strong> vuelven a deberse
+            {anulandoAbono.forma === 'EFECTIVO' && ' y salen del cajón de su turno'}
+            {anulandoAbono.forma === 'MIXTO' && ', y el efectivo sale del cajón de su turno'}. Queda tachado, con tu
+            motivo, en el registro de auditoría.</>}
           placeholder="Ej.: se registró dos veces"
           textoConfirmar="Anular abono"
           peligro

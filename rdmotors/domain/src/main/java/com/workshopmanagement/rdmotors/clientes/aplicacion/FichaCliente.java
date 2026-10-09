@@ -58,11 +58,12 @@ public record FichaCliente(ClienteEncontrado cliente, Dinero debe, Dinero aFavor
      * Un abono, con a qué deudas fue.
      *
      * @param sinAplicar lo que no fue a ninguna: queda a favor del cliente
+     * @param pagoId     el pago mixto del que es parte (spec 0017): sus dos partes lo comparten; nulo si no
      */
     public record AbonoDeLaFicha(UUID id, long numero, Instant recibidoEn, Dinero monto, FormaPago forma,
                                  String referencia, String nota, UUID turnoId, Persona recibidoPor, Dinero debeDespues,
                                  Instant anuladoEn, Persona anuladoPor, String motivoAnulacion, Dinero sinAplicar,
-                                 List<ParteAplicada> aplicaciones) {
+                                 List<ParteAplicada> aplicaciones, UUID pagoId) {
     }
 
     /**
@@ -104,7 +105,8 @@ public record FichaCliente(ClienteEncontrado cliente, Dinero debe, Dinero aFavor
                                 .map(ap -> new ParteAplicada(ap.getDeudaId(),
                                         porId.containsKey(ap.getDeudaId()) ? porId.get(ap.getDeudaId()).etiqueta() : "—",
                                         ap.getMonto(), ap.estaVigente()))
-                                .toList()))
+                                .toList(),
+                        a.getPagoId()))
                 .toList();
         Dinero fiadoTotal = deudas.stream().filter(d -> !d.estaAnulada()).map(Deuda::getMonto)
                 .reduce(Dinero.CERO, Dinero::mas);

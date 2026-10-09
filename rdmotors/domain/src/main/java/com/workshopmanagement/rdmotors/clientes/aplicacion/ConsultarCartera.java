@@ -1,5 +1,6 @@
 package com.workshopmanagement.rdmotors.clientes.aplicacion;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -73,12 +74,20 @@ public class ConsultarCartera {
         });
     }
 
-    /** El recibo de un abono (RF-016): el cliente, el abono con a qué ventas fue, y lo que debe hoy. */
+    /**
+     * El recibo de un abono (RF-016): el cliente, el abono con a qué ventas fue, y lo que debe hoy. De un abono mixto
+     * (spec 0017), el recibo es del pago: sus dos partes, pedido por cualquiera de ellas.
+     */
     public Optional<ReciboDeAbono> recibo(UUID abonoId) {
-        return abonos.buscar(abonoId).flatMap(abono -> ficha(abono.getClienteId()).map(f -> new ReciboDeAbono(
-                f.cliente(),
-                f.abonos().stream().filter(a -> a.id().equals(abonoId)).findFirst().orElseThrow(),
-                f.debe())));
+        return abonos.buscar(abonoId).flatMap(abono -> ficha(abono.getClienteId()).map(f -> {
+            FichaCliente.AbonoDeLaFicha pedido = f.abonos().stream().filter(a -> a.id().equals(abonoId)).findFirst()
+                    .orElseThrow();
+            List<FichaCliente.AbonoDeLaFicha> partes = pedido.pagoId() == null ? List.of(pedido)
+                    : f.abonos().stream().filter(a -> pedido.pagoId().equals(a.pagoId()))
+                            .sorted(Comparator.comparingLong(FichaCliente.AbonoDeLaFicha::numero))
+                            .toList();
+            return new ReciboDeAbono(f.cliente(), partes, f.debe());
+        }));
     }
 
     /** El abono que quedó con esa llave: lo que se responde a un abono repetido. */
@@ -90,7 +99,16 @@ public class ConsultarCartera {
     public record Cartera(List<ResumenDeCliente> clientes, int deben, Dinero porCobrar) {
     }
 
-    /** @param debeAhora lo que debe hoy, que puede no ser lo que debía justo después del abono */
-    public record ReciboDeAbono(ClienteEncontrado cliente, FichaCliente.AbonoDeLaFicha abono, Dinero debeAhora) {
+    /**
+     * @param partes    el abono, o las dos partes de un mixto en su orden (efectivo, transferencia)
+     * @param debeAhora lo que debe hoy, que puede no ser lo que debía justo después del abono
+     */
+    public record ReciboDeAbono(ClienteEncontrado cliente, List<FichaCliente.AbonoDeLaFicha> partes,
+                                Dinero debeAhora) {
+
+        /** La primera parte: el abono, si no fue mixto. */
+        public FichaCliente.AbonoDeLaFicha abono() {
+            return partes.getFirst();
+        }
     }
 }

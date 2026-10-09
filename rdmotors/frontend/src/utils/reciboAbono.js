@@ -9,7 +9,7 @@ import { formatoCOP } from './formato.js'
 import { documento80mm, esc, fila } from './papel80mm.js'
 import { fechaDelTicket, PIE_LEGAL } from './ticket.js'
 
-const FORMAS = { EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia' }
+const FORMAS = { EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia', MIXTO: 'Mixto' }
 
 /**
  * @param abono  el que devuelve el servidor (`POST /api/abonos`, `GET /api/abonos/{id}`)
@@ -29,6 +29,10 @@ export function armarRecibo(abono, tienda) {
     cliente: [abono.cliente?.nombre, abono.cliente?.documento].filter(Boolean).join(' · '),
     monto: abono.monto,
     forma: FORMAS[abono.forma] ?? abono.forma,
+    // Un mixto (spec 0017): la parte en efectivo y la de transferencia, cada una con su número.
+    partes: (abono.partes ?? []).length > 1
+      ? abono.partes.map((p) => ({ numero: p.numero, forma: FORMAS[p.forma] ?? p.forma, monto: p.monto }))
+      : [],
     referencia: abono.referencia ?? null,
     nota: abono.nota ?? null,
     aplicaciones: abono.aplicaciones.map((a) => ({ deuda: a.deuda, monto: a.monto })),
@@ -39,12 +43,16 @@ export function armarRecibo(abono, tienda) {
   }
 }
 
-/** Lo aplicado, más lo que quedó a favor, tiene que dar el abono. Vacía si cuadra. */
+/** Lo aplicado, más lo que quedó a favor, tiene que dar el abono; y en un mixto, sus partes también. Vacía si cuadra. */
 export function problemasDelRecibo(recibo) {
   const aplicado = recibo.aplicaciones.reduce((suma, a) => suma + Number(a.monto), 0)
   if (aplicado + recibo.sinAplicar !== recibo.monto) {
     return [`Lo aplicado (${formatoCOP(aplicado)}) y lo que queda a favor (${formatoCOP(recibo.sinAplicar)}) no dan `
       + `el abono de ${formatoCOP(recibo.monto)}`]
+  }
+  const partes = (recibo.partes ?? []).reduce((suma, p) => suma + Number(p.monto), 0)
+  if (recibo.partes?.length > 0 && partes !== recibo.monto) {
+    return [`Las partes del abono mixto (${formatoCOP(partes)}) no dan el abono de ${formatoCOP(recibo.monto)}`]
   }
   return []
 }
@@ -70,7 +78,8 @@ export function htmlDelRecibo(recibo) {
 <hr>
 ${datos}
 <hr>
-${fila(`Abono en ${recibo.forma}`, formatoCOP(recibo.monto), 'total')}
+${fila(recibo.partes?.length > 1 ? 'Abono mixto' : `Abono en ${recibo.forma}`, formatoCOP(recibo.monto), 'total')}
+${(recibo.partes ?? []).map((p) => fila(`${p.forma} (N.º ${p.numero})`, formatoCOP(p.monto), 'detalle')).join('')}
 ${recibo.referencia ? `<div class="texto">Ref. ${esc(recibo.referencia)}</div>` : ''}
 ${recibo.nota ? `<div class="texto">${esc(recibo.nota)}</div>` : ''}
 <hr>

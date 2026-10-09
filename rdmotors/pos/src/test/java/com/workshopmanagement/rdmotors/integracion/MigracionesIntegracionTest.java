@@ -1092,6 +1092,57 @@ class MigracionesIntegracionTest {
         return deudaId;
     }
 
+    @Test
+    @DisplayName("V33 sobre una base con abonos: quedan sin pago y con sus cifras; un pago no deja dos partes de la misma forma")
+    void v33AbonoMixto() throws SQLException {
+        Flyway hastaV32 = flywayHasta("32");
+        hastaV32.clean();
+        hastaV32.migrate();
+        UUID ruben = UUID.randomUUID();
+        UUID juan = UUID.randomUUID();
+        UUID turnoId = UUID.randomUUID();
+        UUID abonoViejo = UUID.randomUUID();
+        try (Connection c = conexion()) {
+            ejecutar(c, """
+                    insert into usuario (id, usuario, usuario_normalizado, nombre, hash, rol, activo,
+                                         debe_cambiar_contrasena, version_sesion, intentos_fallidos, creado_en)
+                    values (?, 'ruben', 'ruben', 'Rubén', '{bcrypt}x', 'ADMINISTRADOR', true, false, 1, 0, now())
+                    """, ruben);
+            ejecutar(c, """
+                    insert into turno_caja (id, abierto_por_id, abierto_en, fondo, estado)
+                    values (?, ?, now(), 100000, 'ABIERTO')
+                    """, turnoId, ruben);
+            ejecutar(c, """
+                    insert into cliente (id, nombre, nombre_normalizado, creado_en, creado_por_id)
+                    values (?, 'Juan Pérez', 'juan perez', now(), ?)
+                    """, juan, ruben);
+            ejecutar(c, """
+                    insert into abono (id, numero, cliente_id, monto, forma, turno_id, recibido_por_id, recibido_en,
+                                       llave_idempotencia, debe_despues)
+                    values (?, 1, ?, 30000, 'EFECTIVO', ?, ?, now(), gen_random_uuid(), 0)
+                    """, abonoViejo, juan, turnoId, ruben);
+        }
+
+        flywayHasta(null).migrate();
+
+        try (Connection c = conexion()) {
+            assertThat(valor(c, "select pago_id is null and monto = 30000 and forma = 'EFECTIVO' from abono where id = ?",
+                    abonoViejo)).isEqualTo(true);
+            UUID pago = UUID.randomUUID();
+            String parte = """
+                    insert into abono (id, numero, cliente_id, monto, forma, turno_id, recibido_por_id, recibido_en,
+                                       llave_idempotencia, debe_despues, pago_id)
+                    values (gen_random_uuid(), ?, ?, ?, ?, ?, ?, now(), gen_random_uuid(), 0, ?)
+                    """;
+            ejecutar(c, parte, 2L, juan, 20_000, "EFECTIVO", turnoId, ruben, pago);
+            ejecutar(c, parte, 3L, juan, 30_000, "TRANSFERENCIA", turnoId, ruben, pago);
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> ejecutar(c, parte, 4L, juan, 1_000, "EFECTIVO", turnoId, ruben, pago))
+                    .hasMessageContaining("ux_abono_pago_forma");
+            assertThat(valor(c, "select count(*) from abono where pago_id = ?", pago)).isEqualTo(2L);
+        }
+    }
+
     private static Object valor(Connection c, String sql, Object... parametros) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             for (int i = 0; i < parametros.length; i++) {

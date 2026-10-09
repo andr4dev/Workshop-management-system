@@ -1,5 +1,6 @@
 package com.workshopmanagement.rdmotors.clientes.dominio;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,6 +27,9 @@ import lombok.Getter;
  * que ya estaba abonada y no hay otra que pagar.
  *
  * <p>Lleva llave, como un cobro: un doble clic no abona dos veces.
+ *
+ * <p><b>Un abono mixto</b> (spec 0017) son dos abonos que nacen juntos, uno en efectivo y uno por transferencia, con el
+ * mismo {@code pagoId}. Cada uno tiene una sola forma: la caja y los reportes los leen como a cualquier otro.
  */
 @Entity
 @Table(name = "abono")
@@ -94,6 +98,10 @@ public class Abono {
     @Column(name = "motivo_anulacion", length = Motivo.LARGO_MAXIMO)
     private String motivoAnulacion;
 
+    /** El pago del que es parte, si fue mixto (spec 0017): sus dos partes lo comparten. Nulo en un abono de una forma. */
+    @Column(name = "pago_id", updatable = false)
+    private UUID pagoId;
+
     @OneToMany(mappedBy = "abono", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OrderBy("aplicadaEn")
     private List<AplicacionAbono> aplicaciones = new ArrayList<>();
@@ -107,6 +115,13 @@ public class Abono {
      */
     public static Abono recibir(long numero, UUID clienteId, Dinero monto, FormaPago forma, String referencia,
                                 String nota, UUID turnoId, UUID recibidoPorId, UUID llave, Instant cuando) {
+        return recibir(numero, clienteId, monto, forma, referencia, nota, turnoId, recibidoPorId, llave, cuando, null);
+    }
+
+    /** @param pagoId el pago mixto del que es parte (spec 0017), o {@code null} */
+    public static Abono recibir(long numero, UUID clienteId, Dinero monto, FormaPago forma, String referencia,
+                                String nota, UUID turnoId, UUID recibidoPorId, UUID llave, Instant cuando,
+                                UUID pagoId) {
         if (clienteId == null) {
             throw new ReglaDeNegocioException("Un abono es de un cliente");
         }
@@ -142,7 +157,39 @@ public class Abono {
         abono.recibidoPorId = recibidoPorId;
         abono.llaveIdempotencia = llave;
         abono.recibidoEn = cuando;
+        abono.pagoId = pagoId;
         return abono;
+    }
+
+    /** Las dos partes de un abono mixto (spec 0017): lo que trae en efectivo y lo demás, por transferencia. */
+    public record PartesDelMixto(Dinero efectivo, Dinero transferencia) {
+    }
+
+    /**
+     * Un mixto se escribe sobre el total: cuánto de eso es en efectivo. Las dos partes tienen que ser más de $0, o no es
+     * mixto.
+     */
+    public static PartesDelMixto partesDelMixto(Dinero total, Dinero efectivo) {
+        if (total == null || total.esCero() || total.esNegativo()) {
+            throw new ReglaDeNegocioException("El abono tiene que ser mayor a $0");
+        }
+        if (efectivo == null || efectivo.esCero() || efectivo.esNegativo() || !total.esMayorQue(efectivo)) {
+            throw new ReglaDeNegocioException("En mixto, el efectivo es una parte: menos que el total");
+        }
+        return new PartesDelMixto(efectivo, total.menos(efectivo));
+    }
+
+    /**
+     * La llave de la parte por transferencia de un mixto: sale de la del pedido y es siempre la misma, así que un
+     * reintento la encuentra y no la repite.
+     */
+    public static UUID llaveDeLaTransferencia(UUID llave) {
+        return UUID.nameUUIDFromBytes(("abono-mixto:" + llave).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** Si es una parte de un abono mixto. */
+    public boolean esParteDeUnPago() {
+        return pagoId != null;
     }
 
     // ── Lectura ──────────────────────────────────────────────────────────────
@@ -229,6 +276,9 @@ public class Abono {
         foto.put("monto", monto.valor().longValueExact());
         foto.put("forma", forma.name());
         foto.put("turnoId", turnoId);
+        if (pagoId != null) {
+            foto.put("pagoId", pagoId);
+        }
         foto.put("anulado", estaAnulado());
         if (estaAnulado()) {
             foto.put("motivoAnulacion", motivoAnulacion);

@@ -208,18 +208,22 @@ class ClienteController {
                                  boolean vigente) {
     }
 
-    /** @param sinAplicar lo que no fue a ninguna deuda: queda a favor del cliente */
+    /**
+     * @param sinAplicar lo que no fue a ninguna deuda: queda a favor del cliente
+     * @param pagoId     el pago mixto del que es parte (spec 0017): la pantalla junta sus dos partes en una línea
+     */
     record RespuestaAbono(UUID id, long numero, Instant recibidoEn, long monto, FormaPago forma, String referencia,
                           String nota, UUID turnoId, Persona recibidoPor, long debeDespues, Instant anuladoEn,
                           Persona anuladoPor, String motivoAnulacion, long sinAplicar,
-                          List<RespuestaParteAplicada> aplicaciones) {
+                          List<RespuestaParteAplicada> aplicaciones, UUID pagoId) {
 
         static RespuestaAbono de(FichaCliente.AbonoDeLaFicha a) {
             return new RespuestaAbono(a.id(), a.numero(), a.recibidoEn(), pesos(a.monto()), a.forma(), a.referencia(),
                     a.nota(), a.turnoId(), a.recibidoPor(), pesos(a.debeDespues()), a.anuladoEn(), a.anuladoPor(),
                     a.motivoAnulacion(), pesos(a.sinAplicar()),
                     a.aplicaciones().stream().map(p -> new RespuestaParteAplicada(p.deudaId(), p.deuda(),
-                            pesos(p.monto()), p.vigente())).toList());
+                            pesos(p.monto()), p.vigente())).toList(),
+                    a.pagoId());
         }
     }
 

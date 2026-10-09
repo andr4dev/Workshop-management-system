@@ -9,7 +9,7 @@ import { diasEntre } from './periodo.js'
 
 export const ESTADOS = { PENDIENTE: 'Pendiente', ABONADA: 'Abonada', PAGADA: 'Pagada', ANULADA: 'Anulada' }
 
-export const FORMAS = { EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia' }
+export const FORMAS = { EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia', MIXTO: 'Mixto' }
 
 export const VISTAS = [
   { valor: 'DEBEN', texto: 'Deben' },
@@ -169,4 +169,67 @@ export function problemasDeLaFicha(ficha) {
     problemas.push(`Lo pendiente de sus ventas suma ${formatoCOP(pendiente)} y debe ${formatoCOP(ficha.debe)}`)
   }
   return problemas
+}
+
+/**
+ * Un abono mixto (spec 0017): del total, cuánto es en efectivo. Lo que impide recibirlo, o `null`. Las dos partes tienen
+ * que ser más de $0: si no, no es mixto.
+ */
+export function problemaDelMixto(total, efectivo) {
+  if (!(efectivo > 0)) return 'Escribe cuánto es en efectivo'
+  if (efectivo >= total) return 'En mixto, el efectivo es una parte: menos que el total'
+  return null
+}
+
+/**
+ * Los abonos de la ficha, con cada abono mixto (spec 0017) en una sola línea. El servidor manda sus dos partes como dos
+ * abonos con el mismo `pagoId`; aquí se juntan: el total, las partes (efectivo primero) y lo que pagaron las dos, sumado
+ * por producto. El pago queda donde aparece su primera parte, y lo que se haga con él (el recibo, anularlo) va por su
+ * `id`, que es el de la parte en efectivo. Un abono de una forma queda igual, con `partes` de uno.
+ */
+export function pagosDeLaFicha(abonos) {
+  const pagos = []
+  const porPago = new Map()
+  for (const a of abonos) {
+    if (!a.pagoId) {
+      pagos.push({ ...a, partes: [a] })
+    } else if (porPago.has(a.pagoId)) {
+      porPago.get(a.pagoId).push(a)
+    } else {
+      const partes = [a]
+      porPago.set(a.pagoId, partes)
+      pagos.push({ pagoId: a.pagoId, partes })
+    }
+  }
+  return pagos.map((p) => (p.pagoId && p.partes.length > 1 ? juntarPartes(p.partes) : { ...p.partes[0], partes: p.partes }))
+}
+
+function juntarPartes(desordenadas) {
+  const partes = [...desordenadas].sort((x, y) => x.numero - y.numero)
+  const aplicaciones = []
+  for (const parte of partes) {
+    for (const ap of parte.aplicaciones) {
+      const misma = aplicaciones.find((x) => x.deudaId === ap.deudaId && x.vigente === ap.vigente)
+      if (misma) misma.monto += ap.monto
+      else aplicaciones.push({ ...ap })
+    }
+  }
+  const primera = partes[0]
+  return {
+    ...primera,
+    forma: 'MIXTO',
+    monto: partes.reduce((s, p) => s + p.monto, 0),
+    referencia: partes.map((p) => p.referencia).find(Boolean) ?? null,
+    sinAplicar: partes.reduce((s, p) => s + p.sinAplicar, 0),
+    debeDespues: partes.at(-1).debeDespues,
+    aplicaciones,
+    partes,
+  }
+}
+
+/** Cómo pagó, en palabras: "Efectivo", o en un mixto "Mixto: efectivo $20.000 + transferencia $50.000 (N.º 8)". */
+export function formaDelPago(pago) {
+  if (!pago.partes || pago.partes.length < 2) return FORMAS[pago.forma] ?? pago.forma
+  return 'Mixto: ' + pago.partes.map((p, i) => `${(FORMAS[p.forma] ?? p.forma).toLowerCase()} ${formatoCOP(p.monto)}`
+    + (i > 0 ? ` (N.º ${p.numero})` : '')).join(' + ')
 }

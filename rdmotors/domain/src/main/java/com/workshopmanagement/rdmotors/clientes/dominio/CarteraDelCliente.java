@@ -136,16 +136,31 @@ public final class CarteraDelCliente {
      * @param primero las deudas escogidas, en el orden en que se pagan; vacía o nula: a lo más viejo
      */
     public void abonar(Abono abono, List<UUID> primero, Instant cuando) {
-        exigirDelCliente(abono.getClienteId());
-        primero = primero == null ? List.of() : primero;
-        if (abonos.contains(abono) || !abono.aplicado().esCero()) {
-            throw new IllegalStateException("El abono N.º " + abono.getNumero() + " ya se había repartido");
+        abonar(List.of(abono), primero, cuando);
+    }
+
+    /**
+     * Un pago de varias partes (spec 0017: el mixto, primero el efectivo y después la transferencia) se reparte como
+     * uno solo: a cada deuda escogida, en su orden, lo que le falta, tomando de las partes en su orden; lo que le sobre a
+     * cada parte, a lo más viejo. Lo que debe se compara con el total, y todas las partes anotan el mismo debe después.
+     */
+    public void abonar(List<Abono> partes, List<UUID> primero, Instant cuando) {
+        if (partes == null || partes.isEmpty()) {
+            throw new IllegalArgumentException("Un pago tiene al menos un abono");
         }
+        for (Abono parte : partes) {
+            exigirDelCliente(parte.getClienteId());
+            if (abonos.contains(parte) || !parte.aplicado().esCero()) {
+                throw new IllegalStateException("El abono N.º " + parte.getNumero() + " ya se había repartido");
+            }
+        }
+        primero = primero == null ? List.of() : primero;
+        Dinero total = partes.stream().map(Abono::getMonto).reduce(Dinero.CERO, Dinero::mas);
         Dinero debe = debe();
         if (debe.esCero()) {
             throw new ReglaDeNegocioException(cliente.getNombre() + " no debe nada: no hay qué abonar");
         }
-        if (abono.getMonto().esMayorQue(debe)) {
+        if (total.esMayorQue(debe)) {
             throw new ReglaDeNegocioException(cliente.getNombre() + " debe " + debe.enPesos()
                     + ": no se le puede recibir más");
         }
@@ -163,16 +178,25 @@ public final class CarteraDelCliente {
             }
             escogidas.add(escogida);
         }
-        abonos.add(abono);
+        abonos.addAll(partes);
         for (Deuda escogida : escogidas) {
-            Dinero queda = abono.sinAplicar();
-            if (queda.esCero()) {
-                break;
+            for (Abono parte : partes) {
+                Dinero queda = parte.sinAplicar();
+                if (!escogida.tienePendiente()) {
+                    break;
+                }
+                if (!queda.esCero()) {
+                    parte.aplicarA(escogida, menor(queda, escogida.pendiente()), cuando);
+                }
             }
-            abono.aplicarA(escogida, menor(queda, escogida.pendiente()), cuando);
         }
-        repartir(abono, cuando);
-        abono.anotarDebeDespues(debe());
+        for (Abono parte : partes) {
+            repartir(parte, cuando);
+        }
+        Dinero debeDespues = debe();
+        for (Abono parte : partes) {
+            parte.anotarDebeDespues(debeDespues);
+        }
     }
 
     // ── Deshacer ─────────────────────────────────────────────────────────────
@@ -210,17 +234,32 @@ public final class CarteraDelCliente {
 
     /** Un abono mal registrado (RF-017): lo que pagó vuelve a deberse. */
     public void anularAbono(Abono abono, String motivo, UUID anuladoPorId, Instant cuando) {
-        exigirDelCliente(abono.getClienteId());
-        if (!abonos.contains(abono)) {
-            throw new IllegalStateException("Ese abono no está en la cartera de " + cliente.getNombre());
+        anularAbonos(List.of(abono), motivo, anuladoPorId, cuando);
+    }
+
+    /**
+     * Las partes de un pago mixto (spec 0017), juntas: se libera lo que pagaron todas antes de anularlas, y lo que haya a
+     * favor se reparte una sola vez. De a una, lo a favor iría a parar a lo que liberó la primera, aunque la segunda
+     * liberara algo más viejo.
+     */
+    public void anularAbonos(List<Abono> aAnular, String motivo, UUID anuladoPorId, Instant cuando) {
+        for (Abono abono : aAnular) {
+            exigirDelCliente(abono.getClienteId());
+            if (!abonos.contains(abono)) {
+                throw new IllegalStateException("Ese abono no está en la cartera de " + cliente.getNombre());
+            }
+            if (abono.estaAnulado()) {
+                throw new ReglaDeNegocioException("Este abono ya fue anulado");
+            }
         }
-        if (abono.estaAnulado()) {
-            throw new ReglaDeNegocioException("Este abono ya fue anulado");
+        for (Abono abono : aAnular) {
+            for (Deuda deuda : deudas) {
+                abono.liberarDe(deuda, cuando);
+            }
         }
-        for (Deuda deuda : deudas) {
-            abono.liberarDe(deuda, cuando);
+        for (Abono abono : aAnular) {
+            abono.anular(motivo, anuladoPorId, cuando);
         }
-        abono.anular(motivo, anuladoPorId, cuando);
         aplicarLoQueHayAFavor(cuando);
     }
 

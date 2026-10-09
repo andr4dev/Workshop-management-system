@@ -195,4 +195,102 @@ class AbonosEnElCajonTest {
         });
         assertThat(detalle.arqueo().abonosEfectivo()).isEqualTo(Dinero.de(30_000));
     }
+
+    // ── Mixto (spec 0017) ───────────────────────────────────────────────────
+
+    private java.util.List<Abono> mixto(UUID llave, Cliente cliente, long total, long efectivo, Actor actor) {
+        return tienda.registrarAbono.ejecutarMixto(llave, cliente.getId(), Dinero.de(total), Dinero.de(efectivo),
+                "REF-7", null, null, actor);
+    }
+
+    @Test
+    @DisplayName("MIXTO: son dos abonos del mismo pago; al cajón entra solo el efectivo, y la transferencia lleva la referencia")
+    void mixtoEntraSoloElEfectivo() {
+        tienda.abrir(100_000);
+        Cliente juan = conDeuda(80_000);
+
+        java.util.List<Abono> partes = mixto(UUID.randomUUID(), juan, 50_000, 20_000, tienda.cajero);
+
+        assertThat(partes).extracting(Abono::getNumero).containsExactly(1L, 2L);
+        assertThat(partes).extracting(Abono::getForma).containsExactly(FormaPago.EFECTIVO, FormaPago.TRANSFERENCIA);
+        assertThat(partes).extracting(Abono::getMonto).containsExactly(Dinero.de(20_000), Dinero.de(30_000));
+        assertThat(partes).extracting(Abono::getReferencia).containsExactly(null, "REF-7");
+        assertThat(partes.get(0).getPagoId()).isNotNull().isEqualTo(partes.get(1).getPagoId());
+        assertThat(partes).extracting(Abono::getTurnoId).containsOnly(tienda.turnoAbierto().getId());
+        assertThat(partes).extracting(Abono::getDebeDespues).containsOnly(Dinero.de(30_000));
+        var arqueo = tienda.calcularArqueo.de(tienda.turnoAbierto());
+        assertThat(arqueo.abonosEfectivo()).isEqualTo(Dinero.de(20_000));
+        assertThat(arqueo.abonosTransferencia()).isEqualTo(Dinero.de(30_000));
+        assertThat(arqueo.esperado()).isEqualTo(Dinero.de(120_000));
+    }
+
+    @Test
+    @DisplayName("MIXTO con la misma llave dos veces: las mismas dos partes, sin abonos ni números de más")
+    void mixtoLlaveRepetida() {
+        tienda.abrir(100_000);
+        Cliente juan = conDeuda(80_000);
+        UUID llave = UUID.randomUUID();
+
+        java.util.List<Abono> primero = mixto(llave, juan, 50_000, 20_000, tienda.cajero);
+        java.util.List<Abono> segundo = mixto(llave, juan, 50_000, 20_000, tienda.cajero);
+
+        assertThat(segundo).extracting(Abono::getId).containsExactlyElementsOf(primero.stream().map(Abono::getId).toList());
+        assertThat(tienda.abonos.datos).hasSize(2);
+        assertThat(tienda.calcularArqueo.de(tienda.turnoAbierto()).esperado()).isEqualTo(Dinero.de(120_000));
+    }
+
+    @Test
+    @DisplayName("MIXTO sin turno, o con el turno de otro cajero, no se recibe: el efectivo no tiene a qué cajón entrar")
+    void mixtoSinTurnoPropio() {
+        Cliente juan = tienda.cliente("Juan Pérez", "1234567");
+        tienda.abrir(100_000);
+        tienda.fiar(juan, 80_000, 0);
+        Actor ines = tienda.usuarios.sembrar(ActoresDePrueba.cajero("Inés"));
+
+        assertThatThrownBy(() -> mixto(UUID.randomUUID(), juan, 50_000, 20_000, ines))
+                .isInstanceOf(TurnoAjenoException.class);
+        assertThatThrownBy(() -> mixto(UUID.randomUUID(), juan, 50_000, 50_000, tienda.cajero))
+                .isInstanceOf(ReglaDeNegocioException.class)
+                .hasMessage("En mixto, el efectivo es una parte: menos que el total");
+
+        tienda.cerrar(100_000);
+        assertThatThrownBy(() -> mixto(UUID.randomUUID(), juan, 50_000, 20_000, tienda.cajero))
+                .isInstanceOf(ReglaDeNegocioException.class)
+                .hasMessageContaining("no tiene a qué cajón entrar");
+        assertThat(tienda.abonos.datos).isEmpty();
+    }
+
+    @Test
+    @DisplayName("ANULAR UN MIXTO pedido por la transferencia anula las dos partes, devuelve la deuda y saca el efectivo del cajón")
+    void anularMixtoPorLaTransferencia() {
+        tienda.abrir(100_000);
+        Cliente juan = conDeuda(50_000);
+        java.util.List<Abono> partes = mixto(UUID.randomUUID(), juan, 50_000, 20_000, tienda.cajero);
+
+        tienda.anularAbono.ejecutar(partes.get(1).getId(), "Se registró mal", tienda.administrador);
+
+        assertThat(partes).allMatch(Abono::estaAnulado);
+        assertThat(tienda.calcularArqueo.de(tienda.turnoAbierto()).esperado()).isEqualTo(Dinero.de(100_000));
+        assertThat(tienda.deudas.debeDe(java.util.List.of(juan.getId()))).containsEntry(juan.getId(), Dinero.de(50_000));
+        assertThat(tienda.auditoria.eventos).filteredOn(e -> e.accion() == AccionAuditada.ANULAR_ABONO).hasSize(2)
+                .allSatisfy(e -> assertThat(e.motivo()).isEqualTo("Se registró mal"));
+        assertThatThrownBy(() -> tienda.anularAbono.ejecutar(partes.get(0).getId(), "otra vez", tienda.administrador))
+                .isInstanceOf(ReglaDeNegocioException.class)
+                .hasMessage("Este abono ya fue anulado");
+    }
+
+    @Test
+    @DisplayName("un MIXTO de un turno ya cerrado no se anula, ni pedido por la transferencia: su efectivo quedó en ese arqueo")
+    void mixtoDeUnTurnoCerrado() {
+        tienda.abrir(100_000);
+        Cliente juan = conDeuda(50_000);
+        java.util.List<Abono> partes = mixto(UUID.randomUUID(), juan, 50_000, 20_000, tienda.cajero);
+        tienda.cerrar(120_000);
+        tienda.abrir(0);
+
+        assertThatThrownBy(() -> tienda.anularAbono.ejecutar(partes.get(1).getId(), "Me equivoqué", tienda.administrador))
+                .isInstanceOf(ReglaDeNegocioException.class)
+                .hasMessage(com.workshopmanagement.rdmotors.clientes.aplicacion.AnularAbono.TURNO_CERRADO);
+        assertThat(partes).noneMatch(Abono::estaAnulado);
+    }
 }

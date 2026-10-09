@@ -1,6 +1,7 @@
 package com.workshopmanagement.rdmotors.clientes.aplicacion;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,6 +36,9 @@ import com.workshopmanagement.rdmotors.compartido.dominio.puerto.Reloj;
  *   <li>Se reparte: a lo más viejo, o primero a lo que el cliente diga que paga (una venta, o los productos que se
  *       marquen, spec 0016).</li>
  * </ol>
+ *
+ * <p><b>Mixto</b> (spec 0017): parte en efectivo y parte por transferencia, escrito sobre el total. Son dos abonos que
+ * nacen juntos, con el mismo pago: el efectivo entra al cajón y la transferencia no, cada uno como siempre.
  */
 @Transactional
 public class RegistrarAbono {
@@ -93,5 +97,63 @@ public class RegistrarAbono {
         // Las deudas primero: una aplicación no puede apuntar a una deuda que la base todavía no tiene.
         cartera.deudas().forEach(deudas::guardar);
         return abonos.guardar(abono);
+    }
+
+    /**
+     * Un abono mixto (spec 0017): del total, {@code efectivo} entra al cajón y lo demás llegó por transferencia. Se
+     * reparte como un solo pago, primero con el efectivo. El efectivo manda: hace falta el turno abierto de quien recibe,
+     * y las dos partes quedan en ese turno.
+     *
+     * @param referencia la de la transferencia, si se escribió
+     * @return las dos partes: primero la de efectivo, después la de transferencia
+     */
+    public List<Abono> ejecutarMixto(UUID llave, UUID clienteId, Dinero total, Dinero efectivo, String referencia,
+                                     String nota, List<UUID> primero, Actor actor) {
+        if (actor == null) {
+            throw new ReglaDeNegocioException("Al abono le falta quién lo recibe");
+        }
+        Abono.PartesDelMixto partes = Abono.partesDelMixto(total, efectivo);
+        Optional<List<Abono>> yaRecibido = elPagoDeLaLlave(llave);
+        if (yaRecibido.isPresent()) {
+            return yaRecibido.get();
+        }
+        TurnoCaja turno = turnos.abiertoParaMover().orElse(null);
+        if (turno != null) {
+            turno.exigirQuePuedaOperar(actor);
+        }
+        Cliente cliente = clientes.buscarParaModificar(clienteId)
+                .orElseThrow(() -> new ReglaDeNegocioException("Ese cliente no existe"));
+        yaRecibido = elPagoDeLaLlave(llave);
+        if (yaRecibido.isPresent()) {
+            return yaRecibido.get();
+        }
+
+        Instant ahora = reloj.ahora();
+        UUID pagoId = UUID.randomUUID();
+        UUID turnoId = turno == null ? null : turno.getId();
+        Abono enEfectivo = Abono.recibir(abonos.siguienteNumero(), cliente.getId(), partes.efectivo(),
+                FormaPago.EFECTIVO, null, nota, turnoId, actor.id(), llave, ahora, pagoId);
+        Abono porTransferencia = Abono.recibir(abonos.siguienteNumero(), cliente.getId(), partes.transferencia(),
+                FormaPago.TRANSFERENCIA, referencia, nota, turnoId, actor.id(),
+                llave == null ? null : Abono.llaveDeLaTransferencia(llave), ahora, pagoId);
+        CarteraDelCliente cartera = new CarteraDelCliente(cliente, deudas.delCliente(cliente.getId()),
+                abonos.delCliente(cliente.getId()));
+        cartera.abonar(List.of(enEfectivo, porTransferencia), primero == null ? List.of() : primero, ahora);
+
+        cartera.deudas().forEach(deudas::guardar);
+        return List.of(abonos.guardar(enEfectivo), abonos.guardar(porTransferencia));
+    }
+
+    /** Lo que ya se recibió con esa llave: el abono, o las partes de su pago si fue mixto. */
+    private Optional<List<Abono>> elPagoDeLaLlave(UUID llave) {
+        if (llave == null) {
+            return Optional.empty();
+        }
+        return abonos.buscarPorLlave(llave).map(abono -> abono.esParteDeUnPago()
+                ? abonos.delCliente(abono.getClienteId()).stream()
+                        .filter(a -> abono.getPagoId().equals(a.getPagoId()))
+                        .sorted(Comparator.comparingLong(Abono::getNumero))
+                        .toList()
+                : List.of(abono));
     }
 }

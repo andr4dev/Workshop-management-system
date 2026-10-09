@@ -4,10 +4,10 @@ import Boton from '../Boton'
 import { abonosApi } from '../../api/cliente'
 import { formatoCOP, idLocal, soloDigitos } from '../../utils/formato'
 import { llaveNueva } from '../../utils/venta'
-import { loMarcado, nombreDeLaDeuda, nombreDelProducto, paraAbonar } from '../../utils/cartera'
+import { loMarcado, nombreDeLaDeuda, nombreDelProducto, paraAbonar, problemaDelMixto } from '../../utils/cartera'
 import estilos from './ModalAbono.module.css'
 
-const FORMAS = [['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia']]
+const FORMAS = [['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia'], ['MIXTO', 'Mixto']]
 
 /**
  * El cliente abona lo que trae (spec 0008, H4 y RF-011 a RF-013).
@@ -16,6 +16,8 @@ const FORMAS = [['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia']]
  *   - Se aplica **a lo más viejo primero**, o primero a los productos que el cliente diga que paga (spec 0016): cada
  *     venta pendiente se ve con sus productos y lo que falta de cada uno; marcarlos llena el monto, que se puede
  *     cambiar. Si alcanza para menos, el último marcado queda a medias; si sobra, va a lo más viejo.
+ *   - **Mixto** (spec 0017): se escribe el total y cuánto de eso es en efectivo; lo demás es transferencia. Es un solo
+ *     pago con un solo recibo; lo marcado se paga con el total, primero con el efectivo.
  *   - Lleva llave: un doble clic no abona dos veces, y si la red se cae se reintenta el mismo abono.
  *
  * @param ficha la del cliente, como la devuelve el servidor
@@ -24,6 +26,7 @@ export default function ModalAbono({ ficha, onAbonado, onCerrar }) {
   const [llave] = useState(() => llaveNueva())
   const [monto, setMonto] = useState('')
   const [forma, setForma] = useState('EFECTIVO')
+  const [efectivo, setEfectivo] = useState('')
   const [referencia, setReferencia] = useState('')
   const [nota, setNota] = useState('')
   const [marcados, setMarcados] = useState([])
@@ -43,9 +46,12 @@ export default function ModalAbono({ ficha, onAbonado, onCerrar }) {
     setError(null)
   }
   const valor = Number(soloDigitos(monto)) || 0
+  const mixto = forma === 'MIXTO'
+  const enEfectivo = Number(soloDigitos(efectivo)) || 0
   const problema = valor <= 0 ? 'Escribe cuánto abona'
     : valor > ficha.debe ? `${ficha.cliente.nombre} debe ${formatoCOP(ficha.debe)}: no se le puede recibir más`
-      : null
+      : mixto ? problemaDelMixto(valor, enEfectivo)
+        : null
 
   async function abonar() {
     if (problema || enviando) return
@@ -57,7 +63,8 @@ export default function ModalAbono({ ficha, onAbonado, onCerrar }) {
         clienteId: ficha.cliente.id,
         monto: valor,
         forma,
-        referencia: forma === 'TRANSFERENCIA' && referencia.trim() ? referencia.trim() : null,
+        efectivo: mixto ? enEfectivo : null,
+        referencia: forma !== 'EFECTIVO' && referencia.trim() ? referencia.trim() : null,
         nota: nota.trim() || null,
         primero: marcado.ids,
       }))
@@ -120,9 +127,23 @@ export default function ModalAbono({ ficha, onAbonado, onCerrar }) {
         </div>
       </div>
 
-      {forma === 'TRANSFERENCIA' && (
+      {mixto && (
         <div className={estilos.campo}>
-          <label className={estilos.etiqueta} htmlFor={`abono-ref-${idSelector}`}>Referencia (opcional)</label>
+          <label className={estilos.etiqueta} htmlFor={`abono-efectivo-${idSelector}`}>Parte en efectivo</label>
+          <input id={`abono-efectivo-${idSelector}`} className={estilos.entrada} inputMode="numeric" value={efectivo}
+            onChange={(e) => { setEfectivo(soloDigitos(e.target.value)); setError(null) }} onKeyDown={alTeclear}
+            placeholder="0" autoComplete="off" disabled={enviando} />
+          <span className={estilos.marcado}>
+            Por transferencia: <strong>{formatoCOP(Math.max(0, valor - enEfectivo))}</strong>
+          </span>
+        </div>
+      )}
+
+      {forma !== 'EFECTIVO' && (
+        <div className={estilos.campo}>
+          <label className={estilos.etiqueta} htmlFor={`abono-ref-${idSelector}`}>
+            {mixto ? 'Referencia de la transferencia (opcional)' : 'Referencia (opcional)'}
+          </label>
           <input id={`abono-ref-${idSelector}`} className={estilos.entrada} value={referencia}
             onChange={(e) => setReferencia(e.target.value)} onKeyDown={alTeclear}
             placeholder="N.º de transacción" autoComplete="off" disabled={enviando} />

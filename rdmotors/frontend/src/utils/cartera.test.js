@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  agruparPorVenta, desdeCuandoEnPalabras, esDeudaVieja, fechaCorta, loMarcado, loQueSeLlevo, paraAbonar,
+  agruparPorVenta, desdeCuandoEnPalabras, esDeudaVieja, fechaCorta, formaDelPago, loMarcado, loQueSeLlevo,
+  pagosDeLaFicha, paraAbonar, problemaDelMixto,
   renglonesDelGrupo, nombreDeLaDeuda, problemasDeLaFicha,
   resumenDeLaCartera, textoPendientes,
 } from './cartera.js'
@@ -132,3 +133,40 @@ test('para abonar: lo pendiente, de lo más viejo a lo más nuevo, y lo marcado 
   assert.deepEqual(loMarcado(grupos, []), { ids: [], monto: 0 })
 })
 
+test('abono mixto (spec 0017): el efectivo es una parte del total, ni $0 ni todo', () => {
+  assert.equal(problemaDelMixto(70_000, 20_000), null)
+  assert.equal(problemaDelMixto(70_000, 0), 'Escribe cuánto es en efectivo')
+  assert.equal(problemaDelMixto(70_000, 70_000), 'En mixto, el efectivo es una parte: menos que el total')
+  assert.equal(problemaDelMixto(70_000, 90_000), 'En mixto, el efectivo es una parte: menos que el total')
+})
+
+test('la ficha junta las dos partes de un mixto en una línea: el total, las partes y lo aplicado por producto', () => {
+  const parte = (id, numero, forma, monto, aplicaciones, extra = {}) => ({
+    id, numero, forma, monto, pagoId: 'p-1', referencia: null, nota: null, recibidoEn: '2026-10-09T19:00:00Z',
+    recibidoPor: { nombre: 'Carolina' }, debeDespues: 6_000, anuladoEn: null, sinAplicar: 0, aplicaciones, ...extra,
+  })
+  const viejo = { id: 'a-1', numero: 1, forma: 'EFECTIVO', monto: 10_000, pagoId: null, aplicaciones: [], sinAplicar: 0 }
+  // Como las manda el servidor: de la más reciente a la más vieja (la transferencia, N.º 8, antes que el efectivo).
+  const pagos = pagosDeLaFicha([
+    parte('a-8', 8, 'TRANSFERENCIA', 50_000, [{ deudaId: 'd-motul', deuda: 'MOTUL', monto: 50_000, vigente: true }],
+      { referencia: 'REF-55' }),
+    parte('a-7', 7, 'EFECTIVO', 20_000, [
+      { deudaId: 'd-motul', deuda: 'MOTUL', monto: 9_000, vigente: true },
+      { deudaId: 'd-filtro', deuda: 'FILTRO', monto: 11_000, vigente: true },
+    ]),
+    viejo,
+  ])
+
+  assert.equal(pagos.length, 2)
+  const [mixto, solo] = pagos
+  assert.equal(mixto.id, 'a-7', 'lo que se haga con el pago va por la parte en efectivo')
+  assert.equal(mixto.numero, 7)
+  assert.equal(mixto.forma, 'MIXTO')
+  assert.equal(mixto.monto, 70_000)
+  assert.equal(mixto.referencia, 'REF-55')
+  assert.deepEqual(mixto.partes.map((p) => p.numero), [7, 8])
+  assert.deepEqual(mixto.aplicaciones.map((a) => `${a.deuda} ${a.monto}`), ['MOTUL 59000', 'FILTRO 11000'])
+  assert.equal(formaDelPago(mixto), `Mixto: efectivo ${formatoCOP(20_000)} + transferencia ${formatoCOP(50_000)} (N.º 8)`)
+  assert.equal(solo.id, 'a-1')
+  assert.equal(formaDelPago(solo), 'Efectivo')
+})

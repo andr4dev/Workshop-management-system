@@ -66,3 +66,32 @@ test('lo que queda a favor sale en el recibo, y un abono anulado se marca', () =
     tienda)
   assert.match(htmlDelRecibo(anulado), /ANULADO/)
 })
+
+test('el recibo de un abono mixto (spec 0017): el total, sus dos partes con su número, y que las partes den el total', () => {
+  const mixto = {
+    ...abono,
+    monto: 60_000,
+    forma: 'MIXTO',
+    referencia: 'REF-55',
+    partes: [
+      { id: 'a-7', numero: 7, forma: 'EFECTIVO', monto: 20_000, referencia: null },
+      { id: 'a-8', numero: 8, forma: 'TRANSFERENCIA', monto: 40_000, referencia: 'REF-55' },
+    ],
+  }
+  const recibo = armarRecibo(mixto, tienda)
+
+  assert.deepEqual(recibo.partes, [
+    { numero: 7, forma: 'Efectivo', monto: 20_000 },
+    { numero: 8, forma: 'Transferencia', monto: 40_000 },
+  ])
+  assert.deepEqual(problemasDelRecibo(recibo), [])
+  const html = htmlDelRecibo(recibo)
+  assert.match(html, /Abono mixto/)
+  assert.match(html, /Efectivo \(N\.º 7\)/)
+  assert.match(html, /Transferencia \(N\.º 8\)/)
+  assert.match(html, /Ref\. REF-55/)
+
+  const descuadrado = { ...recibo, partes: [{ numero: 7, forma: 'Efectivo', monto: 20_000 }, { numero: 8, forma: 'Transferencia', monto: 30_000 }] }
+  assert.equal(problemasDelRecibo(descuadrado).length, 1)
+  assert.equal(armarRecibo(abono, tienda).partes.length, 0, 'un abono de una forma no lleva partes')
+})
