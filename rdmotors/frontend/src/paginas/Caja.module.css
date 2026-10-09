@@ -222,6 +222,9 @@
   color: var(--text);
 }
 
+/* El cajón y las transferencias, uno debajo del otro: que no queden pegados. */
+.panel + .panel { margin-top: var(--esp-4); }
+
 @media (max-width: 1080px) {
   .columnas { grid-template-columns: minmax(0, 1fr); }
   .lateral { position: static; width: auto; }

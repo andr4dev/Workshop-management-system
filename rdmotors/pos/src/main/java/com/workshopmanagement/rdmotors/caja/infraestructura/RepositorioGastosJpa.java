@@ -1,6 +1,7 @@
 package com.workshopmanagement.rdmotors.caja.infraestructura;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,6 +22,7 @@ import com.workshopmanagement.rdmotors.caja.dominio.MovimientoRepetidoException;
 import com.workshopmanagement.rdmotors.caja.dominio.TotalesGastos;
 import com.workshopmanagement.rdmotors.caja.dominio.puerto.RepositorioGastos;
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
+import com.workshopmanagement.rdmotors.compartido.dominio.FormaPago;
 import com.workshopmanagement.rdmotors.compartido.dominio.Pagina;
 
 import jakarta.persistence.EntityManager;
@@ -111,6 +113,12 @@ class RepositorioGastosJpa implements RepositorioGastos {
         return jpa.delCajonEnTurno(turnoId);
     }
 
+    @Override
+    public List<Gasto> porTransferenciaEntre(Instant desde, Instant hasta) {
+        return jpa.porTransferenciaEntre(FormaPago.TRANSFERENCIA, desde,
+                hasta == null ? Instant.parse("9999-12-31T00:00:00Z") : hasta);
+    }
+
     private static Dinero pesos(Object valor) {
         return Dinero.de(new BigDecimal(valor.toString()));
     }
@@ -171,4 +179,13 @@ interface GastosSpringData extends JpaRepository<Gasto, UUID> {
             order by g.registradoEn, g.id
             """)
     List<Gasto> delCajonEnTurno(@Param("turnoId") UUID turnoId);
+
+    @Query("""
+            select g from Gasto g
+            join fetch g.categoria
+            where g.formaPago = :transferencia and g.registradoEn >= :desde and g.registradoEn < :hasta
+            order by g.registradoEn, g.id
+            """)
+    List<Gasto> porTransferenciaEntre(@Param("transferencia") FormaPago transferencia,
+                                      @Param("desde") Instant desde, @Param("hasta") Instant hasta);
 }

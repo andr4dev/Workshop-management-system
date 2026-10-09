@@ -136,6 +136,25 @@ public final class CorreoDelCierre {
         fila(s, "Contaron", pesos(c.contado()));
         s.append("  ").append(diferenciaEnPalabras(c.diferencia()).toUpperCase()).append("\n\n");
 
+        DetalleTurno.Transferencias tr = t.transferencias();
+        if (tr != null) {
+            s.append("TRANSFERENCIAS · LA CUENTA\n");
+            if (tr.saldoInicial() != null) fila(s, "Arrancó con", pesos(tr.saldoInicial()));
+            fila(s, "+ Ventas por transferencia", pesos(tr.ventas()));
+            filaSiHay(s, "+ Abonos por transferencia", pesos(tr.abonos()));
+            filaSiHay(s, "+ Pasado del cajón", pesos(tr.desdeElCajon()));
+            filaSiHay(s, "− Devuelto por anuladas", pesos(tr.devoluciones()));
+            filaSiHay(s, "− Compras por transferencia", pesos(tr.compras()));
+            filaSiHay(s, "− Gastos por transferencia", pesos(tr.gastos()));
+            filaSiHay(s, "− Sacado de la cuenta", pesos(tr.retiros()));
+            if (tr.esperado() != null) fila(s, "Debería haber", pesos(tr.esperado()));
+            if (tr.contado() != null) fila(s, "La cuenta dice", pesos(tr.contado()));
+            if (tr.diferencia() != null) {
+                s.append("  ").append(diferenciaEnPalabras(tr.diferencia()).toUpperCase()).append('\n');
+            }
+            s.append('\n');
+        }
+
         if (!x.salidas().isEmpty()) {
             s.append("LO QUE SALIÓ DEL CAJÓN\n");
             x.salidas().forEach(linea -> s.append("  ").append(linea).append('\n'));
@@ -214,6 +233,31 @@ public final class CorreoDelCierre {
         if (!c.comprasCajon().esCero()) cajon.add(fila("Compras pagadas del cajón", "−", pesos(c.comprasCajon()), false));
         tabla(h, cajon, "Debería haber", pesos(c.esperado()));
         tabla(h, List.<String[]>of(fila("Contaron", "", pesos(c.contado()), false)), "Diferencia", pesos(c.diferencia()));
+
+        // 5 · La cuenta de transferencias (2026-10-09).
+        DetalleTurno.Transferencias tr = t.transferencias();
+        if (tr != null) {
+            seccion(h, "Transferencias · la cuenta", tr.esperado() == null ? null : formato(pesos(tr.esperado())),
+                    tr.saldoInicial() == null ? "No se anotó con cuánto arrancó la cuenta." : null);
+            List<String[]> cuenta = new ArrayList<>();
+            if (tr.saldoInicial() != null) cuenta.add(fila("Arrancó con", "", pesos(tr.saldoInicial()), false));
+            cuenta.add(fila("Ventas por transferencia", "+", pesos(tr.ventas()), false));
+            if (!tr.abonos().esCero()) cuenta.add(fila("Abonos por transferencia", "+", pesos(tr.abonos()), false));
+            if (!tr.desdeElCajon().esCero()) cuenta.add(fila("Pasado del cajón", "+", pesos(tr.desdeElCajon()), false));
+            if (!tr.devoluciones().esCero()) cuenta.add(fila("Devuelto por ventas anuladas", "−", pesos(tr.devoluciones()), false));
+            if (!tr.compras().esCero()) cuenta.add(fila("Compras por transferencia", "−", pesos(tr.compras()), false));
+            if (!tr.gastos().esCero()) cuenta.add(fila("Gastos por transferencia", "−", pesos(tr.gastos()), false));
+            if (!tr.retiros().esCero()) cuenta.add(fila("Sacado de la cuenta", "−", pesos(tr.retiros()), false));
+            if (tr.esperado() != null) {
+                tabla(h, cuenta, "Debería haber", pesos(tr.esperado()));
+            } else {
+                tabla(h, cuenta, null, 0);
+            }
+            if (tr.contado() != null && tr.diferencia() != null) {
+                tabla(h, List.<String[]>of(fila("La cuenta dice", "", pesos(tr.contado()), false)), "Diferencia",
+                        pesos(tr.diferencia()));
+            }
+        }
 
         if (!x.salidas().isEmpty()) {
             seccion(h, "Lo que salió del cajón", null, null);

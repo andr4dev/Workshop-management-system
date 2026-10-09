@@ -252,6 +252,15 @@
   white-space: nowrap;
 }
 .resta td:last-child { color: var(--text-muted); }
+/* El título de la parte de transferencias dentro del cierre, debajo del cajón. */
+.subtitulo {
+  margin: var(--esp-4) 0 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+/* Una compra o gasto anulado sigue en la lista de la cuenta de transferencias, pero no restó. */
+.anulado td { color: var(--text-faint); text-decoration: line-through; }
+.desglose + .desglose { margin-top: var(--esp-3); }
 .desgloseTotal td {
   padding-top: var(--esp-2);
   border-top: 2px solid var(--border-strong);

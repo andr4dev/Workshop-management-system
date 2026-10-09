@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 
 import com.workshopmanagement.rdmotors.caja.aplicacion.PagarComisionDeCambio;
 import com.workshopmanagement.rdmotors.caja.aplicacion.AbrirTurno;
+import com.workshopmanagement.rdmotors.caja.aplicacion.AnotarSaldoTransferencias;
 import com.workshopmanagement.rdmotors.caja.aplicacion.ActualizarCategoriaGasto;
 import com.workshopmanagement.rdmotors.caja.aplicacion.AnularGasto;
 import com.workshopmanagement.rdmotors.caja.aplicacion.AnularRetiro;
@@ -248,6 +249,11 @@ class ConfiguracionCasosDeUso {
     @Bean
     AbrirTurno abrirTurno(RepositorioTurnos turnos, Reloj reloj) {
         return new AbrirTurno(turnos, reloj);
+    }
+
+    @Bean
+    AnotarSaldoTransferencias anotarSaldoTransferencias(RepositorioTurnos turnos) {
+        return new AnotarSaldoTransferencias(turnos);
     }
 
     @Bean

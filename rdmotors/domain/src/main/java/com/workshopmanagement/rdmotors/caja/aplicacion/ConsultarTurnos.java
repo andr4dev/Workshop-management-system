@@ -87,15 +87,25 @@ public class ConsultarTurnos {
         List<Gasto> gastosDelCajon = gastos.delCajonEnTurno(id);
         List<Retiro> retirosDelTurno = retiros.delTurno(id);
         List<Abono> abonosDelTurno = abonos.delTurno(id);
+        List<Gasto> gastosPorTransferencia = arqueo.gastosPorTransferenciaDe(turno);
         Map<UUID, String> deQuien = clientes.deIds(abonosDelTurno.stream().map(Abono::getClienteId).distinct().toList())
                 .stream().collect(java.util.stream.Collectors.toMap(Cliente::getId, Cliente::getNombre));
         // Los nombres de todos los que aparecen en el turno, en una sola consulta (spec 0004, RF-022).
         Map<UUID, String> nombres = usuarios.nombresDe(Stream.of(
                         Stream.of(turno.getAbiertoPorId(), turno.getCerradoPorId()),
                         gastosDelCajon.stream().flatMap(g -> Stream.of(g.getRegistradoPorId(), g.getAnuladoPorId())),
+                        gastosPorTransferencia.stream()
+                                .flatMap(g -> Stream.of(g.getRegistradoPorId(), g.getAnuladoPorId())),
                         retirosDelTurno.stream().flatMap(r -> Stream.of(r.getRegistradoPorId(), r.getAnuladoPorId())),
                         abonosDelTurno.stream().flatMap(a -> Stream.of(a.getRecibidoPorId(), a.getAnuladoPorId())))
                 .flatMap(s -> s).filter(Objects::nonNull).toList());
+        // La cuenta de transferencias (2026-10-09): en vivo si está abierto; si cerró, la foto del cierre.
+        List<DetalleTurno.CompraDeCaja> comprasTransf = arqueo.comprasPorTransferenciaDe(turno).stream()
+                .map(DetalleTurno.CompraDeCaja::de).toList();
+        List<DetalleGasto> gastosTransf = gastosPorTransferencia.stream().map(g -> DetalleGasto.de(g, nombres)).toList();
+        DetalleTurno.Transferencias transferencias = turno.estaAbierto()
+                ? DetalleTurno.Transferencias.enVivo(arqueo.transferenciasDe(turno), comprasTransf, gastosTransf)
+                : DetalleTurno.Transferencias.delCierre(turno, comprasTransf, gastosTransf);
         return DetalleTurno.de(turno, turno.estaAbierto() ? arqueo.de(turno) : null,
                 gastosDelCajon.stream().map(g -> DetalleGasto.de(g, nombres)).toList(),
                 retirosDelTurno.stream().map(r -> DetalleTurno.DetalleRetiro.de(r, nombres)).toList(),
@@ -108,6 +118,7 @@ public class ConsultarTurnos {
                 abonosDelTurno.stream()
                         .map(a -> DetalleTurno.AbonoDelTurno.de(a, deQuien.getOrDefault(a.getClienteId(), "—"), nombres))
                         .toList(),
+                transferencias,
                 nombres);
     }
 }

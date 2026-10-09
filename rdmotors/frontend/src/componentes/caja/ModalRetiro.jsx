@@ -3,8 +3,11 @@ import Modal from '../Modal'
 import Boton from '../Boton'
 import Campo from '../Campo'
 import AvisoConfirmarMonto from './AvisoConfirmarMonto'
+import Segmento from './Segmento'
 import { retirosApi } from '../../api/cliente'
-import { comandoDelRetiro, montoDesdeTexto, problemasDelRetiro, sinProblemas } from '../../utils/gastos'
+import {
+  comandoDelRetiro, montoDesdeTexto, problemasDelRetiro, sinProblemas, TIPOS_DE_RETIRO,
+} from '../../utils/gastos'
 import { formatoCOP } from '../../utils/formato'
 import { llaveNueva } from '../../utils/venta'
 import estilos from './Caja.module.css'
@@ -17,7 +20,7 @@ import estilos from './Caja.module.css'
  */
 export default function ModalRetiro({ onRegistrado, onCerrar }) {
   const [llave] = useState(() => llaveNueva())
-  const [retiro, setRetiro] = useState({ monto: '', motivo: '' })
+  const [retiro, setRetiro] = useState({ monto: '', motivo: '', tipo: 'DEL_CAJON' })
   const [intentoRegistrar, setIntentoRegistrar] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
@@ -62,9 +65,15 @@ export default function ModalRetiro({ onRegistrado, onCerrar }) {
       }
     >
       <div className={estilos.formulario}>
-        <p className={estilos.nota}>
-          Plata que sale del cajón sin ser un gasto: el dueño se la lleva, o va a la caja fuerte. Resta al cerrar.
-        </p>
+        <Campo etiqueta="De dónde sale" requerido>
+          <Segmento
+            etiqueta="De dónde sale"
+            valor={retiro.tipo}
+            opciones={TIPOS_DE_RETIRO.map(([valor, texto]) => [valor, texto])}
+            onCambio={(tipo) => cambiar({ tipo })}
+          />
+        </Campo>
+        <p className={estilos.nota}>{TIPOS_DE_RETIRO.find(([valor]) => valor === retiro.tipo)?.[2]}</p>
         <Campo
           etiqueta="Monto"
           requerido

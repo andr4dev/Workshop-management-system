@@ -1,14 +1,19 @@
 package com.workshopmanagement.rdmotors.caja.aplicacion;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import com.workshopmanagement.rdmotors.caja.dominio.ArqueoDeTurno;
+import com.workshopmanagement.rdmotors.caja.dominio.CuadreDeTransferencias;
+import com.workshopmanagement.rdmotors.caja.dominio.Gasto;
 import com.workshopmanagement.rdmotors.caja.dominio.MasDeLoQueDeberiaHaberException;
 import com.workshopmanagement.rdmotors.caja.dominio.TurnoCaja;
 import com.workshopmanagement.rdmotors.caja.dominio.puerto.RepositorioGastos;
 import com.workshopmanagement.rdmotors.caja.dominio.puerto.RepositorioRetiros;
 import com.workshopmanagement.rdmotors.clientes.dominio.puerto.RepositorioAbonos;
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
+import com.workshopmanagement.rdmotors.compras.dominio.Compra;
 import com.workshopmanagement.rdmotors.compras.dominio.puerto.RepositorioCompras;
 import com.workshopmanagement.rdmotors.ventas.dominio.puerto.RepositorioVentas;
 
@@ -43,6 +48,29 @@ public class CalcularArqueo {
         UUID id = turno.getId();
         return ArqueoDeTurno.calcular(turno, ventas.delTurno(id), ventas.anuladasEnTurno(id),
                 gastos.delCajonEnTurno(id), retiros.delTurno(id), compras.deCajaEnTurno(id), abonos.delTurno(id));
+    }
+
+    /**
+     * Lo que debería haber en la cuenta de transferencias del turno (2026-10-09). Las compras y los gastos por
+     * transferencia son los que se registraron mientras el turno estuvo abierto.
+     */
+    public CuadreDeTransferencias transferenciasDe(TurnoCaja turno) {
+        UUID id = turno.getId();
+        Instant hasta = turno.getCerradoEn();
+        return CuadreDeTransferencias.calcular(turno, ventas.delTurno(id), ventas.anuladasEnTurno(id),
+                abonos.delTurno(id), retiros.delTurno(id),
+                compras.porTransferenciaEntre(turno.getAbiertoEn(), hasta),
+                gastos.porTransferenciaEntre(turno.getAbiertoEn(), hasta));
+    }
+
+    /** Las compras por transferencia del turno, para ver de dónde salió la plata de la cuenta. */
+    public List<Compra> comprasPorTransferenciaDe(TurnoCaja turno) {
+        return compras.porTransferenciaEntre(turno.getAbiertoEn(), turno.getCerradoEn());
+    }
+
+    /** Los gastos por transferencia del turno, para ver de dónde salió la plata de la cuenta. */
+    public List<Gasto> gastosPorTransferenciaDe(TurnoCaja turno) {
+        return gastos.porTransferenciaEntre(turno.getAbiertoEn(), turno.getCerradoEn());
     }
 
     /**

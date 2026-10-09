@@ -13,6 +13,7 @@ import com.workshopmanagement.rdmotors.caja.aplicacion.AnularRetiro;
 import com.workshopmanagement.rdmotors.caja.aplicacion.RegistrarRetiro;
 import com.workshopmanagement.rdmotors.caja.dominio.MovimientoRepetidoException;
 import com.workshopmanagement.rdmotors.caja.dominio.Retiro;
+import com.workshopmanagement.rdmotors.caja.dominio.TipoRetiro;
 import com.workshopmanagement.rdmotors.caja.dominio.puerto.RepositorioRetiros;
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
 
@@ -39,7 +40,7 @@ class RetiroController {
         try {
             Retiro retiro = registrarRetiro.ejecutar(peticion.llave(),
                     peticion.monto() == null ? null : Dinero.de(peticion.monto()), peticion.motivo(),
-                    peticion.confirmado(), actor);
+                    peticion.tipo() == null ? TipoRetiro.DEL_CAJON : peticion.tipo(), peticion.confirmado(), actor);
             return ResponseEntity.status(HttpStatus.CREATED).body(RespuestaRetiro.de(retiro));
         } catch (MovimientoRepetidoException e) {
             return ResponseEntity.ok(RespuestaRetiro.de(retiros.buscarPorLlave(e.getLlave()).orElseThrow()));
@@ -52,18 +53,19 @@ class RetiroController {
         return RespuestaRetiro.de(anularRetiro.ejecutar(id, peticion.motivo(), actor));
     }
 
-    record PeticionRetiro(@NotNull UUID llave, Long monto, String motivo, boolean confirmado) {
+    /** @param tipo de dónde sale la plata; sin tipo, del cajón (2026-10-09) */
+    record PeticionRetiro(@NotNull UUID llave, Long monto, String motivo, boolean confirmado, TipoRetiro tipo) {
     }
 
     record PeticionAnulacion(String motivo) {
     }
 
-    record RespuestaRetiro(UUID id, UUID turnoId, long monto, String motivo, Instant registradoEn,
+    record RespuestaRetiro(UUID id, UUID turnoId, long monto, String motivo, TipoRetiro tipo, Instant registradoEn,
                            UUID registradoPorId, Instant anuladoEn, String motivoAnulacion) {
         static RespuestaRetiro de(Retiro r) {
             return new RespuestaRetiro(r.getId(), r.getTurnoId(), r.getMonto().valor().longValueExact(),
-                    r.getMotivo(), r.getRegistradoEn(), r.getRegistradoPorId(), r.getAnuladoEn(),
-                    r.getMotivoAnulacion());
+                    r.getMotivo(), r.getTipo() == null ? TipoRetiro.DEL_CAJON : r.getTipo(), r.getRegistradoEn(),
+                    r.getRegistradoPorId(), r.getAnuladoEn(), r.getMotivoAnulacion());
         }
     }
 }

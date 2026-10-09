@@ -1,5 +1,6 @@
 package com.workshopmanagement.rdmotors.compras.infraestructura;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -67,6 +68,14 @@ class RepositorioComprasJpa implements RepositorioCompras {
     public List<Compra> deCajaEnTurno(UUID turnoId) {
         return jpa.deCajaEnTurno(turnoId);
     }
+
+    @Override
+    public List<Compra> porTransferenciaEntre(Instant desde, Instant hasta) {
+        return jpa.porTransferenciaEntre(FormaPago.TRANSFERENCIA, desde, hasta == null ? SIN_LIMITE : hasta);
+    }
+
+    /** "Sin límite" para la base: un instante que ningún registro alcanza. */
+    private static final Instant SIN_LIMITE = Instant.parse("9999-12-31T00:00:00Z");
 
     @Override
     public List<LineaCompra> lineasVigentesDe(Collection<UUID> compraIds) {
@@ -277,6 +286,15 @@ interface ComprasSpringData extends JpaRepository<Compra, UUID> {
             order by c.fechaRegistro, c.id
             """)
     List<Compra> deCajaEnTurno(@Param("turnoId") UUID turnoId);
+
+    @Query("""
+            select c from Compra c
+            join fetch c.proveedor
+            where c.formaPago = :transferencia and c.fechaRegistro >= :desde and c.fechaRegistro < :hasta
+            order by c.fechaRegistro, c.id
+            """)
+    List<Compra> porTransferenciaEntre(@Param("transferencia") FormaPago transferencia,
+                                       @Param("desde") Instant desde, @Param("hasta") Instant hasta);
 
     /** Los renglones vigentes de varias compras, con repuesto y concepto: una consulta por página. */
     @Query("""

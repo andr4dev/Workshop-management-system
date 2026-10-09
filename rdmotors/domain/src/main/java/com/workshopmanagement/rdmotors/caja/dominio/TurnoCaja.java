@@ -119,6 +119,53 @@ public class TurnoCaja {
     @Column(name = "observaciones", length = LARGO_OBSERVACIONES)
     private String observaciones;
 
+    // ── La cuenta de transferencias (2026-10-09): con cuánto arrancó, y su cuadre al cerrar ─────────────────
+
+    /** Con cuánto arrancó la cuenta de transferencias; {@code null} si no se anotó. */
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "saldo_transferencias"))
+    private Dinero saldoTransferencias;
+
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "transf_ventas"))
+    private Dinero transfVentas;
+
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "transf_abonos"))
+    private Dinero transfAbonos;
+
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "transf_desde_cajon"))
+    private Dinero transfDesdeCajon;
+
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "transf_devoluciones"))
+    private Dinero transfDevoluciones;
+
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "transf_compras"))
+    private Dinero transfCompras;
+
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "transf_gastos"))
+    private Dinero transfGastos;
+
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "transf_retiros"))
+    private Dinero transfRetiros;
+
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "transf_esperado"))
+    private Dinero transfEsperado;
+
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "transf_contado"))
+    private Dinero transfContado;
+
+    @Embedded
+    @AttributeOverride(name = "monto", column = @Column(name = "transf_diferencia"))
+    private Dinero transfDiferencia;
+
     protected TurnoCaja() {
         // JPA
     }
@@ -139,6 +186,42 @@ public class TurnoCaja {
      * índice único.
      */
     public static TurnoCaja abrir(Dinero fondo, UUID usuarioId, Instant cuando) {
+        return abrir(fondo, null, usuarioId, cuando);
+    }
+
+    /** @param saldoTransferencias con cuánto arranca la cuenta de transferencias; {@code null} si no se sabe */
+    public static TurnoCaja abrir(Dinero fondo, Dinero saldoTransferencias, UUID usuarioId, Instant cuando) {
+        exigirSaldoTransferencias(saldoTransferencias);
+        TurnoCaja turno = abrirSoloElCajon(fondo, usuarioId, cuando);
+        turno.saldoTransferencias = saldoTransferencias;
+        return turno;
+    }
+
+    private static void exigirSaldoTransferencias(Dinero saldo) {
+        if (saldo != null && saldo.esNegativo()) {
+            throw new ReglaDeNegocioException("El saldo de las transferencias no puede ser negativo");
+        }
+    }
+
+    /**
+     * Anota con cuánto arrancó la cuenta de transferencias en un turno que se abrió sin eso. Una sola vez: después ya
+     * es la base del cuadre.
+     */
+    public void anotarSaldoTransferencias(Dinero saldo) {
+        if (!estaAbierto()) {
+            throw new ReglaDeNegocioException("El saldo de las transferencias se anota con el turno abierto");
+        }
+        if (saldoTransferencias != null) {
+            throw new ReglaDeNegocioException("Este turno ya tiene anotado con cuánto arrancaron las transferencias");
+        }
+        if (saldo == null) {
+            throw new ReglaDeNegocioException("Escribe con cuánto arrancó la cuenta, aunque sea $0");
+        }
+        exigirSaldoTransferencias(saldo);
+        this.saldoTransferencias = saldo;
+    }
+
+    private static TurnoCaja abrirSoloElCajon(Dinero fondo, UUID usuarioId, Instant cuando) {
         if (fondo == null) {
             throw new ReglaDeNegocioException("Escribe con cuánto arranca el cajón, aunque sea $0");
         }
@@ -193,6 +276,42 @@ public class TurnoCaja {
      * puede entrar entre el cálculo y el cierre.
      */
     public void cerrar(ArqueoDeTurno arqueo, Dinero contado, UUID usuarioId, Instant cuando) {
+        cerrar(arqueo, contado, null, null, usuarioId, cuando);
+    }
+
+    /**
+     * Cierra con lo contado en el cajón y, si se trae, el cuadre de las transferencias con lo que dice la cuenta.
+     *
+     * @param transferencias        el cuadre del turno; {@code null} = no se cuadran las transferencias
+     * @param contadoTransferencias lo que dice la cuenta al cerrar; {@code null} si no se miró
+     */
+    public void cerrar(ArqueoDeTurno arqueo, Dinero contado, CuadreDeTransferencias transferencias,
+                       Dinero contadoTransferencias, UUID usuarioId, Instant cuando) {
+        if (contadoTransferencias != null && contadoTransferencias.esNegativo()) {
+            throw new ReglaDeNegocioException("Lo que dice la cuenta de transferencias no puede ser negativo");
+        }
+        cerrarElCajon(arqueo, contado, usuarioId, cuando);
+        if (transferencias != null) {
+            this.transfVentas = transferencias.ventas();
+            this.transfAbonos = transferencias.abonos();
+            this.transfDesdeCajon = transferencias.desdeElCajon();
+            this.transfDevoluciones = transferencias.devoluciones();
+            this.transfCompras = transferencias.compras();
+            this.transfGastos = transferencias.gastos();
+            this.transfRetiros = transferencias.retiros();
+            this.transfEsperado = transferencias.esperado();
+            this.transfContado = contadoTransferencias;
+            this.transfDiferencia = transfEsperado == null || contadoTransferencias == null ? null
+                    : contadoTransferencias.menos(transfEsperado);
+        }
+    }
+
+    /** ¿Lo que dice la cuenta de transferencias no cuadró con lo que debería haber? */
+    public boolean tieneDiferenciaEnTransferencias() {
+        return transfDiferencia != null && !transfDiferencia.esCero();
+    }
+
+    private void cerrarElCajon(ArqueoDeTurno arqueo, Dinero contado, UUID usuarioId, Instant cuando) {
         if (!estaAbierto()) {
             throw new TurnoYaCerradoException(id, cerradoEn, cerradoPorId);
         }
@@ -262,6 +381,11 @@ public class TurnoCaja {
         foto.put("esperado", pesos(esperado));
         foto.put("contado", pesos(contado));
         foto.put("diferencia", pesos(diferencia));
+        if (transfEsperado != null || transfContado != null) {
+            foto.put("transferenciasEsperado", pesos(transfEsperado));
+            foto.put("transferenciasContado", pesos(transfContado));
+            foto.put("transferenciasDiferencia", pesos(transfDiferencia));
+        }
         foto.put("cerradoPorId", cerradoPorId);
         return foto;
     }

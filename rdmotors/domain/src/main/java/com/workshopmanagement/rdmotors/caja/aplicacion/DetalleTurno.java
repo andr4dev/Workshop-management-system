@@ -7,8 +7,10 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.workshopmanagement.rdmotors.caja.dominio.ArqueoDeTurno;
+import com.workshopmanagement.rdmotors.caja.dominio.CuadreDeTransferencias;
 import com.workshopmanagement.rdmotors.caja.dominio.EstadoTurno;
 import com.workshopmanagement.rdmotors.caja.dominio.Retiro;
+import com.workshopmanagement.rdmotors.caja.dominio.TipoRetiro;
 import com.workshopmanagement.rdmotors.caja.dominio.TurnoCaja;
 import com.workshopmanagement.rdmotors.clientes.dominio.Abono;
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
@@ -46,7 +48,38 @@ public record DetalleTurno(
         List<CompraDeCaja> compras,
         List<VentaDelTurno> ventas,
         List<VentaDelTurno> anuladasDeOtrosTurnos,
-        List<AbonoDelTurno> abonos) {
+        List<AbonoDelTurno> abonos,
+        Transferencias transferencias) {
+
+    /**
+     * La cuenta de transferencias del turno (2026-10-09): en vivo si está abierto, la foto del cierre si ya cerró, y
+     * {@code null} en un turno que se cerró antes de que existiera. Trae las compras y gastos por transferencia del
+     * turno: de dónde salió la plata.
+     *
+     * @param saldoInicial {@code null} si el turno no anotó con cuánto arrancó la cuenta
+     * @param esperado     {@code null} sin saldo inicial
+     * @param contado      lo que decía la cuenta al cerrar; {@code null} abierto, o si no se miró
+     */
+    public record Transferencias(Dinero saldoInicial, Dinero ventas, Dinero abonos, Dinero desdeElCajon,
+                                 Dinero devoluciones, Dinero compras, Dinero gastos, Dinero retiros, Dinero esperado,
+                                 Dinero contado, Dinero diferencia, List<CompraDeCaja> comprasPorTransferencia,
+                                 List<DetalleGasto> gastosPorTransferencia) {
+
+        static Transferencias enVivo(CuadreDeTransferencias c, List<CompraDeCaja> compras, List<DetalleGasto> gastos) {
+            return new Transferencias(c.saldoInicial(), c.ventas(), c.abonos(), c.desdeElCajon(), c.devoluciones(),
+                    c.compras(), c.gastos(), c.retiros(), c.esperado(), null, null, compras, gastos);
+        }
+
+        static Transferencias delCierre(TurnoCaja t, List<CompraDeCaja> compras, List<DetalleGasto> gastos) {
+            if (t.getTransfVentas() == null) {
+                return null;
+            }
+            return new Transferencias(t.getSaldoTransferencias(), t.getTransfVentas(), t.getTransfAbonos(),
+                    t.getTransfDesdeCajon(), t.getTransfDevoluciones(), t.getTransfCompras(), t.getTransfGastos(),
+                    t.getTransfRetiros(), t.getTransfEsperado(), t.getTransfContado(), t.getTransfDiferencia(),
+                    compras, gastos);
+        }
+    }
 
     /** Las cifras firmadas al cerrar. Las partes suman {@code esperado}; {@code diferencia = contado − esperado}. */
     public record Cierre(Dinero ventasEfectivo, Dinero ventasTransferencia, Dinero ventasFiado, Dinero descuentos,
@@ -92,11 +125,13 @@ public record DetalleTurno(
         }
     }
 
-    public record DetalleRetiro(UUID id, Dinero monto, String motivo, Instant registradoEn, Persona registradoPor,
-                                Instant anuladoEn, Persona anuladoPor, String motivoAnulacion) {
+    /** @param tipo de dónde salió: del cajón, del cajón a las transferencias, o de las transferencias */
+    public record DetalleRetiro(UUID id, Dinero monto, String motivo, TipoRetiro tipo, Instant registradoEn,
+                                Persona registradoPor, Instant anuladoEn, Persona anuladoPor, String motivoAnulacion) {
 
         static DetalleRetiro de(Retiro r, Map<UUID, String> nombres) {
-            return new DetalleRetiro(r.getId(), r.getMonto(), r.getMotivo(), r.getRegistradoEn(),
+            return new DetalleRetiro(r.getId(), r.getMonto(), r.getMotivo(),
+                    r.getTipo() == null ? TipoRetiro.DEL_CAJON : r.getTipo(), r.getRegistradoEn(),
                     Persona.de(r.getRegistradoPorId(), nombres), r.getAnuladoEn(),
                     Persona.de(r.getAnuladoPorId(), nombres), r.getMotivoAnulacion());
         }
@@ -137,10 +172,10 @@ public record DetalleTurno(
     static DetalleTurno de(TurnoCaja t, ArqueoDeTurno enVivo, List<DetalleGasto> gastos, List<DetalleRetiro> retiros,
                            List<CompraDeCaja> compras, List<VentaDelTurno> ventas,
                            List<VentaDelTurno> anuladasDeOtrosTurnos, List<AbonoDelTurno> abonos,
-                           Map<UUID, String> nombres) {
+                           Transferencias transferencias, Map<UUID, String> nombres) {
         return new DetalleTurno(t.getId(), t.getEstado(), t.getFondo(), t.getAbiertoEn(),
                 Persona.de(t.getAbiertoPorId(), nombres), t.getCerradoEn(), Persona.de(t.getCerradoPorId(), nombres),
                 Cierre.de(t), Arqueo.de(enVivo), t.getObservaciones(), gastos,
-                retiros, compras, ventas, anuladasDeOtrosTurnos, abonos);
+                retiros, compras, ventas, anuladasDeOtrosTurnos, abonos, transferencias);
     }
 }

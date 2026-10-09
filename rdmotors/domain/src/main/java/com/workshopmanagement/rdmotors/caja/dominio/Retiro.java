@@ -56,6 +56,11 @@ public class Retiro {
     @Column(name = "llave_idempotencia", nullable = false, updatable = false)
     private UUID llaveIdempotencia;
 
+    /** De dónde sale: del cajón, del cajón a la cuenta de transferencias, o de la cuenta (2026-10-09). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo", nullable = false, updatable = false, length = 20)
+    private TipoRetiro tipo;
+
     @Column(name = "anulado_en")
     private Instant anuladoEn;
 
@@ -71,6 +76,12 @@ public class Retiro {
 
     public static Retiro registrar(UUID turnoId, Dinero monto, String motivo, UUID usuarioId, UUID llave,
                                    Instant cuando) {
+        return registrar(turnoId, monto, motivo, TipoRetiro.DEL_CAJON, usuarioId, llave, cuando);
+    }
+
+    /** @param tipo de dónde sale la plata; sin tipo, del cajón */
+    public static Retiro registrar(UUID turnoId, Dinero monto, String motivo, TipoRetiro tipo, UUID usuarioId,
+                                   UUID llave, Instant cuando) {
         if (turnoId == null) {
             throw new SinTurnoAbiertoException("No hay un turno abierto. Ábrelo en Vender para registrar un retiro.");
         }
@@ -95,7 +106,13 @@ public class Retiro {
         retiro.registradoPorId = usuarioId;
         retiro.registradoEn = cuando;
         retiro.llaveIdempotencia = llave;
+        retiro.tipo = tipo == null ? TipoRetiro.DEL_CAJON : tipo;
         return retiro;
+    }
+
+    /** ¿Resta en el cajón? Un retiro de la cuenta de transferencias no toca el efectivo. */
+    public boolean saleDelCajon() {
+        return tipo == null || tipo.saleDelCajon();
     }
 
     /** Que su turno siga abierto lo exige quien anula, con el turno bloqueado. */
@@ -120,6 +137,7 @@ public class Retiro {
         Map<String, Object> foto = new LinkedHashMap<>();
         foto.put("monto", monto.valor().longValueExact());
         foto.put("motivo", motivo);
+        foto.put("tipo", (tipo == null ? TipoRetiro.DEL_CAJON : tipo).name());
         foto.put("turnoId", turnoId);
         foto.put("anulado", estaAnulado());
         if (estaAnulado()) {

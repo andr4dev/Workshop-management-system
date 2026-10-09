@@ -15,11 +15,13 @@ import com.workshopmanagement.rdmotors.compartido.dominio.Actor;
 import com.workshopmanagement.rdmotors.compartido.dominio.Persona;
 import com.workshopmanagement.rdmotors.compartido.infraestructura.seguridad.ActorActual;
 import com.workshopmanagement.rdmotors.caja.aplicacion.AbrirTurno;
+import com.workshopmanagement.rdmotors.caja.aplicacion.AnotarSaldoTransferencias;
 import com.workshopmanagement.rdmotors.caja.aplicacion.CerrarTurno;
 import com.workshopmanagement.rdmotors.caja.aplicacion.ConsultarTurnos;
 import com.workshopmanagement.rdmotors.caja.aplicacion.DetalleTurno;
 import com.workshopmanagement.rdmotors.caja.aplicacion.EscribirObservaciones;
 import com.workshopmanagement.rdmotors.caja.dominio.EstadoTurno;
+import com.workshopmanagement.rdmotors.caja.dominio.TipoRetiro;
 import com.workshopmanagement.rdmotors.caja.dominio.TurnoCaja;
 import com.workshopmanagement.rdmotors.caja.dominio.puerto.RepositorioTurnos;
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
@@ -49,6 +51,7 @@ import lombok.RequiredArgsConstructor;
 class TurnoController {
 
     private final AbrirTurno abrirTurno;
+    private final AnotarSaldoTransferencias anotarSaldoTransferencias;
     private final CerrarTurno cerrarTurno;
     private final EscribirObservaciones escribirObservaciones;
     private final ConsultarTurnos consultarTurnos;
@@ -59,7 +62,16 @@ class TurnoController {
     @ResponseStatus(HttpStatus.CREATED)
     RespuestaTurno abrir(@Valid @RequestBody PeticionAbrirTurno peticion,
                          @ActorActual Actor actor) {
-        return respuesta(abrirTurno.ejecutar(Dinero.de(peticion.fondo()), actor));
+        return respuesta(abrirTurno.ejecutar(Dinero.de(peticion.fondo()),
+                peticion.saldoTransferencias() == null ? null : Dinero.de(peticion.saldoTransferencias()), actor));
+    }
+
+    /** Con cuánto arrancó la cuenta de transferencias, en un turno que se abrió sin eso (2026-10-09). Una vez. */
+    @PutMapping("/{id}/saldo-transferencias")
+    RespuestaTurno anotarSaldoTransferencias(@PathVariable UUID id, @RequestBody PeticionSaldo peticion,
+                                             @ActorActual Actor actor) {
+        return respuesta(anotarSaldoTransferencias.ejecutar(id,
+                peticion.saldo() == null ? null : Dinero.de(peticion.saldo()), actor));
     }
 
     /**
@@ -107,7 +119,8 @@ class TurnoController {
     @PostMapping("/{id}/cierre")
     RespuestaDetalle cerrar(@PathVariable UUID id, @RequestBody PeticionCierre peticion,
                             @ActorActual Actor actor) {
-        cerrarTurno.ejecutar(id, peticion.contado() == null ? null : Dinero.de(peticion.contado()), actor);
+        cerrarTurno.ejecutar(id, peticion.contado() == null ? null : Dinero.de(peticion.contado()),
+                peticion.contadoTransferencias() == null ? null : Dinero.de(peticion.contadoTransferencias()), actor);
         return detalleDe(id, actor);
     }
 
@@ -130,11 +143,19 @@ class TurnoController {
 
     // ── Lo que entra ─────────────────────────────────────────────────────────
 
-    record PeticionAbrirTurno(@NotNull @PositiveOrZero Long fondo) {
+    /** @param saldoTransferencias con cuánto arranca la cuenta de transferencias; opcional (2026-10-09) */
+    record PeticionAbrirTurno(@NotNull @PositiveOrZero Long fondo, @PositiveOrZero Long saldoTransferencias) {
     }
 
-    /** Lo contado lo exige el dominio, con el mensaje que ve el cajero. */
-    record PeticionCierre(Long contado) {
+    record PeticionSaldo(Long saldo) {
+    }
+
+    /**
+     * Lo contado lo exige el dominio, con el mensaje que ve el cajero.
+     *
+     * @param contadoTransferencias lo que dice la cuenta de transferencias al cerrar; opcional (2026-10-09)
+     */
+    record PeticionCierre(Long contado, Long contadoTransferencias) {
     }
 
     record PeticionObservaciones(String observaciones) {
@@ -144,13 +165,18 @@ class TurnoController {
 
     /** {@code esperado}, {@code contado} y {@code diferencia} solo existen en un turno cerrado. */
     /** @param abiertoPor id y nombre de quien lo abrió: de quién es el turno (spec 0004) */
+    /**
+     * @param saldoTransferencias   con cuánto arrancó la cuenta de transferencias; {@code null} si no se anotó
+     * @param transferenciasContado lo que dijo la cuenta al cerrar; {@code null} si no se miró (2026-10-09)
+     */
     record RespuestaTurno(UUID id, EstadoTurno estado, long fondo, Instant abiertoEn, Persona abiertoPor,
                           Instant cerradoEn, UUID cerradoPorId, Long esperado, Long contado, Long diferencia,
-                          String observaciones) {
+                          String observaciones, Long saldoTransferencias, Long transferenciasContado) {
         static RespuestaTurno de(TurnoCaja t, Map<UUID, String> nombres) {
             return new RespuestaTurno(t.getId(), t.getEstado(), pesos(t.getFondo()), t.getAbiertoEn(),
                     Persona.de(t.getAbiertoPorId(), nombres), t.getCerradoEn(), t.getCerradoPorId(), pesosONulo(t.getEsperado()),
-                    pesosONulo(t.getContado()), pesosONulo(t.getDiferencia()), t.getObservaciones());
+                    pesosONulo(t.getContado()), pesosONulo(t.getDiferencia()), t.getObservaciones(),
+                    pesosONulo(t.getSaldoTransferencias()), pesosONulo(t.getTransfContado()));
         }
     }
 
@@ -162,7 +188,8 @@ class TurnoController {
                             String observaciones,
                             List<GastoController.RespuestaGasto> gastos, List<RespuestaRetiro> retiros,
                             List<RespuestaCompraDeCaja> compras, List<RespuestaVenta> ventas,
-                            List<RespuestaVenta> anuladasDeOtrosTurnos, List<RespuestaAbono> abonos) {
+                            List<RespuestaVenta> anuladasDeOtrosTurnos, List<RespuestaAbono> abonos,
+                            RespuestaTransferencias transferencias) {
 
         static RespuestaDetalle de(DetalleTurno d) {
             return new RespuestaDetalle(d.id(), d.estado(), pesos(d.fondo()), d.abiertoEn(), d.abiertoPor(),
@@ -173,7 +200,30 @@ class TurnoController {
                     d.compras().stream().map(RespuestaCompraDeCaja::de).toList(),
                     d.ventas().stream().map(RespuestaVenta::de).toList(),
                     d.anuladasDeOtrosTurnos().stream().map(RespuestaVenta::de).toList(),
-                    d.abonos().stream().map(RespuestaAbono::de).toList());
+                    d.abonos().stream().map(RespuestaAbono::de).toList(),
+                    RespuestaTransferencias.de(d.transferencias()));
+        }
+    }
+
+    /**
+     * La cuenta de transferencias del turno (2026-10-09): {@code esperado = saldoInicial + ventas + abonos +
+     * desdeElCajon − devoluciones − compras − gastos − retiros}. {@code saldoInicial} y {@code esperado} en
+     * {@code null} si el turno no anotó con cuánto arrancó la cuenta; {@code contado} y {@code diferencia}, si no se
+     * miró al cerrar o sigue abierto.
+     */
+    record RespuestaTransferencias(Long saldoInicial, long ventas, long abonos, long desdeElCajon, long devoluciones,
+                                   long compras, long gastos, long retiros, Long esperado, Long contado,
+                                   Long diferencia, List<RespuestaCompraDeCaja> comprasPorTransferencia,
+                                   List<GastoController.RespuestaGasto> gastosPorTransferencia) {
+
+        static RespuestaTransferencias de(DetalleTurno.Transferencias t) {
+            return t == null ? null
+                    : new RespuestaTransferencias(pesosONulo(t.saldoInicial()), pesos(t.ventas()), pesos(t.abonos()),
+                            pesos(t.desdeElCajon()), pesos(t.devoluciones()), pesos(t.compras()), pesos(t.gastos()),
+                            pesos(t.retiros()), pesosONulo(t.esperado()), pesosONulo(t.contado()),
+                            pesosONulo(t.diferencia()),
+                            t.comprasPorTransferencia().stream().map(RespuestaCompraDeCaja::de).toList(),
+                            t.gastosPorTransferencia().stream().map(GastoController.RespuestaGasto::de).toList());
         }
     }
 
@@ -217,12 +267,13 @@ class TurnoController {
         }
     }
 
-    record RespuestaRetiro(UUID id, long monto, String motivo, Instant registradoEn, Persona registradoPor,
-                           Instant anuladoEn, Persona anuladoPor, String motivoAnulacion) {
+    /** @param tipo de dónde salió: del cajón, del cajón a las transferencias, o de las transferencias */
+    record RespuestaRetiro(UUID id, long monto, String motivo, TipoRetiro tipo, Instant registradoEn,
+                           Persona registradoPor, Instant anuladoEn, Persona anuladoPor, String motivoAnulacion) {
 
         static RespuestaRetiro de(DetalleTurno.DetalleRetiro r) {
-            return new RespuestaRetiro(r.id(), pesos(r.monto()), r.motivo(), r.registradoEn(), r.registradoPor(),
-                    r.anuladoEn(), r.anuladoPor(), r.motivoAnulacion());
+            return new RespuestaRetiro(r.id(), pesos(r.monto()), r.motivo(), r.tipo(), r.registradoEn(),
+                    r.registradoPor(), r.anuladoEn(), r.anuladoPor(), r.motivoAnulacion());
         }
     }
 

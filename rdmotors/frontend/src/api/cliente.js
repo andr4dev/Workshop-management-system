@@ -209,7 +209,10 @@ export const turnosApi = {
   /** Los cerrados, del más reciente al más antiguo. */
   cerrados: ({ pagina = 0, tamano = 25 } = {}) => api.get(`/api/turnos?estado=CERRADO&pagina=${pagina}&tamano=${tamano}`),
   /** Sin llave: repetirlo responde 409 `TURNO_CERRADO` (ver `ErrorApi.esTurnoCerrado`). Devuelve el turno cerrado. */
-  cerrar: (id, contado) => api.post(`/api/turnos/${id}/cierre`, { contado }),
+  cerrar: (id, contado, contadoTransferencias = null) =>
+    api.post(`/api/turnos/${id}/cierre`, { contado, contadoTransferencias }),
+  /** Con cuánto arrancó la cuenta de transferencias, en un turno que se abrió sin eso. Una sola vez (2026-10-09). */
+  anotarSaldoTransferencias: (id, saldo) => api.put(`/api/turnos/${id}/saldo-transferencias`, { saldo }),
   /** Una sola vez por cierre. */
   observaciones: (id, observaciones) => api.put(`/api/turnos/${id}/observaciones`, { observaciones }),
 }

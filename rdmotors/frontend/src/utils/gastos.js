@@ -188,8 +188,25 @@ export function problemasDelRetiro({ monto, motivo }) {
   }
 }
 
-export function comandoDelRetiro({ monto, motivo }, llave, confirmado = false) {
-  return { llave, monto: montoDesdeTexto(monto), motivo: motivo.trim(), confirmado }
+export function comandoDelRetiro({ monto, motivo, tipo = 'DEL_CAJON' }, llave, confirmado = false) {
+  return { llave, monto: montoDesdeTexto(monto), motivo: motivo.trim(), confirmado, tipo }
+}
+
+/**
+ * De dónde sale la plata de un retiro (2026-10-09): el cajón y las transferencias se cuadran por separado.
+ * [valor, texto del botón, qué hace].
+ */
+export const TIPOS_DE_RETIRO = [
+  ['DEL_CAJON', 'Del cajón', 'Plata que sale del cajón sin ser un gasto: el dueño se la lleva, o va a la caja fuerte. Resta en el cajón al cerrar.'],
+  ['A_TRANSFERENCIAS', 'Del cajón a transferencias', 'Efectivo que se pasa a la cuenta (Daviplata): resta en el cajón y suma en las transferencias.'],
+  ['DE_TRANSFERENCIAS', 'De transferencias', 'Plata que sale de la cuenta (Daviplata) sin ser una compra ni un gasto: resta en las transferencias, no en el cajón.'],
+]
+
+/** Cómo se lee el tipo de un retiro en una lista. */
+export function textoDelTipoDeRetiro(tipo) {
+  if (tipo === 'A_TRANSFERENCIAS') return 'Del cajón a transferencias'
+  if (tipo === 'DE_TRANSFERENCIAS') return 'De transferencias'
+  return 'Del cajón'
 }
 
 // ── Lo que salió del cajón en el turno ───────────────────────────────────────
@@ -205,8 +222,10 @@ export function movimientosDelCajon(turno) {
     anulado: Boolean(g.anuladoEn), motivoAnulacion: g.motivoAnulacion,
     registradoPor: g.registradoPor?.nombre ?? null, anuladoPor: g.anuladoPor?.nombre ?? null,
   }))
-  const retiros = (turno.retiros ?? []).map((r) => ({
-    tipo: 'RETIRO', id: r.id, cuando: r.registradoEn, titulo: 'Retiro', detalle: r.motivo, monto: r.monto,
+  // Un retiro de la cuenta de transferencias no sacó billetes del cajón: va en el cuadre de transferencias.
+  const retiros = (turno.retiros ?? []).filter((r) => r.tipo !== 'DE_TRANSFERENCIAS').map((r) => ({
+    tipo: 'RETIRO', id: r.id, cuando: r.registradoEn,
+    titulo: r.tipo === 'A_TRANSFERENCIAS' ? 'Pasado a transferencias' : 'Retiro', detalle: r.motivo, monto: r.monto,
     anulado: Boolean(r.anuladoEn), motivoAnulacion: r.motivoAnulacion,
     registradoPor: r.registradoPor?.nombre ?? null, anuladoPor: r.anuladoPor?.nombre ?? null,
   }))

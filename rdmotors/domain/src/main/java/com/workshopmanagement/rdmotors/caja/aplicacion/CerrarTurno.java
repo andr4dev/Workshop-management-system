@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.workshopmanagement.rdmotors.caja.dominio.ArqueoDeTurno;
+import com.workshopmanagement.rdmotors.caja.dominio.CuadreDeTransferencias;
 import com.workshopmanagement.rdmotors.caja.dominio.TurnoCaja;
 import com.workshopmanagement.rdmotors.caja.dominio.TurnoYaCerradoException;
 import com.workshopmanagement.rdmotors.caja.dominio.puerto.RepositorioTurnos;
@@ -55,6 +56,14 @@ public class CerrarTurno {
     }
 
     public TurnoCaja ejecutar(UUID turnoId, Dinero contado, Actor actor) {
+        return ejecutar(turnoId, contado, null, actor);
+    }
+
+    /**
+     * @param contadoTransferencias lo que dice la cuenta de transferencias al cerrar (2026-10-09); {@code null} si no
+     *                              se miró. El cuadre de las transferencias se guarda igual, con lo que debería haber.
+     */
+    public TurnoCaja ejecutar(UUID turnoId, Dinero contado, Dinero contadoTransferencias, Actor actor) {
         TurnoCaja.exigirContado(contado);
         if (actor == null) {
             throw new ReglaDeNegocioException("Falta quién cierra el turno");
@@ -72,10 +81,11 @@ public class CerrarTurno {
         antes.put("fondo", turno.getFondo().valor().longValueExact());
 
         ArqueoDeTurno calculado = arqueo.de(turno);
+        CuadreDeTransferencias transferencias = arqueo.transferenciasDe(turno);
         Instant ahora = reloj.ahora();
-        turno.cerrar(calculado, contado, usuarioId, ahora);
+        turno.cerrar(calculado, contado, transferencias, contadoTransferencias, usuarioId, ahora);
 
-        if (turno.tieneDiferencia()) {
+        if (turno.tieneDiferencia() || turno.tieneDiferenciaEnTransferencias()) {
             auditoria.registrar(EventoAuditoria.nuevo(ahora, usuarioId, AccionAuditada.CERRAR_CAJA_CON_DIFERENCIA,
                     TIPO_AUDITORIA, turno.getId(), antes, turno.fotografiaDelCierre(), null));
         }

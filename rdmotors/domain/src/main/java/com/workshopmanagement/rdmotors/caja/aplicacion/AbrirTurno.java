@@ -31,12 +31,17 @@ public class AbrirTurno {
     }
 
     public TurnoCaja ejecutar(Dinero fondo, Actor actor) {
+        return ejecutar(fondo, null, actor);
+    }
+
+    /** @param saldoTransferencias con cuánto arranca la cuenta de transferencias; {@code null} si no se anota */
+    public TurnoCaja ejecutar(Dinero fondo, Dinero saldoTransferencias, Actor actor) {
         if (actor == null) {
             throw new ReglaDeNegocioException("Falta quién abre el turno");
         }
         turnos.abierto().ifPresent(abierto -> {
             throw new TurnoYaAbiertoException(abierto.getAbiertoEn(), abierto.getAbiertoPorId());
         });
-        return turnos.guardar(TurnoCaja.abrir(fondo, actor.id(), reloj.ahora()));
+        return turnos.guardar(TurnoCaja.abrir(fondo, saldoTransferencias, actor.id(), reloj.ahora()));
     }
 }

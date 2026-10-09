@@ -1,5 +1,6 @@
 package com.workshopmanagement.rdmotors.caja.dominio.puerto;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,4 +34,10 @@ public interface RepositorioGastos {
 
     /** Los pagados con plata del cajón en ese turno, anulados incluidos, en el orden en que se registraron. */
     List<Gasto> delCajonEnTurno(UUID turnoId);
+
+    /**
+     * Los pagados por transferencia que se registraron desde {@code desde} y antes de {@code hasta} ({@code null} = sin
+     * límite), anulados incluidos, en el orden en que se registraron: los de un turno, para cuadrar la cuenta.
+     */
+    List<Gasto> porTransferenciaEntre(Instant desde, Instant hasta);
 }

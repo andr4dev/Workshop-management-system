@@ -6,6 +6,8 @@ import ModalMotivo from '../componentes/ModalMotivo'
 import PestanasVenta from '../componentes/venta/PestanasVenta'
 import ModalAbrirTurno from '../componentes/venta/ModalAbrirTurno'
 import DesgloseArqueo from '../componentes/caja/DesgloseArqueo'
+import CuadreTransferencias from '../componentes/caja/CuadreTransferencias'
+import ModalSaldoTransferencias from '../componentes/caja/ModalSaldoTransferencias'
 import ProducidoDelTurno from '../componentes/caja/ProducidoDelTurno'
 import ModalCategoriasGasto from '../componentes/caja/ModalCategoriasGasto'
 import ModalCerrarTurno from '../componentes/caja/ModalCerrarTurno'
@@ -35,7 +37,7 @@ export default function Caja() {
   const administrador = esAdministrador(usuario)
   const [intento, setIntento] = useState(0)
   const [carga, setCarga] = useState({ intento: null, turno: null, ajeno: null, error: null })
-  const [modal, setModal] = useState(null)   // GASTO | RETIRO | CATEGORIAS | CERRAR | ABRIR | { anular: movimiento }
+  const [modal, setModal] = useState(null)   // GASTO | RETIRO | SALDO | CATEGORIAS | CERRAR | ABRIR | { anular: movimiento }
   const [aviso, setAviso] = useState(null)
   const [anulando, setAnulando] = useState(false)
   const [errorAnular, setErrorAnular] = useState(null)
@@ -146,6 +148,13 @@ export default function Caja() {
             <DesgloseArqueo turno={turno} />
           </section>
 
+          {turno.transferencias && (
+            <section className={estilos.panel} aria-label="Lo que debería haber en transferencias">
+              <h2 className={estilos.panelTitulo}>Lo que debería haber en transferencias · Daviplata</h2>
+              <CuadreTransferencias turno={turno} onAnotarSaldo={() => setModal('SALDO')} />
+            </section>
+          )}
+
           <section className={estilos.seccion} aria-label="Lo que salió del cajón">
             <h2 className={estilos.seccionTitulo}>Lo que salió del cajón</h2>
             <TablaMovimientos turno={turno} onAnular={(m) => { setErrorAnular(null); setModal({ anular: m }) }} />
@@ -169,6 +178,10 @@ export default function Caja() {
       {modal === 'RETIRO' && (
         <ModalRetiro onCerrar={() => setModal(null)}
           onRegistrado={(r) => registrado(`Retiro de ${formatoCOP(r.monto)} registrado.`)} />
+      )}
+      {modal === 'SALDO' && turno && (
+        <ModalSaldoTransferencias turno={turno} onCerrar={() => setModal(null)}
+          onAnotado={() => registrado('Saldo de transferencias anotado: ya se ve cuánto debería haber en la cuenta.')} />
       )}
       {modal === 'CATEGORIAS' && (
         <ModalCategoriasGasto onCambio={() => {}} onCerrar={() => setModal(null)} />

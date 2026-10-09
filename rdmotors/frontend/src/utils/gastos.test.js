@@ -115,7 +115,23 @@ describe('registrar un retiro', () => {
       { monto: 'Escribe cuánto se sacó', motivo: 'Escribe quién se la llevó o para qué' })
     assert.equal(sinProblemas(problemasDelRetiro({ monto: '100.000', motivo: 'Don Rubén' })), true)
     assert.deepEqual(comandoDelRetiro({ monto: '100.000', motivo: ' Don Rubén ' }, LLAVE),
-      { llave: LLAVE, monto: 100_000, motivo: 'Don Rubén', confirmado: false })
+      { llave: LLAVE, monto: 100_000, motivo: 'Don Rubén', confirmado: false, tipo: 'DEL_CAJON' })
+    assert.equal(comandoDelRetiro({ monto: '300.000', motivo: 'Consignado', tipo: 'A_TRANSFERENCIAS' }, LLAVE).tipo,
+      'A_TRANSFERENCIAS')
+  })
+})
+
+describe('un retiro de la cuenta de transferencias no sale en la lista del cajón (2026-10-09)', () => {
+  test('el de transferencias va aparte; el que pasa efectivo a la cuenta sí sale del cajón', () => {
+    const turno = {
+      retiros: [
+        { id: 'a', registradoEn: '2026-10-09T13:00:00Z', motivo: 'Consignado', monto: 300_000, tipo: 'A_TRANSFERENCIAS' },
+        { id: 'b', registradoEn: '2026-10-09T14:00:00Z', motivo: 'Para Rubén', monto: 50_000, tipo: 'DE_TRANSFERENCIAS' },
+        { id: 'c', registradoEn: '2026-10-09T15:00:00Z', motivo: 'Para Rubén', monto: 20_000 },
+      ],
+    }
+    assert.deepEqual(movimientosDelCajon(turno).map((m) => [m.id, m.titulo]),
+      [['a', 'Pasado a transferencias'], ['c', 'Retiro']])
   })
 })
 

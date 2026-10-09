@@ -102,9 +102,10 @@ public record ArqueoDeTurno(
             }
         }
 
+        // Un retiro de la cuenta de transferencias no sale del cajón (2026-10-09).
         Dinero retiros = Dinero.CERO;
         for (Retiro retiro : retirosDelTurno) {
-            if (!retiro.estaAnulado() && id.equals(retiro.getTurnoId())) {
+            if (!retiro.estaAnulado() && retiro.saleDelCajon() && id.equals(retiro.getTurnoId())) {
                 retiros = retiros.mas(retiro.getMonto());
             }
         }

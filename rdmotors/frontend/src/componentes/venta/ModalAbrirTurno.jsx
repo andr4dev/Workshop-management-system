@@ -19,10 +19,12 @@ import { formatoCOP } from '../../utils/formato'
  */
 export default function ModalAbrirTurno({ abierto, onCerrar, onAbierto, onYaHabiaUno }) {
   const [fondo, setFondo] = useState('')
+  const [saldo, setSaldo] = useState('')
   const [error, setError] = useState(null)
   const [intentoAbrir, setIntentoAbrir] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [sugerido, setSugerido] = useState(null)
+  const [saldoSugerido, setSaldoSugerido] = useState(null)
 
   useEffect(() => {
     let vigente = true
@@ -33,6 +35,12 @@ export default function ModalAbrirTurno({ abierto, onCerrar, onAbierto, onYaHabi
         setSugerido(fondo)
         // Solo si el campo sigue vacío: no se pisa lo que el cajero ya escribió.
         setFondo((actual) => (actual === '' ? fondo : actual))
+        // Las transferencias arrancan con lo que dijo la cuenta al cerrar el turno anterior (2026-10-09).
+        if (elementos[0].transferenciasContado != null) {
+          const saldo = String(elementos[0].transferenciasContado)
+          setSaldoSugerido(saldo)
+          setSaldo((actual) => (actual === '' ? saldo : actual))
+        }
       })
       .catch(() => {})
     return () => { vigente = false }
@@ -40,14 +48,17 @@ export default function ModalAbrirTurno({ abierto, onCerrar, onAbierto, onYaHabi
 
   const problema = problemaDelFondo(fondo)
   const monto = fondoDesdeTexto(fondo)
+  // Opcional: vacío es "no lo sé ahora"; se puede anotar después desde Caja.
+  const problemaSaldo = saldo.trim() === '' ? null : problemaDelFondo(saldo)
+  const montoSaldo = saldo.trim() === '' ? null : fondoDesdeTexto(saldo)
 
   async function abrir() {
     setIntentoAbrir(true)
-    if (problema) return
+    if (problema || problemaSaldo) return
     setEnviando(true)
     setError(null)
     try {
-      onAbierto(await turnosApi.abrir({ fondo: monto }))
+      onAbierto(await turnosApi.abrir({ fondo: monto, saldoTransferencias: montoSaldo }))
     } catch (e) {
       if (e.estado === 409) {
         onYaHabiaUno()
@@ -86,6 +97,19 @@ export default function ModalAbrirTurno({ abierto, onCerrar, onAbierto, onYaHabi
         ayuda={monto != null
           ? `${formatoCOP(monto)} en el cajón al empezar${sugerido === fondo ? ' · el mismo fondo del turno anterior' : ''}`
           : 'Con cuánta plata arranca el cajón. Puede ser $0.'}
+      />
+      <Campo
+        etiqueta="Saldo en transferencias"
+        value={saldo}
+        onChange={(e) => { setSaldo(e.target.value); setError(null) }}
+        onKeyDown={(e) => e.key === 'Enter' && abrir()}
+        inputMode="numeric"
+        placeholder="Lo que dice Daviplata"
+        autoComplete="off"
+        error={intentoAbrir && problemaSaldo}
+        ayuda={montoSaldo != null
+          ? `${formatoCOP(montoSaldo)} en la cuenta al empezar${saldoSugerido === saldo ? ' · lo que dijo al cerrar el turno anterior' : ''}`
+          : 'Lo que hay en Daviplata ahora. Si no lo sabes, déjalo vacío y anótalo después en Caja.'}
       />
     </Modal>
   )

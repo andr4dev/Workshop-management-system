@@ -1,5 +1,6 @@
 package com.workshopmanagement.rdmotors.compras.dominio.puerto;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -56,6 +57,13 @@ public interface RepositorioCompras {
      * se registraron (spec 0006, RF-011).
      */
     List<Compra> deCajaEnTurno(UUID turnoId);
+
+    /**
+     * Las pagadas por transferencia que se registraron desde {@code desde} y antes de {@code hasta} ({@code null} =
+     * sin límite), anuladas incluidas, con su proveedor, en el orden en que se registraron: las de un turno, para
+     * cuadrar la cuenta de transferencias (2026-10-09).
+     */
+    List<Compra> porTransferenciaEntre(Instant desde, Instant hasta);
 
     /**
      * El historial, de la factura más reciente a la más antigua.

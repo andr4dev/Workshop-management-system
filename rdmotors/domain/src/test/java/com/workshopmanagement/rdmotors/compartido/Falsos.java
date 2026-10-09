@@ -42,6 +42,7 @@ import com.workshopmanagement.rdmotors.clientes.dominio.puerto.RepositorioDeudas
 import com.workshopmanagement.rdmotors.compartido.dominio.Actor;
 import com.workshopmanagement.rdmotors.compartido.dominio.DatosTienda;
 import com.workshopmanagement.rdmotors.compartido.dominio.Dinero;
+import com.workshopmanagement.rdmotors.compartido.dominio.FormaPago;
 import com.workshopmanagement.rdmotors.compartido.dominio.ReglaDeNegocioException;
 import com.workshopmanagement.rdmotors.compartido.dominio.TextoDeBusqueda;
 import com.workshopmanagement.rdmotors.compartido.dominio.EventoAuditoria;
@@ -378,6 +379,17 @@ public final class Falsos {
         public List<Compra> deCajaEnTurno(UUID turnoId) {
             return datos.values().stream()
                     .filter(c -> c.isPagadaDeCaja() && turnoId.equals(c.getTurnoId()))
+                    .toList();
+        }
+
+        /** Imita la consulta: por transferencia, registradas desde {@code desde} y antes de {@code hasta}. */
+        @Override
+        public List<Compra> porTransferenciaEntre(Instant desde, Instant hasta) {
+            return datos.values().stream()
+                    .filter(c -> c.getFormaPago() == FormaPago.TRANSFERENCIA
+                            && !c.getFechaRegistro().isBefore(desde)
+                            && (hasta == null || c.getFechaRegistro().isBefore(hasta)))
+                    .sorted(Comparator.comparing(Compra::getFechaRegistro))
                     .toList();
         }
 
@@ -873,6 +885,17 @@ public final class Falsos {
         @Override
         public List<Gasto> delCajonEnTurno(UUID turnoId) {
             return datos.values().stream().filter(g -> g.isDelCajon() && turnoId.equals(g.getTurnoId())).toList();
+        }
+
+        /** Imita la consulta: por transferencia, registrados desde {@code desde} y antes de {@code hasta}. */
+        @Override
+        public List<Gasto> porTransferenciaEntre(Instant desde, Instant hasta) {
+            return datos.values().stream()
+                    .filter(g -> g.getFormaPago() == FormaPago.TRANSFERENCIA
+                            && !g.getRegistradoEn().isBefore(desde)
+                            && (hasta == null || g.getRegistradoEn().isBefore(hasta)))
+                    .sorted(Comparator.comparing(Gasto::getRegistradoEn))
+                    .toList();
         }
     }
 

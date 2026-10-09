@@ -6,6 +6,7 @@ import Campo from '../componentes/Campo'
 import PestanasVenta from '../componentes/venta/PestanasVenta'
 import ComprobanteCierre from '../componentes/caja/ComprobanteCierre'
 import DesgloseArqueo from '../componentes/caja/DesgloseArqueo'
+import CuadreTransferencias from '../componentes/caja/CuadreTransferencias'
 import ProducidoDelTurno from '../componentes/caja/ProducidoDelTurno'
 import TablaMovimientos from '../componentes/caja/TablaMovimientos'
 import AbonosDelTurno from '../componentes/caja/AbonosDelTurno'
@@ -101,6 +102,13 @@ export default function DetalleTurno() {
                 <h2 className={estilos.panelTitulo}>El arqueo · por esto se responde</h2>
                 <DesgloseArqueo turno={turno} />
               </section>
+
+              {turno.transferencias && (
+                <section className={estilos.panel} aria-label="Transferencias">
+                  <h2 className={estilos.panelTitulo}>Transferencias · Daviplata</h2>
+                  <CuadreTransferencias turno={turno} />
+                </section>
+              )}
 
               <section className={estilos.panel} aria-label="Observaciones">
                 <h2 className={estilos.panelTitulo}>Observaciones</h2>

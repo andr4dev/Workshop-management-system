@@ -3,6 +3,7 @@ import Modal from '../Modal'
 import Boton from '../Boton'
 import Campo from '../Campo'
 import DesgloseArqueo from './DesgloseArqueo'
+import CuadreTransferencias from './CuadreTransferencias'
 import { imprimirCierre } from './imprimirCierre'
 import { turnosApi } from '../../api/cliente'
 import {
@@ -49,9 +50,15 @@ export default function ModalCerrarTurno({ turno, onCerrado, onCerrar }) {
   const problema = porBilletes && billetes.problemas.length > 0 ? billetes.problemas[0] : problemaDelContado(textoContado)
   const monto = contadoDesdeTexto(textoContado)
 
+  // Lo que dice la cuenta de transferencias (2026-10-09): opcional; vacío es "no la miré".
+  const [contadoTransf, setContadoTransf] = useState('')
+  const transferencias = turno.transferencias
+  const problemaTransf = contadoTransf.trim() === '' ? null : problemaDelContado(contadoTransf)
+  const montoTransf = contadoTransf.trim() === '' ? null : contadoDesdeTexto(contadoTransf)
+
   function revisar() {
     setIntentoContar(true)
-    if (problema) return
+    if (problema || problemaTransf) return
     setError(null)
     setPaso('CONFIRMAR')
   }
@@ -74,7 +81,7 @@ export default function ModalCerrarTurno({ turno, onCerrado, onCerrar }) {
     setEnviando(true)
     setError(null)
     try {
-      await mostrarResultado(await turnosApi.cerrar(turno.id, monto), false)
+      await mostrarResultado(await turnosApi.cerrar(turno.id, monto, montoTransf), false)
     } catch (e) {
       if (e.esTurnoCerrado) {
         try {
@@ -187,6 +194,25 @@ export default function ModalCerrarTurno({ turno, onCerrado, onCerrar }) {
               </p>
             </>
           )}
+
+          {transferencias && (
+            <>
+              <h3 className={estilos.subtitulo}>Transferencias · Daviplata</h3>
+              <CuadreTransferencias turno={turno} contado={problemaTransf ? null : montoTransf} conSalidas={false} />
+              <Campo
+                etiqueta="¿Cuánto dice Daviplata?"
+                value={contadoTransf}
+                onChange={(e) => setContadoTransf(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && revisar()}
+                inputMode="numeric"
+                placeholder="Lo que muestra la cuenta"
+                autoComplete="off"
+                error={intentoContar ? problemaTransf : null}
+                ayuda={montoTransf != null ? formatoCOP(montoTransf)
+                  : 'El saldo de la cuenta ahora. Si no lo miras, el cierre guarda lo que debería haber, sin diferencia.'}
+              />
+            </>
+          )}
         </div>
       )}
 
@@ -197,6 +223,12 @@ export default function ModalCerrarTurno({ turno, onCerrado, onCerrar }) {
             {turno.arqueo ? <>: <strong>{diferenciaEnPalabras(monto - turno.arqueo.esperado).texto.toLowerCase()}</strong></> : ''}.
             Después no se puede recontar, ni vender, anular o registrar gastos en este turno.
           </p>
+          {montoTransf != null && transferencias?.esperado != null && (
+            <p>
+              Daviplata dice <strong>{formatoCOP(montoTransf)}</strong>:{' '}
+              <strong>{diferenciaEnPalabras(montoTransf - transferencias.esperado).texto.toLowerCase()}</strong>.
+            </p>
+          )}
           {error && <p className={estilos.error} role="alert"><span aria-hidden>⚠</span> {error}</p>}
         </div>
       )}
@@ -207,12 +239,19 @@ export default function ModalCerrarTurno({ turno, onCerrado, onCerrar }) {
             <p className={estilos.nota}>Este turno ya se había cerrado: este es ese cierre.</p>
           )}
           <DesgloseArqueo turno={cerrado} />
+          {cerrado.transferencias && (
+            <>
+              <h3 className={estilos.subtitulo}>Transferencias · Daviplata</h3>
+              <CuadreTransferencias turno={cerrado} conSalidas={false} />
+            </>
+          )}
 
           {cerrado.observaciones ? (
             <Campo etiqueta="Observaciones">
               <p className={estilos.observaciones}>{cerrado.observaciones}</p>
             </Campo>
-          ) : cerrado.cierre.diferencia !== 0 && (
+          ) : (cerrado.cierre.diferencia !== 0
+              || (cerrado.transferencias?.diferencia != null && cerrado.transferencias.diferencia !== 0)) && (
             <>
               <Campo etiqueta="¿Qué pudo pasar?" error={errorObservaciones}
                 ayuda="Queda con el cierre y se escribe una sola vez. Si la dejas para después, el cierre queda marcado «sin explicación».">

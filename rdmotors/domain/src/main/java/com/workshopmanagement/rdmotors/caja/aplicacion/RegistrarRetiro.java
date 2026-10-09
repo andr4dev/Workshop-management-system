@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.workshopmanagement.rdmotors.caja.dominio.Retiro;
 import com.workshopmanagement.rdmotors.caja.dominio.SinTurnoAbiertoException;
+import com.workshopmanagement.rdmotors.caja.dominio.TipoRetiro;
 import com.workshopmanagement.rdmotors.caja.dominio.TurnoCaja;
 import com.workshopmanagement.rdmotors.caja.dominio.puerto.RepositorioRetiros;
 import com.workshopmanagement.rdmotors.caja.dominio.puerto.RepositorioTurnos;
@@ -38,6 +39,15 @@ public class RegistrarRetiro {
 
     /** @param confirmado el cajero ya confirmó que sí es más de lo que debería haber */
     public Retiro ejecutar(UUID llave, Dinero monto, String motivo, boolean confirmado, Actor actor) {
+        return ejecutar(llave, monto, motivo, TipoRetiro.DEL_CAJON, confirmado, actor);
+    }
+
+    /**
+     * @param tipo de dónde sale la plata (2026-10-09). Solo lo que sale del cajón pide confirmar si supera lo que
+     *             debería haber en el cajón.
+     */
+    public Retiro ejecutar(UUID llave, Dinero monto, String motivo, TipoRetiro tipo, boolean confirmado,
+                           Actor actor) {
         if (actor == null) {
             throw new ReglaDeNegocioException("Al retiro le falta quién lo registra");
         }
@@ -53,8 +63,10 @@ public class RegistrarRetiro {
             return yaRegistrado.get();
         }
 
-        Retiro retiro = Retiro.registrar(turno.getId(), monto, motivo, actor.id(), llave, reloj.ahora());
-        arqueo.exigirConfirmacionSiSupera(turno, retiro.getMonto(), confirmado);
+        Retiro retiro = Retiro.registrar(turno.getId(), monto, motivo, tipo, actor.id(), llave, reloj.ahora());
+        if (retiro.saleDelCajon()) {
+            arqueo.exigirConfirmacionSiSupera(turno, retiro.getMonto(), confirmado);
+        }
         return retiros.guardar(retiro);
     }
 }
