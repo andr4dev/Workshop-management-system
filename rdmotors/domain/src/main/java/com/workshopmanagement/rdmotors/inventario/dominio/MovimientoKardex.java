@@ -174,10 +174,20 @@ public class MovimientoKardex {
      */
     public static MovimientoKardex porVenta(Variante variante, int cantidad,
                                             UUID ventaId, UUID registradoPorId, Instant cuando) {
+        return porVenta(variante, cantidad, ventaId, null, registradoPorId, cuando);
+    }
+
+    /**
+     * Salida por venta con motivo: la que vuelve a sacar una venta cuando se corrige el costo de la compra
+     * de la que salió (ver {@code CorregirCompra}). Es una VENTA normal, al promedio vigente; el motivo
+     * explica por qué la misma venta aparece dos veces en el kardex.
+     */
+    public static MovimientoKardex porVenta(Variante variante, int cantidad, UUID ventaId, String motivo,
+                                            UUID registradoPorId, Instant cuando) {
         BigDecimal promedio = variante.getCostoPromedio();
         Dinero total = promedio == null ? null : Dinero.desdeUnitario(promedio, cantidad);
         return new MovimientoKardex(variante, TipoMovimiento.VENTA, -cantidad,
-                promedio, total, OrigenMovimiento.VENTA, ventaId, null, null, registradoPorId, cuando);
+                promedio, total, OrigenMovimiento.VENTA, ventaId, null, motivo, registradoPorId, cuando);
     }
 
     /**

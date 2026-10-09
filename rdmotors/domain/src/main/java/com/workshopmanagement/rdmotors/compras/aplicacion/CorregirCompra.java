@@ -4,11 +4,13 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -31,10 +33,13 @@ import com.workshopmanagement.rdmotors.compras.dominio.puerto.RepositorioCompras
 import com.workshopmanagement.rdmotors.compras.dominio.puerto.RepositorioCuentas;
 import com.workshopmanagement.rdmotors.compras.dominio.puerto.RepositorioProveedores;
 import com.workshopmanagement.rdmotors.inventario.aplicacion.CrearRepuesto;
+import com.workshopmanagement.rdmotors.inventario.dominio.MovimientoKardex;
 import com.workshopmanagement.rdmotors.inventario.dominio.TipoMovimiento;
 import com.workshopmanagement.rdmotors.inventario.dominio.Variante;
 import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioKardex;
 import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioVariantes;
+import com.workshopmanagement.rdmotors.ventas.dominio.Venta;
+import com.workshopmanagement.rdmotors.ventas.dominio.puerto.RepositorioVentas;
 
 /**
  * CASO DE USO — corregir una compra ya registrada (spec 0002, H3 y H4).
@@ -57,6 +62,15 @@ import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioVari
  * posteriores. Si hay uno solo, no se aplica nada. Y todo va bajo un commit: jamás queda una entrada
  * revertida sin la corregida.
  *
+ * <h2>Corregir solo el costo cuando ya hubo ventas (2026-10-09)</h2>
+ *
+ * Un renglón con ventas posteriores sí se corrige si cambia <b>solo el costo</b> —mismo repuesto, misma
+ * cantidad— y lo que salió después fueron <b>solo ventas</b>. Pasó con el costo de una unidad escrito como
+ * total del renglón. El kardex no se edita: esas ventas se devuelven al inventario con el costo con que
+ * salieron, la entrada se revierte, entra la corregida, y las ventas vuelven a salir al promedio nuevo.
+ * Cada venta pasa a apuntar a su salida nueva, y su ganancia en los reportes queda con el costo bueno, en
+ * el día en que se cobró.
+ *
  * <p>Las salidas se hacen antes que las entradas. Así intercambiar dos repuestos entre renglones
  * funciona: primero salen los dos, después entra cada uno en su nuevo lugar.
  */
@@ -68,19 +82,21 @@ public class CorregirCompra {
     private final RepositorioCuentas cuentas;
     private final RepositorioTurnos turnos;
     private final RepositorioVariantes variantes;
+    private final RepositorioVentas ventas;
     private final RepositorioAuditoria auditoria;
     private final InventarioDeCompra inventario;
     private final Reloj reloj;
 
     public CorregirCompra(RepositorioCompras compras, RepositorioProveedores proveedores,
                           RepositorioCuentas cuentas, RepositorioTurnos turnos, RepositorioVariantes variantes,
-                          RepositorioKardex kardex, CrearRepuesto crearRepuesto,
+                          RepositorioKardex kardex, RepositorioVentas ventas, CrearRepuesto crearRepuesto,
                           RepositorioAuditoria auditoria, Reloj reloj) {
         this.compras = compras;
         this.proveedores = proveedores;
         this.cuentas = cuentas;
         this.turnos = turnos;
         this.variantes = variantes;
+        this.ventas = ventas;
         this.auditoria = auditoria;
         this.inventario = new InventarioDeCompra(variantes, kardex, compras, crearRepuesto);
         this.reloj = reloj;
@@ -175,13 +191,35 @@ public class CorregirCompra {
         aRevertir.sort(Comparator.comparingInt(LineaCompra::getPosicion));
 
         // ── Revisar todos antes de mover nada ────────────────────────────────
-        List<String> bloqueados = inventario.bloqueados(aRevertir);
+        // Un renglón bloqueado por ventas posteriores se corrige igual si solo cambia su costo y lo que salió
+        // después fueron solo ventas: esas ventas se devuelven y vuelven a salir con el costo bueno.
+        Map<UUID, ComandoRegistrarCompra.Linea> nuevas = new HashMap<>();
+        comando.lineas().stream().filter(l -> l.lineaId() != null).forEach(l -> nuevas.put(l.lineaId(), l.datos()));
+        Map<UUID, List<MovimientoKardex>> aRecostear = new HashMap<>();
+        List<String> bloqueados = new ArrayList<>();
+        for (LineaCompra vieja : aRevertir) {
+            if (inventario.bloqueados(List.of(vieja)).isEmpty()) continue;
+            ComandoRegistrarCompra.Linea datos = nuevas.get(vieja.getId());
+            Optional<List<MovimientoKardex>> salidas = datos != null && soloCambiaElCosto(vieja, datos)
+                    ? inventario.ventasPosteriores(vieja)
+                    : Optional.empty();
+            if (salidas.isPresent()) {
+                aRecostear.put(vieja.getId(), salidas.get());
+            } else if (!bloqueados.contains(vieja.getVariante().getCodigo())) {
+                bloqueados.add(vieja.getVariante().getCodigo());
+            }
+        }
         if (!bloqueados.isEmpty()) {
             throw new RenglonesBloqueadosException(bloqueados);
         }
+        String motivoVentas = motivoDeLasVentas(comando.motivo());
 
         // ── 1. Salidas ───────────────────────────────────────────────────────
         for (LineaCompra vieja : aRevertir) {
+            List<MovimientoKardex> salidas = aRecostear.get(vieja.getId());
+            if (salidas != null) {
+                inventario.devolverVentas(salidas, motivoVentas, comando.actor().id(), ahora);
+            }
             avisos.addAll(inventario.revertirEntrada(vieja, TipoMovimiento.CORRECCION_COMPRA,
                     compra.getId(), comando.motivo(), comando.actor().id(), ahora));
         }
@@ -200,6 +238,13 @@ public class CorregirCompra {
                 LineaCompra nueva = datos.aLineaDe(inventario.resolverRepuesto(datos, comando.actor()));
                 compra.reemplazarLinea(vieja, nueva, ahora);
                 inventario.darEntrada(nueva, compra.getId(), comando.motivo(), comando.actor().id(), ahora);
+                List<MovimientoKardex> salidas = aRecostear.get(vieja.getId());
+                if (salidas != null && !salidas.isEmpty()) {
+                    volverASacar(salidas, motivoVentas, comando, ahora);
+                    avisos.add("El costo de " + salidas.size() + (salidas.size() == 1 ? " venta" : " ventas")
+                            + " de " + vieja.getVariante().getCodigo()
+                            + " se recalculó con el costo corregido: la ganancia de esos días cambia.");
+                }
             } else if (!Objects.equals(vieja.getPrecioVenta(), datos.precioVenta())) {
                 Variante variante = variantes.buscarParaModificar(vieja.getVariante().getId())
                         .orElseThrow(() -> new ReglaDeNegocioException("El repuesto no existe"));
@@ -214,6 +259,31 @@ public class CorregirCompra {
             compra.quitarLinea(vieja, ahora);
         }
         return true;
+    }
+
+    /** Vuelve a sacar las ventas al promedio corregido y deja cada una apuntando a su salida nueva. */
+    private void volverASacar(List<MovimientoKardex> salidas, String motivo, ComandoCorregirCompra comando,
+                              Instant ahora) {
+        for (InventarioDeCompra.Reemplazo reemplazo
+                : inventario.volverASacarVentas(salidas, motivo, comando.actor().id(), ahora)) {
+            Venta venta = ventas.buscarParaModificar(reemplazo.anterior().getOrigenId())
+                    .orElseThrow(() -> new ReglaDeNegocioException("No se encontró la venta de una salida del kardex"));
+            venta.reasignarSalida(reemplazo.anterior().getId(), reemplazo.nueva().getId());
+            ventas.guardar(venta);
+        }
+    }
+
+    /** Mismo repuesto y misma cantidad: lo único que cambia es lo que costó. */
+    private static boolean soloCambiaElCosto(LineaCompra vieja, ComandoRegistrarCompra.Linea datos) {
+        return !datos.creaRepuesto()
+                && vieja.getVariante().getId().equals(datos.varianteId())
+                && vieja.getCantidad() == datos.cantidad();
+    }
+
+    /** El motivo de las ventas que se devuelven y vuelven a salir: el de la corrección, y por qué se mueven. */
+    private static String motivoDeLasVentas(String motivo) {
+        String texto = "Costo corregido en la compra" + (motivo == null || motivo.isBlank() ? "" : ": " + motivo.trim());
+        return texto.length() <= 300 ? texto : texto.substring(0, 300);
     }
 
     /**

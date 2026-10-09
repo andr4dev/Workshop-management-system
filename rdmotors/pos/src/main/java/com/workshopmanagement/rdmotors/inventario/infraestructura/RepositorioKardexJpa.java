@@ -59,11 +59,19 @@ class RepositorioKardexJpa implements RepositorioKardex {
     public Optional<MovimientoKardex> ultimoAntesDe(UUID varianteId, long secuencia) {
         return jpa.findFirstByVarianteIdAndSecuenciaLessThanOrderBySecuenciaDesc(varianteId, secuencia);
     }
+
+    @Override
+    public List<MovimientoKardex> despuesDe(UUID varianteId, long secuencia) {
+        return jpa.findByVarianteIdAndSecuenciaGreaterThanOrderBySecuenciaAsc(varianteId, secuencia);
+    }
 }
 
 interface KardexSpringData extends JpaRepository<MovimientoKardex, UUID> {
 
     List<MovimientoKardex> findByVarianteIdOrderBySecuenciaAsc(UUID varianteId);
+
+    List<MovimientoKardex> findByVarianteIdAndSecuenciaGreaterThanOrderBySecuenciaAsc(UUID varianteId,
+                                                                                        Long secuencia);
 
     Optional<MovimientoKardex> findFirstByVarianteIdAndSecuenciaLessThanOrderBySecuenciaDesc(
             UUID varianteId, Long secuencia);

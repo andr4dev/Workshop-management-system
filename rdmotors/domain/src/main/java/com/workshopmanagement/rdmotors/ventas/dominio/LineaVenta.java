@@ -161,4 +161,16 @@ public class LineaVenta {
         }
         this.movimientoSalidaId = movimientoId;
     }
+
+    /**
+     * La salida de antes se revirtió y salió otra vez con el costo corregido de la compra (ver
+     * {@code CorregirCompra}). El renglón apunta a la nueva: de ahí sacan su costo los reportes, y es la que
+     * se deshace si la venta se anula.
+     */
+    void reasignarSalida(UUID anterior, UUID nueva) {
+        if (!anterior.equals(this.movimientoSalidaId)) {
+            throw new IllegalStateException("El renglón no salió con ese movimiento");
+        }
+        this.movimientoSalidaId = nueva;
+    }
 }

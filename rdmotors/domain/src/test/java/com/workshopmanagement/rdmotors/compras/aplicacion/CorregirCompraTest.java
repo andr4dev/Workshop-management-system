@@ -28,8 +28,10 @@ import com.workshopmanagement.rdmotors.compartido.dominio.FormaPago;
 import com.workshopmanagement.rdmotors.compras.dominio.LineaCompra;
 import com.workshopmanagement.rdmotors.compras.dominio.RenglonesBloqueadosException;
 import com.workshopmanagement.rdmotors.inventario.aplicacion.ComandoCrearRepuesto;
+import com.workshopmanagement.rdmotors.inventario.dominio.MovimientoKardex;
 import com.workshopmanagement.rdmotors.inventario.dominio.TipoMovimiento;
 import com.workshopmanagement.rdmotors.inventario.dominio.Variante;
+import com.workshopmanagement.rdmotors.ventas.dominio.Venta;
 
 /**
  * Corregir una compra (spec 0002, H3 y H4). La promesa que se prueba: <b>stock y costo quedan como
@@ -415,5 +417,80 @@ class CorregirCompraTest {
         assertThat(despues.get(0)).containsEntry("cantidad", 10);
         assertThat(evento.antes()).containsEntry("total", 200_000L);
         assertThat(evento.despues()).containsEntry("total", 20_000L);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Corregir solo el costo cuando ya hubo ventas (2026-10-09)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("el costo de una unidad escrito como total se corrige aunque haya ventas: salen otra vez con el costo bueno")
+    void costoConVentasPosteriores() {
+        Variante dorado = t.repuesto("BAJLM401", 40_000);
+        Compra compra = t.comprar(ComandoRegistrarCompra.Linea.porTotal(dorado.getId(), 10, Dinero.de(32_000), null));
+        Venta una = t.venderEnMostrador(dorado, 1);
+        Venta dos = t.venderEnMostrador(dorado, 2);
+        MovimientoKardex salidaVieja = t.salidaDe(una);
+        int movimientos = t.kardex.movimientos.size();
+
+        ResultadoCorreccion resultado = t.corregir.ejecutar(t.correccion(compra, List.of(
+                en(t.renglonDe(compra, dorado), unidades(dorado, 10, 32_000)))));
+
+        assertThat(dorado.getStock()).isEqualTo(7);
+        assertThat(dorado.getCostoPromedio()).isEqualByComparingTo("32000");
+        assertThat(resultado.compra().getTotal()).isEqualTo(Dinero.de(320_000));
+        assertThat(t.salidaDe(una).getId()).isNotEqualTo(salidaVieja.getId());
+        assertThat(t.salidaDe(una).getCostoTotal()).isEqualTo(Dinero.de(32_000));
+        assertThat(t.salidaDe(dos).getCostoTotal()).isEqualTo(Dinero.de(64_000));
+        // El kardex no se editó: la salida vieja sigue igual y lo demás se agregó.
+        assertThat(salidaVieja.getCostoTotal()).isEqualTo(Dinero.de(3_200));
+        assertThat(t.kardex.movimientos).hasSize(movimientos + 6);   // 2 devueltas, reversión, entrada, 2 salidas
+        assertThat(resultado.avisos()).anyMatch(a -> a.contains("2 ventas de BAJLM401"));
+    }
+
+    @Test
+    @DisplayName("una venta anulada después de la compra no vuelve a salir: ya se canceló al peso")
+    void ventaAnuladaNoSeRecostea() {
+        Compra compra = t.comprar(ComandoRegistrarCompra.Linea.porTotal(filtro.getId(), 10, Dinero.de(2_900), null));
+        Venta vigente = t.venderEnMostrador(filtro, 1);
+        Venta anulada = t.venderEnMostrador(filtro, 3);
+        MovimientoKardex salidaAnulada = t.salidaDe(anulada);
+        t.anularVenta(filtro, salidaAnulada);
+
+        t.corregir.ejecutar(t.correccion(compra, List.of(
+                en(t.renglonDe(compra, filtro), unidades(filtro, 10, 2_900)))));
+
+        assertThat(filtro.getStock()).isEqualTo(9);
+        assertThat(filtro.getCostoPromedio()).isEqualByComparingTo("2900");
+        assertThat(t.salidaDe(vigente).getCostoTotal()).isEqualTo(Dinero.de(2_900));
+        assertThat(t.salidaDe(anulada).getId()).isEqualTo(salidaAnulada.getId());
+    }
+
+    @Test
+    @DisplayName("si después de la compra entró otra del mismo repuesto, corregir el costo sigue bloqueado")
+    void otraCompraDespuesSigueBloqueado() {
+        Compra compra = t.comprar(unidades(filtro, 10, 290));
+        t.venderEnMostrador(filtro, 1);
+        t.comprar(unidades(filtro, 5, 3_000));
+
+        assertThatThrownBy(() -> t.corregir.ejecutar(t.correccion(compra, List.of(
+                en(t.renglonDe(compra, filtro), unidades(filtro, 10, 2_900))))))
+                .isInstanceOfSatisfying(RenglonesBloqueadosException.class,
+                        e -> assertThat(e.getCodigos()).containsExactly("352B59K"));
+    }
+
+    @Test
+    @DisplayName("con unidades de antes de la compra, el promedio se rehace exacto y la venta sale al nuevo")
+    void costoConStockAnterior() {
+        t.comprar(unidades(filtro, 5, 1_000));
+        Compra compra = t.comprar(unidades(filtro, 10, 500));        // eran $2.000
+        Venta venta = t.venderEnMostrador(filtro, 3);                 // salen al promedio de $666,67
+
+        t.corregir.ejecutar(t.correccion(compra, List.of(
+                en(t.renglonDe(compra, filtro), unidades(filtro, 10, 2_000)))));
+
+        assertThat(filtro.getStock()).isEqualTo(12);
+        assertThat(filtro.getCostoPromedio()).isEqualByComparingTo("1666.6667");   // (5 × 1.000 + 10 × 2.000) / 15
+        assertThat(t.salidaDe(venta).getCostoTotal()).isEqualTo(Dinero.de(5_000));
     }
 }

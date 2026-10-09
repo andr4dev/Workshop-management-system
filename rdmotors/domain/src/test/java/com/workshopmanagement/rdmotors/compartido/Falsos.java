@@ -609,6 +609,13 @@ public final class Falsos {
                     .filter(m -> m.getSecuencia() < secuencia)
                     .reduce((primero, segundo) -> segundo);
         }
+
+        @Override
+        public List<MovimientoKardex> despuesDe(UUID varianteId, long secuencia) {
+            return historialDe(varianteId).stream()
+                    .filter(m -> m.getSecuencia() > secuencia)
+                    .toList();
+        }
     }
 
     public static final class AuditoriaEnMemoria implements RepositorioAuditoria {

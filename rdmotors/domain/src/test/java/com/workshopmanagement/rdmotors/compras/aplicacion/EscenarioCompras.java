@@ -21,6 +21,9 @@ import com.workshopmanagement.rdmotors.inventario.dominio.MovimientoKardex;
 import com.workshopmanagement.rdmotors.inventario.dominio.Categoria;
 import com.workshopmanagement.rdmotors.inventario.dominio.Producto;
 import com.workshopmanagement.rdmotors.inventario.dominio.Variante;
+import com.workshopmanagement.rdmotors.ventas.dominio.LineaVenta;
+import com.workshopmanagement.rdmotors.ventas.dominio.PagoVenta;
+import com.workshopmanagement.rdmotors.ventas.dominio.Venta;
 
 /**
  * Una tienda en memoria para probar corregir y anular: los dobles, los casos de uso ya cableados, y
@@ -38,13 +41,14 @@ final class EscenarioCompras {
     final Falsos.AuditoriaEnMemoria auditoria = new Falsos.AuditoriaEnMemoria();
     final Falsos.TurnosEnMemoria turnos = new Falsos.TurnosEnMemoria();
     final Falsos.UsuariosEnMemoria usuarios = new Falsos.UsuariosEnMemoria();
+    final Falsos.VentasEnMemoria ventas = new Falsos.VentasEnMemoria();
     final Falsos.RelojFijo reloj = new Falsos.RelojFijo("2026-09-13T15:00:00Z");
 
     final CrearRepuesto crearRepuesto = new CrearRepuesto(variantes, productos, categorias);
     final RegistrarCompra registrar = new RegistrarCompra(compras, proveedores, cuentas, turnos, variantes,
             kardex, crearRepuesto, reloj);
     final CorregirCompra corregir = new CorregirCompra(compras, proveedores, cuentas, turnos, variantes,
-            kardex, crearRepuesto, auditoria, reloj);
+            kardex, ventas, crearRepuesto, auditoria, reloj);
     final AnularCompra anular = new AnularCompra(compras, turnos, variantes, kardex, auditoria, reloj);
     final InventarioDeCompra inventario = new InventarioDeCompra(variantes, kardex, compras, crearRepuesto);
 
@@ -83,6 +87,28 @@ final class EscenarioCompras {
                 Instant.parse("2026-09-13T16:00:00Z"));
         kardex.agregar(salida);
         return salida;
+    }
+
+    /**
+     * Una venta del mostrador, guardada: descuenta, deja su salida en el kardex y su renglón apunta a esa salida,
+     * como lo hace {@code CobrarVenta}. Es la que hace falta cuando una corrección tiene que volver a sacarla.
+     */
+    Venta venderEnMostrador(Variante v, int cantidad) {
+        LineaVenta linea = LineaVenta.de(v, cantidad);
+        Venta venta = Venta.cobrar(ventas.siguienteNumero(), UUID.randomUUID(), List.of(linea), null,
+                List.of(PagoVenta.transferencia(linea.getTotal())), usuario.id(), UUID.randomUUID(),
+                Instant.parse("2026-09-13T16:00:00Z"));
+        v.descontar(cantidad);
+        MovimientoKardex salida = MovimientoKardex.porVenta(v, cantidad, venta.getId(), usuario.id(),
+                Instant.parse("2026-09-13T16:00:00Z"));
+        kardex.agregar(salida);
+        linea.anotarSalida(salida.getId());
+        return ventas.guardar(venta);
+    }
+
+    /** El movimiento con el que salió del kardex el único renglón de esa venta. */
+    MovimientoKardex salidaDe(Venta venta) {
+        return kardex.buscar(venta.getLineas().getFirst().getMovimientoSalidaId()).orElseThrow();
     }
 
     /** La anulación de esa venta, como la hace {@code AnularVenta}: el stock vuelve y la reversión apunta a la salida. */

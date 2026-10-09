@@ -291,6 +291,18 @@ public class Venta {
         return estado == EstadoVenta.ANULADA;
     }
 
+    /**
+     * El renglón que salió con {@code anterior} pasa a apuntar a {@code nueva}: la venta volvió a salir del
+     * kardex con el costo corregido de su compra. No cambia nada de lo cobrado.
+     */
+    public void reasignarSalida(UUID anterior, UUID nueva) {
+        lineas.stream()
+                .filter(l -> anterior.equals(l.getMovimientoSalidaId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("La venta N.º " + numero + " no salió con ese movimiento"))
+                .reasignarSalida(anterior, nueva);
+    }
+
     // ── Lectura ──────────────────────────────────────────────────────────────
 
     public List<LineaVenta> getLineas() {

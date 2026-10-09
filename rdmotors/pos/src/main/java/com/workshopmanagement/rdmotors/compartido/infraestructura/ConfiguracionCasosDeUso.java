@@ -227,10 +227,11 @@ class ConfiguracionCasosDeUso {
                                   RepositorioTurnos turnos,
                                   RepositorioVariantes variantes,
                                   RepositorioKardex kardex,
+                                  RepositorioVentas ventas,
                                   CrearRepuesto crearRepuesto,
                                   RepositorioAuditoria auditoria,
                                   Reloj reloj) {
-        return new CorregirCompra(compras, proveedores, cuentas, turnos, variantes, kardex, crearRepuesto,
+        return new CorregirCompra(compras, proveedores, cuentas, turnos, variantes, kardex, ventas, crearRepuesto,
                 auditoria, reloj);
     }
 

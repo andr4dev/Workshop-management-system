@@ -4,7 +4,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -16,6 +18,7 @@ import com.workshopmanagement.rdmotors.compras.dominio.LineaCompra;
 import com.workshopmanagement.rdmotors.compras.dominio.puerto.RepositorioCompras;
 import com.workshopmanagement.rdmotors.inventario.aplicacion.CrearRepuesto;
 import com.workshopmanagement.rdmotors.inventario.dominio.MovimientoKardex;
+import com.workshopmanagement.rdmotors.inventario.dominio.OrigenMovimiento;
 import com.workshopmanagement.rdmotors.inventario.dominio.TipoMovimiento;
 import com.workshopmanagement.rdmotors.inventario.dominio.Variante;
 import com.workshopmanagement.rdmotors.inventario.dominio.puerto.RepositorioKardex;
@@ -154,6 +157,84 @@ final class InventarioDeCompra {
             }
         }
         return codigos;
+    }
+
+    // ── Corregir el costo de una compra que ya tuvo ventas (2026-10-09) ──────
+
+    /** Una salida de venta y la que la reemplaza, ya con el costo corregido. */
+    record Reemplazo(MovimientoKardex anterior, MovimientoKardex nueva) {
+    }
+
+    /**
+     * Las ventas que sacaron unidades del repuesto de este renglón después de su entrada y siguen vigentes,
+     * de la más antigua a la más reciente.
+     *
+     * <p>Vacío si después de la entrada no pasó nada de eso. {@link Optional#empty()} si pasó otra cosa —otra
+     * compra, una reversión de compra, un ajuste, o la anulación de una venta de antes de la compra—:
+     * entonces el promedio ya no se rehace solo con las ventas y el renglón sigue bloqueado.
+     *
+     * <p>Una venta anulada después de la entrada no se toca: su salida y su reversión se cancelaron al peso,
+     * y entre la compra y hoy nada movió el promedio.
+     */
+    Optional<List<MovimientoKardex>> ventasPosteriores(LineaCompra linea) {
+        Optional<MovimientoKardex> entrada = linea.getMovimientoEntradaId() == null
+                ? Optional.empty()
+                : kardex.buscar(linea.getMovimientoEntradaId());
+        if (entrada.isEmpty() || entrada.get().getSecuencia() == null) {
+            return Optional.empty();
+        }
+        Map<UUID, MovimientoKardex> vigentes = new LinkedHashMap<>();
+        for (MovimientoKardex m : kardex.despuesDe(linea.getVariante().getId(), entrada.get().getSecuencia())) {
+            boolean anulaUnaPosterior = m.getTipo() == TipoMovimiento.REVERSION
+                    && m.getOrigenTipo() == OrigenMovimiento.VENTA
+                    && vigentes.containsKey(m.getMovimientoRevertidoId());
+            if (m.getTipo() == TipoMovimiento.VENTA) {
+                vigentes.put(m.getId(), m);
+            } else if (anulaUnaPosterior) {
+                vigentes.remove(m.getMovimientoRevertidoId());
+            } else {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(List.copyOf(vigentes.values()));
+    }
+
+    /**
+     * Devuelve al inventario lo que sacaron esas ventas, de la más reciente a la más antigua, con el mismo
+     * costo con que salieron: no mueve el promedio. Deja el repuesto como estaba justo después de la compra,
+     * y así la entrada se puede revertir exacta.
+     */
+    void devolverVentas(List<MovimientoKardex> salidas, String motivo, UUID usuarioId, Instant ahora) {
+        for (int i = salidas.size() - 1; i >= 0; i--) {
+            MovimientoKardex salida = salidas.get(i);
+            Variante variante = variantes.buscarParaModificar(salida.getVariante().getId())
+                    .orElseThrow(() -> new ReglaDeNegocioException("El repuesto no existe"));
+            variante.reponerPorReversion(-salida.getCantidadDelta());
+            kardex.agregar(MovimientoKardex.porReversionDeVenta(variante, salida, salida.getOrigenId(), motivo,
+                    usuarioId, ahora));
+            variantes.guardar(variante);
+        }
+    }
+
+    /**
+     * Vuelve a sacar lo de esas ventas, de la más antigua a la más reciente, al promedio de ahora: el de la
+     * compra ya corregida. Quien llama hace que cada venta apunte a su salida nueva.
+     */
+    List<Reemplazo> volverASacarVentas(List<MovimientoKardex> salidas, String motivo, UUID usuarioId,
+                                       Instant ahora) {
+        List<Reemplazo> reemplazos = new ArrayList<>();
+        for (MovimientoKardex salida : salidas) {
+            Variante variante = variantes.buscarParaModificar(salida.getVariante().getId())
+                    .orElseThrow(() -> new ReglaDeNegocioException("El repuesto no existe"));
+            int cantidad = -salida.getCantidadDelta();
+            variante.descontar(cantidad);
+            MovimientoKardex nueva = MovimientoKardex.porVenta(variante, cantidad, salida.getOrigenId(), motivo,
+                    usuarioId, ahora);
+            kardex.agregar(nueva);
+            variantes.guardar(variante);
+            reemplazos.add(new Reemplazo(salida, nueva));
+        }
+        return reemplazos;
     }
 
     /**

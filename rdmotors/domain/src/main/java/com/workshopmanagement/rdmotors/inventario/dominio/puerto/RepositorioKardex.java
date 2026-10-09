@@ -37,4 +37,10 @@ public interface RepositorioKardex {
 
     /** El último movimiento del repuesto antes de esa secuencia: el estado justo antes de una compra. */
     Optional<MovimientoKardex> ultimoAntesDe(UUID varianteId, long secuencia);
+
+    /**
+     * Todo lo que le pasó al repuesto después de esa secuencia, del más antiguo al más reciente. Es lo que
+     * se revisa para corregir el costo de una compra que ya tuvo ventas (ver {@code CorregirCompra}).
+     */
+    List<MovimientoKardex> despuesDe(UUID varianteId, long secuencia);
 }
